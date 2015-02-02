@@ -40,7 +40,7 @@ func getFW(filepath string, maxBytes int) (fw *fileWriter, err error) {
 		}
 	}
 	if dir != "" && dir != "." {
-		if err = os.MkdirAll(dir, 0644); err != nil {
+		if err = os.MkdirAll(dir, 0744); err != nil {
 			return
 		}
 	}

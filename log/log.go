@@ -42,7 +42,7 @@ type Logger struct {
 }
 
 func New(url string) (l *Logger, err error) {
-	l = &Logger{level: DEBUG}
+	l = &Logger{}
 	if err = l.parseURL(url); err != nil {
 		l = nil
 	}
@@ -242,23 +242,23 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 		return
 	}
 
-	var l, msg string
-	var start = 28
+	var lp, msg string
+	var s = 28
 	switch level {
 	case FATAL:
-		l = "[fatal] "
+		lp = "[fatal] "
 	case ERROR:
-		l = "[error] "
+		lp = "[error] "
 	case WARN:
-		l = "[warn] "
-		start--
+		lp = "[warn] "
+		s--
 	case INFO:
-		l = "[info] "
-		start--
+		lp = "[info] "
+		s--
 	case DEBUG:
-		l = "[debug] "
-	default:
-		start = 20
+		lp = "[debug] "
+	case -1:
+		s = 20
 	}
 
 	if fl := len(format); fl > 0 {
@@ -271,7 +271,7 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	}
 
 	var i int
-	p := make([]byte, start+len(msg))
+	p := make([]byte, s+len(msg))
 	iaa := func(u int, wid int, end byte) {
 		i += wid
 		for j := 1; wid > 0; j++ {
@@ -291,8 +291,8 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	iaa(hour, 2, ':')
 	iaa(min, 2, ':')
 	iaa(sec, 2, ' ')
-	copy(p[20:], l)
-	copy(p[start:], msg)
+	copy(p[20:], lp)
+	copy(p[s:], msg)
 
 	// log event callback
 	if callbacks, ok := l.watcher[level]; ok {
@@ -301,7 +301,17 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 		}
 	}
 
-	l.Write(p)
+	if !l.quite {
+		if level <= INFO {
+			os.Stdout.Write(p)
+		} else {
+			os.Stderr.Write(p)
+		}
+	}
+
+	if l.writer != nil {
+		l.Write(p)
+	}
 }
 
 func (l *Logger) Write(p []byte) (n int, err error) {
@@ -309,22 +319,10 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 		return
 	}
 
-	defer func() {
-		if err != nil && l.onWriteError != nil {
-			for _, callback := range l.onWriteError {
-				callback(p, err)
-			}
-		}
-	}()
-
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	if !l.quite {
-		os.Stderr.Write(p)
-	}
-
-	if l.buffer != nil {
+	if l.buffer != nil && l.writer != nil {
 		// Flush the buffer, when writing a long text
 		if n > l.bufcap/2 {
 			if l.buflen > 0 {
@@ -353,6 +351,12 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 		l.timer = time.AfterFunc(5*time.Minute, func() { l.Flush() })
 	} else if l.writer != nil {
 		n, err = l.writer.Write(p)
+	}
+
+	if err != nil && l.onWriteError != nil {
+		for _, callback := range l.onWriteError {
+			callback(p, err)
+		}
 	}
 	return
 }
