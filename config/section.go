@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,12 +14,12 @@ func (section Section) IsEmpty() bool {
 	return len(section) == 0
 }
 
-func (section Section) Contains(key string) bool {
-	_, ok := section[key]
-	return ok
+func (section Section) Contains(key string) (ok bool) {
+	_, ok = section[key]
+	return
 }
 
-func (section Section) String(key, def string) string {
+func (section Section) String(key string, def string) string {
 	if val, ok := section[key]; ok {
 		return val
 	}
@@ -30,6 +31,7 @@ func (section Section) Int(key string, def int) int {
 		if i, err := strconv.Atoi(val); err == nil {
 			return i
 		}
+		delete(section, key)
 	}
 	return def
 }
@@ -39,6 +41,7 @@ func (section Section) Int64(key string, def int64) int64 {
 		if i, err := strconv.ParseInt(val, 10, 64); err == nil {
 			return i
 		}
+		delete(section, key)
 	}
 	return def
 }
@@ -48,6 +51,7 @@ func (section Section) Bytes(key string, def int64) int64 {
 		if i, err := utils.ParseByte(val); err == nil {
 			return i
 		}
+		delete(section, key)
 	}
 	return def
 }
@@ -55,11 +59,30 @@ func (section Section) Bytes(key string, def int64) int64 {
 func (section Section) Bool(key string, def bool) bool {
 	if val, ok := section[key]; ok {
 		switch strings.ToLower(val) {
-		case "false", "off", "disable", "0", "no", "null", "nil", "undefined":
+		case "false", "0", "no", "off", "disable", "nil", "null", "undefined":
 			return false
-		default:
+		case "true", "1", "yes", "on", "enable":
 			return true
 		}
 	}
 	return def
+}
+
+func (section Section) Set(key string, value interface{}) {
+	switch v := value.(type) {
+	case string:
+		section[key] = v
+	case int:
+		section[key] = strconv.Itoa(v)
+	case int64:
+		section[key] = strconv.FormatInt(v, 10)
+	case bool:
+		if v {
+			section[key] = "true"
+		} else {
+			section[key] = "false"
+		}
+	default:
+		section[key] = fmt.Sprintf("%v", value)
+	}
 }

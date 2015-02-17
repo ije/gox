@@ -10,7 +10,7 @@ var pw = "password"
 var ps = "private_salt_key"
 
 func TestPWH(t *testing.T) {
-	for i := 0; i < 64; i++ {
+	for i := 0; i < 1024; i++ {
 		h := pwh.Hash(pw, ps)
 		t.Log(h, pwh.Match(pw, ps, h))
 	}

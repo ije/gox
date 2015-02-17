@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	regIsEmail  = regexp.MustCompile(`^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$`)
+	regIsEmail  = regexp.MustCompile(`^(?i)[0-9a-z]+([\.\-\_][0-9a-z]+)*@[0-9a-z]+([\-\.][0-9a-z]+)*?(\.[a-z]{2,})+$`)
 	regIsNumber = regexp.MustCompile(`^\d+$`)
 )
 

@@ -5,11 +5,11 @@ import (
 )
 
 const (
-	DEBUG Level = iota
-	INFO
-	WARN
-	ERROR
-	FATAL
+	L_DEBUG Level = iota
+	L_INFO
+	L_WARN
+	L_ERROR
+	L_FATAL
 )
 
 type Level int8
@@ -17,15 +17,15 @@ type Level int8
 func LevelByName(name string) (l Level) {
 	switch strings.ToLower(name) {
 	case "debug":
-		l = DEBUG
+		l = L_DEBUG
 	case "info":
-		l = INFO
+		l = L_INFO
 	case "warn":
-		l = WARN
+		l = L_WARN
 	case "error":
-		l = ERROR
+		l = L_ERROR
 	case "fatal":
-		l = FATAL
+		l = L_FATAL
 	default:
 		l = -1
 	}

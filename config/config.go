@@ -7,12 +7,12 @@ Config Package.
 	import "github.com/ije/go/config"
 
 	func main() {
-	    conf, err := config.New("test.conf")
+	    conf, err := config.New("a.conf")
 	    if err != nil {
 			return
 	    }
-	    conf.String("key", "Hello World!")
-	    conf.Section("sectionName").String("key", "Hello World!")
+	    conf.String("key", "defaultValue")
+	    conf.Section("sectionName").String("key", "defaultValue")
 	}
 
 */
@@ -25,17 +25,18 @@ import (
 )
 
 type Config struct {
+	rawData          []byte
 	defaultSection   Section
 	extendedSections map[string]Section
 }
 
 func New(filename string) (config *Config, err error) {
-	config = &Config{Section{}, map[string]Section{}}
-	data, err := ioutil.ReadFile(filename)
+	rwdata, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return
 	}
-	config.defaultSection, config.extendedSections = Parse(data)
+	config = &Config{rawData: rwdata}
+	config.defaultSection, config.extendedSections = Parse(rwdata)
 	return
 }
 
@@ -43,7 +44,7 @@ func Parse(data []byte) (defaultSection Section, extendedSections map[string]Sec
 	var sectionKey string
 	var section Section
 	regSplitKV := regexp.MustCompile(`^([^ ]+)\s+(.+)$`)
-	regSplitKVWithLongKey := regexp.MustCompile(`^"([^"]+)"\s+(.+)$`)
+	regSplitKVWithLongKey := regexp.MustCompile(`^"([^"]+)"\s*(.+)$`)
 	parse := func(line []byte) {
 		line = bytes.TrimSpace(line)
 		if ll := len(line); ll > 0 {
@@ -69,11 +70,12 @@ func Parse(data []byte) (defaultSection Section, extendedSections map[string]Sec
 					}
 					return
 				}
-			}
-			if ll >= 3 {
-				matches := regSplitKV.FindSubmatch(line)
-				if len(matches) == 3 {
-					section[string(matches[1])] = string(matches[2])
+			default:
+				if ll >= 3 {
+					matches := regSplitKV.FindSubmatch(line)
+					if len(matches) == 3 {
+						section[string(matches[1])] = string(matches[2])
+					}
 				}
 			}
 		}
@@ -129,9 +131,20 @@ func (config *Config) Bool(key string, def bool) bool {
 	return config.defaultSection.Bool(key, def)
 }
 
-func (config *Config) Section(name string) Section {
-	if section, ok := config.extendedSections[name]; ok {
-		return section
+func (config *Config) Set(key string, value interface{}) {
+	config.defaultSection.Set(key, value)
+}
+
+func (config *Config) Section(name string) (section Section) {
+	if len(name) == 0 {
+		section = config.defaultSection
+		return
 	}
-	return Section{}
+	section, ok := config.extendedSections[name]
+	if ok {
+		return
+	}
+	section = Section{}
+	config.extendedSections[name] = section
+	return
 }
