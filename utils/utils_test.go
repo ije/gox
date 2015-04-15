@@ -7,8 +7,9 @@ import (
 )
 
 func TestHtmlToText(t *testing.T) {
-	s1 := "<h1>Lorem Ipsum</h1><p>&copy;&nbsp;2014</p><p><b><i>Lorem</i></b> &amp; ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat.<p>"
-	t.Log(HtmlToText(s1, 64, true))
+	html := "<div><h1>Lorem Ipsum</h1><p><b><i>lorem ipsum</i></b> dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna aliquam erat volutpat.<p><p>&copy;&nbsp;2014</p>&nbsp;&amp;&nbsp;lorem-ipsum<div>"
+	text := HtmlToText(html, 160, true)
+	t.Logf("%s (%d)", text, len(text))
 }
 
 func TestPathClean(t *testing.T) {
@@ -29,6 +30,6 @@ func TestPathClean(t *testing.T) {
 		"  /a/c/b/  ",
 		"E:\\One\\Design\\Photos\\DSC_123.JPG",
 	} {
-		t.Logf("%s (%v)", p, PathClean(p) == path.Clean(strings.Replace(strings.ToLower(strings.TrimSpace(p)), "\\", "/", -1)))
+		t.Logf("%s (%v)", p, PathClean(p, true) == path.Clean(strings.Replace(strings.ToLower(strings.TrimSpace(p)), "\\", "/", -1)))
 	}
 }

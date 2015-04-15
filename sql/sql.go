@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/ije/go/log"
+	"github.com/ije/aisling/log"
 )
 
 type LogLevel byte
@@ -27,7 +27,7 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{DB: db}, nil
+	return &DB{logLevel: LL_OFF, DB: db}, nil
 }
 
 func (db *DB) SetLog(logger *log.Logger, level LogLevel) {
@@ -35,14 +35,14 @@ func (db *DB) SetLog(logger *log.Logger, level LogLevel) {
 	db.logger = logger
 }
 
-func (db *DB) log(query string, err error, values ...interface{}) {
+func (db *DB) log(err error, query string, values ...interface{}) {
 	if db.logLevel == LL_OFF || db.logger == nil {
 		return
 	}
 	if err != nil {
-		db.logger.Errorf("%v -> %s{%v}", err, query, values)
+		db.logger.Errorf("%v >>> %s [%v]", err, query, values)
 	} else if db.logLevel >= LL_DEBUG {
-		db.logger.Debugf("%s{%v}", query, values)
+		db.logger.Debugf("%s [%v]", query, values)
 	}
 }
 
@@ -51,40 +51,40 @@ func (db *DB) Begin() (tx *Tx, err error) {
 	if err == nil {
 		tx = &Tx{db, otx}
 	}
-	db.log("BEGIN", err)
+	go db.log(err, "BEGIN")
 	return
 }
 
 func (db *DB) Exec(query string, v ...interface{}) (ret sql.Result, err error) {
 	ret, err = db.DB.Exec(query, v...)
-	db.log(query, err, v...)
+	go db.log(err, query, v...)
 	return
 }
 
 func (db *DB) Prepare(query string, v ...interface{}) (stmt *sql.Stmt, err error) {
 	stmt, err = db.DB.Prepare(query)
-	db.log(query, err, v...)
+	go db.log(err, query, v...)
 	return
 }
 
 func (db *DB) Query(query string, v ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = db.DB.Query(query, v...)
-	db.log(query, err, v...)
+	go db.log(err, query, v...)
 	return
 }
 
-func (db *DB) QueryRow(query string, v ...interface{}) (row *DBQueryRow) {
+func (db *DB) QueryRow(query string, v ...interface{}) (row *Row) {
 	rows, err := db.DB.Query(query, v...)
-	db.log(query, err, v...)
-	return &DBQueryRow{rows, err}
+	go db.log(err, query, v...)
+	return &Row{rows, err}
 }
 
-type DBQueryRow struct {
+type Row struct {
 	rows *sql.Rows
 	err  error // deferred error for easy chaining
 }
 
-func (r *DBQueryRow) Scan(dest ...interface{}) (err error) {
+func (r *Row) Scan(dest ...interface{}) (err error) {
 	if r.err != nil {
 		return r.err
 	}
@@ -121,36 +121,36 @@ type Tx struct {
 
 func (tx *Tx) Exec(query string, v ...interface{}) (ret sql.Result, err error) {
 	ret, err = tx.Tx.Exec(query, v...)
-	tx.db.log(query, err, v...)
+	go tx.db.log(err, query, v...)
 	return
 }
 
 func (tx *Tx) Prepare(query string, v ...interface{}) (stmt *sql.Stmt, err error) {
 	stmt, err = tx.Tx.Prepare(query)
-	tx.db.log(query, err, v...)
+	go tx.db.log(err, query, v...)
 	return
 }
 
 func (tx *Tx) Query(query string, v ...interface{}) (rows *sql.Rows, err error) {
 	rows, err = tx.Tx.Query(query, v...)
-	tx.db.log(query, err, v...)
+	go tx.db.log(err, query, v...)
 	return
 }
 
-func (tx *Tx) QueryRow(query string, v ...interface{}) (row *DBQueryRow) {
+func (tx *Tx) QueryRow(query string, v ...interface{}) (row *Row) {
 	rows, err := tx.Tx.Query(query, v...)
-	tx.db.log(query, err, v...)
-	return &DBQueryRow{rows, err}
+	go tx.db.log(err, query, v...)
+	return &Row{rows, err}
 }
 
 func (tx *Tx) Rollback() (err error) {
 	err = tx.Tx.Rollback()
-	tx.db.log("ROLLBACK", err)
+	go tx.db.log(err, "ROLLBACK")
 	return
 }
 
 func (tx *Tx) Commit() (err error) {
 	err = tx.Tx.Commit()
-	tx.db.log("COMMIT", err)
+	go tx.db.log(err, "COMMIT")
 	return
 }

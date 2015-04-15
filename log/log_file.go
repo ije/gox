@@ -6,7 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ije/go/utils"
+	strconv2 "github.com/ije/aisling/strconv"
+	"github.com/ije/aisling/utils"
 )
 
 type fileWriter struct {
@@ -89,13 +90,13 @@ type fwDriver struct{}
 func (fwd *fwDriver) Open(addr string, args map[string]string) (io.Writer, error) {
 	maxBytes := 0
 	if s, ok := args["maxBytes"]; ok && len(s) > 0 {
-		i, err := utils.ParseByte(s)
+		i, err := strconv2.ParseByte(s)
 		if err != nil {
 			return nil, err
 		}
 		maxBytes = int(i)
 	}
-	return getFW(utils.PathClean(addr), maxBytes)
+	return getFW(utils.PathClean(addr, true), maxBytes)
 }
 
 func init() {

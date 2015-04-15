@@ -4,10 +4,10 @@ Log Package.
 
 	package main
 
-	import "github.com/ije/go/log"
+	import "github.com/ije/aisling/log"
 
 	func main() {
-	    log, err := log.New("file:/var/log/go/test.log?buffer=64kb")
+	    log, err := log.New("file:/tmp/aisling-test.log?buffer=64kb")
 	    if err != nil {
 	        return
 	    }
@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ije/go/utils"
+	"github.com/ije/aisling/strconv"
 )
 
 type Logger struct {
@@ -35,10 +35,11 @@ type Logger struct {
 	bufcap       int
 	buflen       int
 	buffer       []byte
+	prefix       string
 	writer       io.Writer
 	timer        *time.Timer
-	onWriteError func(data []byte, err error)
 	logListeners map[Level][]func(message []byte)
+	onWriteError func(data []byte, err error)
 }
 
 func New(url string) (l *Logger, err error) {
@@ -71,12 +72,14 @@ func (l *Logger) parseURL(url string) (err error) {
 				value = strings.TrimSpace(kv[1])
 			}
 			switch strings.ToLower(key) {
+			case "prefix":
+				l.SetPrefix(value)
 			case "level":
 				l.SetLevelByName(value)
 			case "quite":
 				l.SetQuite(strings.ToLower(value) == "true" || value == "1")
 			case "buffer":
-				i, err := utils.ParseByte(value)
+				i, err := strconv.ParseByte(value)
 				if err == nil {
 					l.SetBuffer(int(i))
 				}
@@ -114,6 +117,13 @@ func (l *Logger) SetLevel(level Level) {
 
 func (l *Logger) SetLevelByName(name string) {
 	l.SetLevel(LevelByName(name))
+}
+
+func (l *Logger) SetPrefix(prefix string) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	l.prefix = strings.TrimSpace(prefix) + " "
 }
 
 func (l *Logger) SetBuffer(maxMemory int) {
@@ -219,12 +229,14 @@ func (l *Logger) Errorf(format string, v ...interface{}) {
 }
 
 func (l *Logger) Fatal(v ...interface{}) {
-	l.log(L_FATAL, "", v...)
-	l.Flush()
-	os.Exit(1)
+	l.fatal("", v...)
 }
 
 func (l *Logger) Fatalf(format string, v ...interface{}) {
+	l.fatal(format, v...)
+}
+
+func (l *Logger) fatal(format string, v ...interface{}) {
 	l.log(L_FATAL, format, v...)
 	l.Flush()
 	os.Exit(1)
@@ -235,24 +247,22 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 		return
 	}
 
-	var lp, msg string
-	var s = 28
+	var msg string
+	var prefix = l.prefix
+	var s = 20
 	switch level {
 	case L_FATAL:
-		lp = "[fatal] "
+		prefix = "[fatal] "
 	case L_ERROR:
-		lp = "[error] "
+		prefix = "[error] "
 	case L_WARN:
-		lp = "[warn] "
-		s--
+		prefix = "[warn] "
 	case L_INFO:
-		lp = "[info] "
-		s--
+		prefix = "[info] "
 	case L_DEBUG:
-		lp = "[debug] "
-	case -1:
-		s = 20
+		prefix = "[debug] "
 	}
+	s += len(prefix)
 
 	if fl := len(format); fl > 0 {
 		if format[fl-1] != '\n' {
@@ -284,7 +294,7 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	iaa(hour, 2, ':')
 	iaa(min, 2, ':')
 	iaa(sec, 2, ' ')
-	copy(p[20:], lp)
+	copy(p[20:], prefix)
 	copy(p[s:], msg)
 
 	// log event callback

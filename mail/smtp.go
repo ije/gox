@@ -28,5 +28,5 @@ func (server *Smtp) Send(from Contact, to Contacts, subject, text, html string) 
 	if err != nil {
 		return err
 	}
-	return smtp.SendMail(server.addr, server.auth, from.Addr, to.List(), mail.Body())
+	return smtp.SendMail(server.addr, server.auth, from.Email, to.EmailList(), mail.Body())
 }

@@ -25,8 +25,8 @@ func New(tab string) *Mist {
 		)
 		for {
 			r = make([]byte, 32)
-			rand.Read(r)
 			m = make([]byte, 32)
+			rand.Read(r)
 			for i = 0; i < 32; i++ {
 				m[i] = tab[r[i]%tl]
 			}
@@ -37,20 +37,19 @@ func New(tab string) *Mist {
 }
 
 func (mist *Mist) Byte(len int) []byte {
-	switch {
-	case len <= 0:
+	if len <= 0 {
 		return nil
-	case len <= 32:
+	} else if len <= 32 {
 		return (<-mist.pipe)[:len]
-	default:
-		ms := make([]byte, len)
+	} else {
+		bytes := make([]byte, len)
 		for i := 0; i < len/32; i++ {
-			copy(ms[32*i:], <-mist.pipe)
+			copy(bytes[32*i:], <-mist.pipe)
 		}
 		if l := len % 32; l > 0 {
-			copy(ms[len-l:], (<-mist.pipe)[:l])
+			copy(bytes[len-l:], (<-mist.pipe)[:l])
 		}
-		return ms
+		return bytes
 	}
 }
 

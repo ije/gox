@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ije/go/utils"
+	strconv2 "github.com/ije/aisling/strconv"
 )
 
 type Section map[string]string
@@ -48,7 +48,7 @@ func (section Section) Int64(key string, def int64) int64 {
 
 func (section Section) Bytes(key string, def int64) int64 {
 	if val, ok := section[key]; ok {
-		if i, err := utils.ParseByte(val); err == nil {
+		if i, err := strconv2.ParseByte(val); err == nil {
 			return i
 		}
 		delete(section, key)

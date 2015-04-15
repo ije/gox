@@ -1,31 +1,27 @@
 package cache
 
 import (
-	"errors"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 )
 
-var (
-	ErrNotFound = errors.New("not found")
-	ErrExpired  = errors.New("expired")
-)
-
-type Cache interface {
-	SetRegion(region string)
-	Get(key string) (v interface{}, err error)
-	Add(key string, val interface{}, lifetime time.Duration)
-	Set(key string, val interface{}, lifetime time.Duration)
-	Delete(key string)
-	Flush()
-	Has(key string) (ok bool)
-	Keys() (keys []string)
-	SetGCInterval(interval time.Duration)
-}
-
 var mcPool = map[string]*mCache{}
 var mcPoolLock sync.Mutex
+
+func getMCache(region string) (mc *mCache) {
+	mcPoolLock.Lock()
+	defer mcPoolLock.Unlock()
+
+	var ok bool
+	mc, ok = mcPool[region]
+	if !ok {
+		mc = &mCache{region: region, values: map[string]mcValue{}}
+		mcPool[region] = mc
+	}
+	return
+}
 
 type mcValue struct {
 	expired int64
@@ -47,23 +43,29 @@ type mCache struct {
 	gcInterval time.Duration
 }
 
-func (mc *mCache) SetRegion(region string) {
-	_mc := New(region, 0).(*mCache)
+func (mc *mCache) SetRegion(region string) error {
+	if mc.region == region {
+		return nil
+	}
+
+	_mc := getMCache(region)
 
 	mc.lock.Lock()
 	_mc.lock.Lock()
-	mc.region, _mc.region = _mc.region, mc.region
-	mc.values, _mc.values = _mc.values, mc.values
 	gcInterval, _gcInterval := _mc.gcInterval, mc.gcInterval
-	mc.gcInterval, _mc.gcInterval = 0, 0
+	mc.region, _mc.region = region, mc.region
+	mc.values, _mc.values = _mc.values, mc.values
 	mc.lock.Unlock()
 	_mc.lock.Unlock()
-	mc.SetGCInterval(gcInterval)
-	_mc.SetGCInterval(_gcInterval)
+
+	mc.setGCInterval(gcInterval)
+	_mc.setGCInterval(_gcInterval)
 
 	mcPoolLock.Lock()
-	mcPool[mc.region], mcPool[region] = _mc, mc
+	mcPool[_mc.region], mcPool[mc.region] = _mc, mc
 	mcPoolLock.Unlock()
+
+	return nil
 }
 
 func (mc *mCache) Get(key string) (v interface{}, err error) {
@@ -79,37 +81,46 @@ func (mc *mCache) Get(key string) (v interface{}, err error) {
 	return
 }
 
-func (mc *mCache) Add(key string, val interface{}, lifetime time.Duration) {
-	mc.lock.Lock()
-	defer mc.lock.Unlock()
+func (mc *mCache) Add(key string, val interface{}, lifetime time.Duration) error {
+	mc.lock.RLock()
+	_, ok := mc.values[key]
+	mc.lock.RUnlock()
 
-	if _, ok := mc.values[key]; !ok {
-		mc.values[key] = mcValue{time.Now().Add(lifetime).UnixNano(), val}
+	if !ok {
+		mc.Set(key, val, lifetime)
 	}
+	return nil
 }
 
-func (mc *mCache) Set(key string, val interface{}, lifetime time.Duration) {
+func (mc *mCache) Set(key string, val interface{}, lifetime time.Duration) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
-	mc.values[key] = mcValue{time.Now().Add(lifetime).UnixNano(), val}
+	if lifetime > 0 {
+		mc.values[key] = mcValue{time.Now().Add(lifetime).UnixNano(), val}
+	} else {
+		mc.values[key] = mcValue{0, val}
+	}
+	return nil
 }
 
-func (mc *mCache) Delete(key string) {
+func (mc *mCache) Delete(key string) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
 	delete(mc.values, key)
+	return nil
 }
 
-func (mc *mCache) Flush() {
+func (mc *mCache) Flush() error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
 	mc.values = map[string]mcValue{}
+	return nil
 }
 
-func (mc *mCache) Has(key string) (ok bool) {
+func (mc *mCache) Has(key string) (ok bool, err error) {
 	mc.lock.RLock()
 	defer mc.lock.RUnlock()
 
@@ -117,7 +128,7 @@ func (mc *mCache) Has(key string) (ok bool) {
 	return
 }
 
-func (mc *mCache) Keys() (keys []string) {
+func (mc *mCache) Keys() (keys []string, err error) {
 	mc.lock.RLock()
 	defer mc.lock.RUnlock()
 
@@ -130,7 +141,7 @@ func (mc *mCache) Keys() (keys []string) {
 	return
 }
 
-func (mc *mCache) SetGCInterval(interval time.Duration) {
+func (mc *mCache) setGCInterval(interval time.Duration) *mCache {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
@@ -139,10 +150,11 @@ func (mc *mCache) SetGCInterval(interval time.Duration) {
 			mc.gcTimer.Stop()
 		}
 		mc.gcInterval = interval
-		if interval >= time.Second {
+		if interval > 0 {
 			mc.gcTimer = time.AfterFunc(interval, mc.gc)
 		}
 	}
+	return mc
 }
 
 func (mc *mCache) gc() {
@@ -163,15 +175,20 @@ func (mc *mCache) gc() {
 	runtime.GC()
 }
 
-func New(region string, gcInterval time.Duration) Cache {
-	mcPoolLock.Lock()
-	defer mcPoolLock.Unlock()
+type mcDriver struct{}
 
-	mc, ok := mcPool[region]
-	if !ok {
-		mc = &mCache{region: region, values: map[string]mcValue{}}
-		mcPool[region] = mc
+func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, err error) {
+	var gcInterval int
+	if s, ok := args["gcInterval"]; ok && len(s) > 0 {
+		if gcInterval, err = strconv.Atoi(s); err != nil {
+			return
+		}
 	}
-	mc.SetGCInterval(gcInterval)
-	return mc
+
+	cache = getMCache(region).setGCInterval(time.Duration(gcInterval) * time.Second)
+	return
+}
+
+func init() {
+	Register("memory", &mcDriver{})
 }

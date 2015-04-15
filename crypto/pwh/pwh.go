@@ -7,7 +7,7 @@ import (
 	"math/rand"
 )
 
-const pwTable = "?*0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 type PWHasher struct {
 	publicSalt []byte
@@ -67,9 +67,9 @@ func (pwh *PWHasher) MatchX(word, salt, hash string, routines int) bool {
 	}
 }
 
-func (pwh *PWHasher) hash(seed int, word, salt string) []byte {
+func (pwh *PWHasher) hash(r int, word, salt string) []byte {
 	codeTable := make([]byte, 64)
-	for i, p := 0, rand.New(rand.NewSource(int64(seed))).Perm(64); i < 64; i++ {
+	for i, p := 0, rand.New(rand.NewSource(int64(r))).Perm(64); i < 64; i++ {
 		codeTable[i] = pwTable[p[i]]
 	}
 	hmac := hmac.New(sha512.New384, pwh.publicSalt)

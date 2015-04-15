@@ -9,15 +9,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ije/go/utils/valid"
+	"github.com/ije/aisling/utils/valid"
 )
 
 var (
-	hr                 = []byte("\r\n")
-	errEmptySubject    = errors.New("Empty Subject")
-	errEmptyContent    = errors.New("Empty Content")
-	errEmptySender     = errors.New("Empty Sender")
-	errEmptyRecipients = errors.New("Empty Recipients")
+	ls                 = []byte("\r\n")
+	ErrEmptySubject    = errors.New("Empty Subject")
+	ErrEmptyContent    = errors.New("Empty Content")
+	ErrEmptySender     = errors.New("Empty Sender")
+	ErrEmptyRecipients = errors.New("Empty Recipients")
 )
 
 type MailBody struct {
@@ -32,19 +32,19 @@ type MailBody struct {
 
 func NewMailBody(from Contact, to Contacts, subject, text, html string) (b *MailBody, err error) {
 	if len(subject) == 0 {
-		err = errEmptySubject
+		err = ErrEmptySubject
 		return
 	}
 	if len(text) == 0 && len(html) == 0 {
-		err = errEmptyContent
+		err = ErrEmptyContent
 		return
 	}
-	if len(to) == 0 || len(to.List()) == 0 {
-		err = errEmptyRecipients
+	if len(to) == 0 || len(to.EmailList()) == 0 {
+		err = ErrEmptyRecipients
 		return
 	}
-	if !valid.IsEmail(from.Addr) {
-		err = errEmptySender
+	if !valid.IsEmail(from.Email) {
+		err = ErrEmptySender
 		return
 	}
 	b = &MailBody{
@@ -66,7 +66,7 @@ func (b *MailBody) Body() []byte {
 	b.writeln("To: ", b.to)
 	switch {
 	case len(b.text) > 0 && len(b.html) > 0:
-		boundary := uuid()
+		boundary := hash()
 		b.writeln("Content-Type: multipart/alternative; boundary=", boundary)
 		b.writeln()
 		b.writeln("--", boundary)
@@ -88,7 +88,7 @@ func (b *MailBody) Body() []byte {
 
 func (b *MailBody) writeln(s ...interface{}) {
 	fmt.Fprint(b, s...)
-	b.Write(hr)
+	b.Write(ls)
 }
 
 func (b *MailBody) textBody() {
@@ -145,7 +145,7 @@ func encodeSubject(subject string) string {
 	return subject
 }
 
-func uuid() string {
+func hash() string {
 	h := md5.New()
 	fmt.Fprintln(h, time.Now().UnixNano())
 	return hex.EncodeToString(h.Sum(nil))

@@ -22,6 +22,7 @@ func BenchmarkMatch(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		hs[i] = pwh.Hash(pw, ps)
 	}
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		pwh.Match(pw, ps, hs[i])

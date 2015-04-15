@@ -5,33 +5,11 @@ import (
 	"encoding/json"
 	"html"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
-	"regexp"
-	"strconv"
 	"syscall"
 )
-
-const (
-	B int64 = 1 << (10 * iota)
-	KB
-	MB
-	GB
-	TB
-	PB
-)
-
-// Go is a basic promise implementation: it wraps calls a function in a goroutine,
-// and returns a channel which will later return the function's return value.
-func Go(f func() error) chan error {
-	ch := make(chan error, 1)
-	go func() {
-		ch <- f()
-	}()
-	return ch
-}
 
 func CatchExit(callback func()) {
 	sig := make(chan os.Signal)
@@ -67,47 +45,22 @@ func CopyFile(src, dst string) (int64, error) {
 	return io.Copy(df, sf)
 }
 
-func ParseByte(s string) (int64, error) {
-	if sl := len(s); sl > 0 {
-		b := B
-	BeginParse:
-		switch sl--; s[sl] {
-		case 'b', 'B':
-			if sl == len(s)-1 {
-				goto BeginParse
-			}
-		case 'k', 'K':
-			b = KB
-		case 'm', 'M':
-			b = MB
-		case 'g', 'G':
-			b = GB
-		case 't', 'T':
-			b = TB
-		case 'p', 'P':
-			b = PB
-		default:
-			sl++
-		}
-		if sl == 0 {
-			return 0, strconv.ErrSyntax
-		}
-		i, err := strconv.ParseInt(s[:sl], 10, 64)
-		if err != nil {
-			return 0, strconv.ErrSyntax
-		}
-		b *= i
-		return b, nil
+func JSONUnmarshalFile(filename string, v interface{}) (err error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return
 	}
-	return 0, strconv.ErrSyntax
+	defer f.Close()
+	return json.NewDecoder(f).Decode(v)
 }
 
-func JSONUnmarshalFile(filename string, v interface{}) (err error) {
-	data, err := ioutil.ReadFile(filename)
+func JSONMarshalFile(filename string, v interface{}) (err error) {
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
-		return err
+		return
 	}
-	return json.Unmarshal([]byte(regexp.MustCompile(`,\s*(\]|\})`).ReplaceAllString(string(data), "$1")), &v)
+	defer f.Close()
+	return json.NewEncoder(f).Encode(v)
 }
 
 func HtmlToText(s string, limit int, unescape bool) string {
@@ -116,7 +69,14 @@ func HtmlToText(s string, limit int, unescape bool) string {
 	var sigStart bool
 	var sig []rune
 	var runes = make([]rune, len(s))
+	var add = func(c rune) {
+		runes[i] = c
+		i++
+	}
 	for _, r := range []rune(s) {
+		if limit > -1 && i >= limit {
+			break
+		}
 		switch r {
 		case '<':
 			tagStart = true
@@ -127,27 +87,24 @@ func HtmlToText(s string, limit int, unescape bool) string {
 				break
 			}
 			sigStart = true
+			sig = nil
 		case ';':
 			if tagStart {
 				break
 			}
 			if sigStart {
 				if unescape {
-					tr := []rune(html.UnescapeString(string(append([]rune{'&'}, append(sig, ';')...))))
-					if len(tr) == 1 {
-						runes[i] = tr[0]
-						i++
+					if tr := []rune(html.UnescapeString(string(append([]rune{'&'}, append(sig, ';')...)))); len(tr) > 0 {
+						add(tr[0])
 					}
 				} else {
 					for _, r := range "&" + string(sig) + ";" {
-						runes[i] = r
-						i++
-						limit++
+						add(r)
 					}
 				}
 			}
-			sig = nil
 			sigStart = false
+			sig = nil
 		default:
 			if tagStart {
 				break
@@ -159,17 +116,13 @@ func HtmlToText(s string, limit int, unescape bool) string {
 				sig = append(sig, r)
 				break
 			}
-			runes[i] = r
-			i++
-		}
-		if i >= limit {
-			break
+			add(r)
 		}
 	}
 	return string(runes[:i])
 }
 
-func SplitToLines(s string) (lines []string) {
+func SplitToLines(s string, chars string) (lines []string) {
 	for i, j, l := 0, 0, len(s); i < l; i++ {
 		switch s[i] {
 		case '\r', '\n':
@@ -196,13 +149,18 @@ func SplitByLastByte(s string, c byte) (string, string) {
 }
 
 func FileExt(filename string) (ext string) {
-	_, ext = SplitByLastByte(filename, '.')
+	for i := len(filename) - 1; i > 0; i-- {
+		if filename[i] == '.' {
+			ext = filename[i+1:]
+			break
+		}
+	}
 	return
 }
 
 // PathClean has the same function with path.Clean(strings.ToLower(strings.Replace(strings.TrimSpace(s), "\\", "/", -1))),
 // but it's faster!
-func PathClean(path string) string {
+func PathClean(path string, toLower bool) string {
 	pl := len(path)
 	if pl == 0 {
 		return "."
@@ -247,7 +205,7 @@ func PathClean(path string) string {
 			newpath[n] = '.'
 			n++
 		default:
-			if c >= 'A' && c <= 'Z' {
+			if toLower && c >= 'A' && c <= 'Z' {
 				c += 32 // ToLower
 			}
 			newpath[n] = c

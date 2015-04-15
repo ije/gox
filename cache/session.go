@@ -4,62 +4,62 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ije/go/crypto/mist"
+	"github.com/ije/aisling/crypto/mist"
 )
 
-type Session interface {
-	SID() string
-	Get(key string) (value interface{}, err error)
-	Add(key string, value interface{})
-	Set(key string, value interface{})
-	Delete(key string)
-	Save()
-	Destory()
-}
-
-type session struct {
-	httprw      http.ResponseWriter
+type Session struct {
+	FromExpired bool
 	cache       Cache
 	lifetime    time.Duration
 	values      map[string]interface{}
-	FromExpired bool
+	http.ResponseWriter
 	*http.Cookie
 }
 
-func InitSession(r *http.Request, w http.ResponseWriter, cookieName string, lifetime time.Duration) Session {
-	cache := New("go_session", lifetime)
-
+func InitSession(cache Cache, r *http.Request, w http.ResponseWriter, cookieName string, lifetime time.Duration) (sess *Session, err error) {
 	cookie, err := r.Cookie(cookieName)
 	if err != nil || !sidValid(cookie.Value) {
 		cookie = &http.Cookie{}
 	SIDGEN:
 		cookie.Value = sidGen()
-		if cache.Has(cookie.Value) {
+		var ok bool
+		ok, err = cache.Has(cookie.Value)
+		if err != nil {
+			return
+		} else if ok {
 			goto SIDGEN
 		}
 		cookie.HttpOnly = true
 		w.Header().Add("Set-Cookie", cookie.String())
 	}
 
-	sess := &session{cache: cache, values: map[string]interface{}{}, lifetime: lifetime, httprw: w, Cookie: cookie}
+	sess = &Session{cache: cache, values: map[string]interface{}{}, lifetime: lifetime, ResponseWriter: w, Cookie: cookie}
 	v, err := cache.Get(sess.Value)
 	if err != nil {
-		sess.FromExpired = err == ErrExpired
-		return sess
+		if err != ErrExpired {
+			return
+		}
+		err = nil
+		sess.FromExpired = true
+		return
 	}
-	if values, ok := v.(map[string]interface{}); ok && values != nil {
+	values, ok := v.(map[string]interface{})
+	if !ok {
+		err = cache.Delete(sess.Value)
+		if err != nil {
+			sess = nil
+		}
+	} else if values != nil {
 		sess.values = values
-	} else {
-		cache.Delete(sess.Value)
 	}
-	return sess
+	return
 }
 
-func (sess *session) SID() string {
+func (sess *Session) SID() string {
 	return sess.Value
 }
 
-func (sess *session) Get(key string) (value interface{}, err error) {
+func (sess *Session) Get(key string) (value interface{}, err error) {
 	value, ok := sess.values[key]
 	if !ok {
 		err = ErrNotFound
@@ -67,29 +67,32 @@ func (sess *session) Get(key string) (value interface{}, err error) {
 	return
 }
 
-func (sess *session) Add(key string, value interface{}) {
+func (sess *Session) Add(key string, value interface{}) {
 	if _, ok := sess.values[key]; !ok {
 		sess.values[key] = value
 	}
 }
 
-func (sess *session) Set(key string, value interface{}) {
+func (sess *Session) Set(key string, value interface{}) {
 	sess.values[key] = value
 }
 
-func (sess *session) Delete(key string) {
+func (sess *Session) Delete(key string) {
 	delete(sess.values, key)
 }
 
-func (sess *session) Save() {
-	sess.cache.Set(sess.Value, sess.values, sess.lifetime)
+func (sess *Session) Save() error {
+	return sess.cache.Set(sess.Value, sess.values, sess.lifetime)
 }
 
-func (sess *session) Destory() {
-	sess.cache.Delete(sess.Value)
-	sess.Value = "deleted"
-	sess.Expires = time.Now().Truncate(time.Second).UTC()
-	sess.httprw.Header().Add("Set-Cookie", sess.String())
+func (sess *Session) Destory() (err error) {
+	err = sess.cache.Delete(sess.Value)
+	if err == nil {
+		sess.Value = "deleted"
+		sess.Expires = time.Now().Truncate(time.Second).UTC()
+		sess.ResponseWriter.Header().Add("Set-Cookie", sess.String())
+	}
+	return
 }
 
 func sidValid(sid string) bool {
