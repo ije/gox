@@ -63,14 +63,14 @@ func JSONMarshalFile(filename string, v interface{}) (err error) {
 	return json.NewEncoder(f).Encode(v)
 }
 
-func HtmlToText(s string, limit int, unescape bool) string {
+func HtmlToText(s string, limit int) string {
 	var i int
 	var tagStart bool
 	var sigStart bool
 	var sig []rune
-	var runes = make([]rune, len(s))
-	var add = func(c rune) {
-		runes[i] = c
+	text := make([]rune, len(s))
+	appendr := func(r rune) {
+		text[i] = r
 		i++
 	}
 	for _, r := range []rune(s) {
@@ -93,14 +93,8 @@ func HtmlToText(s string, limit int, unescape bool) string {
 				break
 			}
 			if sigStart {
-				if unescape {
-					if tr := []rune(html.UnescapeString(string(append([]rune{'&'}, append(sig, ';')...)))); len(tr) > 0 {
-						add(tr[0])
-					}
-				} else {
-					for _, r := range "&" + string(sig) + ";" {
-						add(r)
-					}
+				if tr := []rune(html.UnescapeString(string(append([]rune{'&'}, append(sig, ';')...)))); len(tr) > 0 {
+					appendr(tr[0])
 				}
 			}
 			sigStart = false
@@ -116,10 +110,10 @@ func HtmlToText(s string, limit int, unescape bool) string {
 				sig = append(sig, r)
 				break
 			}
-			add(r)
+			appendr(r)
 		}
 	}
-	return string(runes[:i])
+	return string(text[:i])
 }
 
 func SplitToLines(s string, chars string) (lines []string) {

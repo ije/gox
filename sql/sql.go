@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/ije/aisling/log"
+	"github.com/ije/gox/log"
 )
 
 type LogLevel byte

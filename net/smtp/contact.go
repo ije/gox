@@ -1,11 +1,11 @@
-package mail
+package smtp
 
 import (
 	"bytes"
 	"fmt"
 	"strings"
 
-	"github.com/ije/aisling/utils/valid"
+	"github.com/ije/gox/valid"
 )
 
 type Contact struct {

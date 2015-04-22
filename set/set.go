@@ -16,13 +16,6 @@ func (set Set) Len() int {
 	return len(set)
 }
 
-func (set Set) List() (list []interface{}) {
-	for v := range set {
-		list = append(list, v)
-	}
-	return
-}
-
 func (set Set) Add(a ...interface{}) {
 	for _, v := range a {
 		set[v] = null
@@ -33,7 +26,7 @@ func (set Set) Delete(v interface{}) {
 	delete(set, v)
 }
 
-func (set Set) Contains(v interface{}) (ok bool) {
+func (set Set) Has(v interface{}) (ok bool) {
 	_, ok = set[v]
 	return
 }

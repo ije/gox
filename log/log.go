@@ -4,10 +4,10 @@ Log Package.
 
 	package main
 
-	import "github.com/ije/aisling/log"
+	import "github.com/ije/gox/log"
 
 	func main() {
-	    log, err := log.New("file:/tmp/aisling-test.log?buffer=64kb")
+	    log, err := log.New("file:/tmp/go_test.log?buffer=64kb")
 	    if err != nil {
 	        return
 	    }
@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ije/aisling/strconv"
+	"github.com/ije/gox/strconv"
 )
 
 type Logger struct {

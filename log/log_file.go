@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	strconv2 "github.com/ije/aisling/strconv"
-	"github.com/ije/aisling/utils"
+	strconv2 "github.com/ije/gox/strconv"
+	"github.com/ije/gox/utils"
 )
 
 type fileWriter struct {

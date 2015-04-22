@@ -1,22 +1,27 @@
-package cache
+package session
 
 import (
 	"net/http"
 	"time"
 
-	"github.com/ije/aisling/crypto/mist"
+	_cache "github.com/ije/gox/cache"
+	"github.com/ije/gox/crypto/mist"
+)
+
+var (
+	ErrNotFound = _cache.ErrNotFound
 )
 
 type Session struct {
 	FromExpired bool
-	cache       Cache
+	cache       _cache.Cache
 	lifetime    time.Duration
 	values      map[string]interface{}
 	http.ResponseWriter
 	*http.Cookie
 }
 
-func InitSession(cache Cache, r *http.Request, w http.ResponseWriter, cookieName string, lifetime time.Duration) (sess *Session, err error) {
+func InitSession(cache _cache.Cache, r *http.Request, w http.ResponseWriter, cookieName string, lifetime time.Duration) (sess *Session, err error) {
 	cookie, err := r.Cookie(cookieName)
 	if err != nil || !sidValid(cookie.Value) {
 		cookie = &http.Cookie{}
@@ -36,7 +41,7 @@ func InitSession(cache Cache, r *http.Request, w http.ResponseWriter, cookieName
 	sess = &Session{cache: cache, values: map[string]interface{}{}, lifetime: lifetime, ResponseWriter: w, Cookie: cookie}
 	v, err := cache.Get(sess.Value)
 	if err != nil {
-		if err != ErrExpired {
+		if err != _cache.ErrExpired {
 			return
 		}
 		err = nil

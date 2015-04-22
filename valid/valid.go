@@ -1,7 +1,7 @@
 package valid
 
 import (
-	"github.com/ije/aisling/utils"
+	"github.com/ije/gox/utils"
 )
 
 var (

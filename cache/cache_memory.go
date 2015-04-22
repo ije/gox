@@ -145,7 +145,7 @@ func (mc *mCache) setGCInterval(interval time.Duration) *mCache {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
-	if interval != mc.gcInterval {
+	if interval > 0 && interval != mc.gcInterval {
 		if mc.gcTimer != nil {
 			mc.gcTimer.Stop()
 		}

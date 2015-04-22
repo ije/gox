@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	strconv2 "github.com/ije/aisling/strconv"
+	strconv2 "github.com/ije/gox/strconv"
 )
 
 type Section map[string]string
@@ -22,6 +22,18 @@ func (section Section) Contains(key string) (ok bool) {
 func (section Section) String(key string, def string) string {
 	if val, ok := section[key]; ok {
 		return val
+	}
+	return def
+}
+
+func (section Section) Bool(key string, def bool) bool {
+	if val, ok := section[key]; ok {
+		switch strings.ToLower(val) {
+		case "false", "0", "no", "off", "disable":
+			return false
+		case "true", "1", "yes", "on", "enable":
+			return true
+		}
 	}
 	return def
 }
@@ -56,14 +68,12 @@ func (section Section) Bytes(key string, def int64) int64 {
 	return def
 }
 
-func (section Section) Bool(key string, def bool) bool {
+func (section Section) Float64(key string, def float64) float64 {
 	if val, ok := section[key]; ok {
-		switch strings.ToLower(val) {
-		case "false", "0", "no", "off", "disable", "nil", "null", "undefined":
-			return false
-		case "true", "1", "yes", "on", "enable":
-			return true
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			return f
 		}
+		delete(section, key)
 	}
 	return def
 }

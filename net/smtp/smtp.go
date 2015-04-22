@@ -1,4 +1,4 @@
-package mail
+package smtp
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ type Smtp struct {
 	auth smtp.Auth
 }
 
-func NewSmtp(host string, port int, username, password string) *Smtp {
+func New(host string, port int, username, password string) *Smtp {
 	return &Smtp{fmt.Sprintf("%s:%d", host, port), smtp.PlainAuth("", username, password, host)}
 }
 
@@ -23,10 +23,10 @@ func (s *Smtp) Auth() (err error) {
 	return c.Auth(s.auth)
 }
 
-func (server *Smtp) Send(from Contact, to Contacts, subject, text, html string) error {
-	mail, err := NewMailBody(from, to, subject, text, html)
+func (s *Smtp) SendMail(from Contact, to Contacts, subject, text, html string) error {
+	mail, err := NewMail(s, from, to, subject, text, html)
 	if err != nil {
 		return err
 	}
-	return smtp.SendMail(server.addr, server.auth, from.Email, to.EmailList(), mail.Body())
+	return mail.Send()
 }

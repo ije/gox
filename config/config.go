@@ -4,15 +4,15 @@ Config Package.
 
 	package main
 
-	import "github.com/ije/go/config"
+	import "github.com/ije/gox/config"
 
 	func main() {
 	    conf, err := config.New("a.conf")
 	    if err != nil {
 			return
 	    }
-	    conf.String("key", "defaultValue")
-	    conf.Section("sectionName").String("key", "defaultValue")
+	    log.Printf(conf.String("key", "defaultValue"))
+	    log.Printf(conf.Section("sectionName").String("key", "defaultValue"))
 	}
 
 */
@@ -25,18 +25,17 @@ import (
 )
 
 type Config struct {
-	rawData          []byte
 	defaultSection   Section
 	extendedSections map[string]Section
 }
 
-func New(filename string) (config *Config, err error) {
-	rwdata, err := ioutil.ReadFile(filename)
+func New(configFile string) (config *Config, err error) {
+	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return
 	}
-	config = &Config{rawData: rwdata}
-	config.defaultSection, config.extendedSections = Parse(rwdata)
+	config = &Config{}
+	config.defaultSection, config.extendedSections = Parse(data)
 	return
 }
 
@@ -44,7 +43,7 @@ func Parse(data []byte) (defaultSection Section, extendedSections map[string]Sec
 	var sectionKey string
 	var section Section
 	regSplitKV := regexp.MustCompile(`^([^ ]+)\s+(.+)$`)
-	regSplitKVWithLongKey := regexp.MustCompile(`^"([^"]+)"\s*(.+)$`)
+	regSplitKVWithLongKey := regexp.MustCompile(`^"([^"]+)"\s+(.+)$`)
 	parse := func(line []byte) {
 		line = bytes.TrimSpace(line)
 		if ll := len(line); ll > 0 {
@@ -115,6 +114,10 @@ func (config *Config) String(key, def string) string {
 	return config.defaultSection.String(key, def)
 }
 
+func (config *Config) Bool(key string, def bool) bool {
+	return config.defaultSection.Bool(key, def)
+}
+
 func (config *Config) Int(key string, def int) int {
 	return config.defaultSection.Int(key, def)
 }
@@ -127,8 +130,8 @@ func (config *Config) Bytes(key string, def int64) int64 {
 	return config.defaultSection.Bytes(key, def)
 }
 
-func (config *Config) Bool(key string, def bool) bool {
-	return config.defaultSection.Bool(key, def)
+func (config *Config) Float64(key string, def float64) float64 {
+	return config.defaultSection.Float64(key, def)
 }
 
 func (config *Config) Set(key string, value interface{}) {

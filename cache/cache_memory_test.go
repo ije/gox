@@ -6,7 +6,7 @@ import (
 )
 
 func TestMCache(t *testing.T) {
-	cache, err := New("memory:hello")
+	cache, err := New("memory:hello?gcInterval=300")
 	if err != nil {
 		t.Error(err)
 		return
