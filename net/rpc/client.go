@@ -11,11 +11,6 @@ type Client struct {
 	rpcClients chan *rpc.Client
 }
 
-type Service struct {
-	name string
-	*Client
-}
-
 func Dial(addr string, maxConnects int) *Client {
 	if maxConnects < 1 {
 		maxConnects = 1
@@ -23,37 +18,41 @@ func Dial(addr string, maxConnects int) *Client {
 	return &Client{addr, make(chan *rpc.Client, maxConnects)}
 }
 
-func (client *Client) Service(name string) *Service {
-	return &Service{name, client}
-}
-
-func (service *Service) Call(method string, argument, reply interface{}) (err error) {
+func (client *Client) Call(serviceMethod string, args, reply interface{}) (err error) {
 	var rpcClient *rpc.Client
 	select {
 	case <-time.After(time.Millisecond):
-		rpcClient, err = newRPCClient(service.addr)
+		rpcClient, err = newRPCClient(client.addr)
 		if err != nil {
 			return
 		}
-	case rpcClient = <-service.rpcClients:
+	case rpcClient = <-client.rpcClients:
 	}
-	var callTimes int
+	var tryTimes int
 CALL:
-	callTimes++
-	if err = rpcClient.Call(service.name+"."+method, argument, reply); err == rpc.ErrShutdown {
-		if callTimes > 3 {
+	tryTimes++
+	if err = rpcClient.Call(serviceMethod, args, reply); err == rpc.ErrShutdown {
+		if tryTimes > 3 {
 			return
 		}
-		rpcClient, err = newRPCClient(service.addr)
+		rpcClient, err = newRPCClient(client.addr)
 		if err != nil {
 			return
 		}
 		goto CALL
 	}
-	if len(service.rpcClients) < cap(service.rpcClients) {
-		service.rpcClients <- rpcClient
+	if len(client.rpcClients) < cap(client.rpcClients) {
+		client.rpcClients <- rpcClient
+	} else {
+		rpcClient.Close()
 	}
 	return
+}
+
+func (client *Client) Close() {
+	for rpcClient := range client.rpcClients {
+		rpcClient.Close()
+	}
 }
 
 func newRPCClient(addr string) (*rpc.Client, error) {

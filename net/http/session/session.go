@@ -4,31 +4,34 @@ import (
 	"net/http"
 	"time"
 
-	_cache "github.com/ije/gox/cache"
+	"github.com/ije/gox/cache"
 	"github.com/ije/gox/crypto/mist"
 )
 
 var (
-	ErrNotFound = _cache.ErrNotFound
+	ErrNotFound = cache.ErrNotFound
 )
 
 type Session struct {
-	FromExpired bool
-	cache       _cache.Cache
+	prevExpired bool
+	storage     cache.Cache
 	lifetime    time.Duration
 	values      map[string]interface{}
 	http.ResponseWriter
 	*http.Cookie
 }
 
-func InitSession(cache _cache.Cache, r *http.Request, w http.ResponseWriter, cookieName string, lifetime time.Duration) (sess *Session, err error) {
-	cookie, err := r.Cookie(cookieName)
-	if err != nil || !sidValid(cookie.Value) {
-		cookie = &http.Cookie{}
+func Init(storage cache.Cache, w http.ResponseWriter, cookie *http.Cookie, lifetime time.Duration) (sess *Session, err error) {
+	if cookie == nil || !sidValid(cookie.Value) {
+		if cookie != nil {
+			cookie = &http.Cookie{Name: cookie.Name, Path: cookie.Path, Domain: cookie.Domain}
+		} else {
+			cookie = &http.Cookie{Name: "session"}
+		}
 	SIDGEN:
 		cookie.Value = sidGen()
 		var ok bool
-		ok, err = cache.Has(cookie.Value)
+		ok, err = storage.Has(cookie.Value)
 		if err != nil {
 			return
 		} else if ok {
@@ -38,19 +41,20 @@ func InitSession(cache _cache.Cache, r *http.Request, w http.ResponseWriter, coo
 		w.Header().Add("Set-Cookie", cookie.String())
 	}
 
-	sess = &Session{cache: cache, values: map[string]interface{}{}, lifetime: lifetime, ResponseWriter: w, Cookie: cookie}
-	v, err := cache.Get(sess.Value)
+	sess = &Session{storage: storage, values: map[string]interface{}{}, lifetime: lifetime, ResponseWriter: w, Cookie: cookie}
+	v, err := storage.Get(sess.Value)
 	if err != nil {
-		if err != _cache.ErrExpired {
-			return
+		if err == cache.ErrNotFound {
+			err = nil
+		} else if err == cache.ErrExpired {
+			err = nil
+			sess.prevExpired = true
 		}
-		err = nil
-		sess.FromExpired = true
 		return
 	}
 	values, ok := v.(map[string]interface{})
 	if !ok {
-		err = cache.Delete(sess.Value)
+		err = storage.Delete(sess.Value)
 		if err != nil {
 			sess = nil
 		}
@@ -87,17 +91,14 @@ func (sess *Session) Delete(key string) {
 }
 
 func (sess *Session) Save() error {
-	return sess.cache.Set(sess.Value, sess.values, sess.lifetime)
+	return sess.storage.Set(sess.Value, sess.values, sess.lifetime)
 }
 
-func (sess *Session) Destory() (err error) {
-	err = sess.cache.Delete(sess.Value)
-	if err == nil {
-		sess.Value = "deleted"
-		sess.Expires = time.Now().Truncate(time.Second).UTC()
-		sess.ResponseWriter.Header().Add("Set-Cookie", sess.String())
-	}
-	return
+func (sess *Session) Destory() error {
+	sess.Value = "-"
+	sess.Expires = time.Now().Truncate(time.Second).UTC()
+	sess.ResponseWriter.Header().Add("Set-Cookie", sess.String())
+	return sess.storage.Delete(sess.Value)
 }
 
 func sidValid(sid string) bool {

@@ -151,3 +151,7 @@ func (config *Config) Section(name string) (section Section) {
 	config.extendedSections[name] = section
 	return
 }
+
+func (config *Config) ExtendedSections() map[string]Section {
+	return config.extendedSections
+}
