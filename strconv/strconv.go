@@ -2,6 +2,7 @@ package strconv
 
 import (
 	"strconv"
+	"time"
 )
 
 const (
@@ -13,7 +14,52 @@ const (
 	PB
 )
 
-func ParseByte(s string) (int64, error) {
+func ParseDuration(s string) (time.Duration, error) {
+	if sl := len(s); sl > 0 {
+		t := time.Second
+		withs := false
+	BeginParse:
+		switch sl--; s[sl] {
+		case 's', 'S':
+			if sl == len(s)-1 {
+				withs = true
+				goto BeginParse
+			}
+		case 'n', 'N':
+			if withs {
+				t = time.Nanosecond
+			}
+		case 'µ', 'u', 'U':
+			if withs {
+				t = time.Microsecond
+			}
+		case 'm', 'M':
+			if withs {
+				t = time.Millisecond
+			} else {
+				t = time.Minute
+			}
+		case 'h', 'H':
+			t = time.Hour
+		case 'd', 'D':
+			t = 24 * time.Hour
+		default:
+			sl++
+		}
+		if sl == 0 {
+			return 0, strconv.ErrSyntax
+		}
+		i, err := strconv.ParseInt(s[:sl], 10, 64)
+		if err != nil {
+			return 0, strconv.ErrSyntax
+		}
+		t *= time.Duration(i)
+		return t, nil
+	}
+	return 0, strconv.ErrSyntax
+}
+
+func ParseBytes(s string) (int64, error) {
 	if sl := len(s); sl > 0 {
 		b := B
 	BeginParse:
@@ -46,4 +92,20 @@ func ParseByte(s string) (int64, error) {
 		return b, nil
 	}
 	return 0, strconv.ErrSyntax
+}
+
+func FormatInt(i int64, base int) string {
+	return strconv.FormatInt(i, base)
+}
+
+func Itoa(i int) string {
+	return strconv.Itoa(i)
+}
+
+func ParseInt(s string, base int, bitSize int) (int64, error) {
+	return strconv.ParseInt(s, base, bitSize)
+}
+
+func Atoi(s string) (int, error) {
+	return strconv.Atoi(s)
 }

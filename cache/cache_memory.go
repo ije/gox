@@ -2,9 +2,10 @@ package cache
 
 import (
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
+
+	"github.com/ije/gox/strconv"
 )
 
 var mcPool = map[string]*mCache{}
@@ -150,7 +151,7 @@ func (mc *mCache) setGCInterval(interval time.Duration) *mCache {
 			mc.gcTimer.Stop()
 		}
 		mc.gcInterval = interval
-		if interval > 0 {
+		if interval > time.Second {
 			mc.gcTimer = time.AfterFunc(interval, mc.gc)
 		}
 	}
@@ -178,14 +179,14 @@ func (mc *mCache) gc() {
 type mcDriver struct{}
 
 func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, err error) {
-	var gcInterval int
+	var gcInterval time.Duration
 	if s, ok := args["gcInterval"]; ok && len(s) > 0 {
-		if gcInterval, err = strconv.Atoi(s); err != nil {
+		if gcInterval, err = strconv.ParseDuration(s); err != nil {
 			return
 		}
 	}
 
-	cache = getMCache(region).setGCInterval(time.Duration(gcInterval) * time.Second)
+	cache = getMCache(region).setGCInterval(gcInterval)
 	return
 }
 
