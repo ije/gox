@@ -60,7 +60,7 @@ func (section Section) Int64(key string, def int64) int64 {
 
 func (section Section) Bytes(key string, def int64) int64 {
 	if val, ok := section[key]; ok {
-		if i, err := strconv2.ParseByte(val); err == nil {
+		if i, err := strconv2.ParseBytes(val); err == nil {
 			return i
 		}
 		delete(section, key)

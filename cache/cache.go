@@ -15,10 +15,10 @@ type Cache interface {
 	SetRegion(region string) error
 	Get(key string) (v interface{}, err error)
 	Has(key string) (ok bool, err error)
-	Add(key string, val interface{}, lifetime time.Duration) error
-	Set(key string, val interface{}, lifetime time.Duration) error
-	Keys() (keys []string, err error)
+	Add(key string, value interface{}, lifetime time.Duration) error
+	Set(key string, value interface{}, lifetime time.Duration) error
 	Delete(key string) error
+	Keys() (keys []string, err error)
 	Flush() error
 }
 
