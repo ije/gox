@@ -133,6 +133,15 @@ func SplitToLines(s string, chars string) (lines []string) {
 	return
 }
 
+func SplitByFirstByte(s string, c byte) (string, string) {
+	for i, l := 0, len(s); i < l; i++ {
+		if s[i] == c {
+			return s[:i], s[i+1:]
+		}
+	}
+	return s, ""
+}
+
 func SplitByLastByte(s string, c byte) (string, string) {
 	for i := len(s) - 1; i >= 0; i-- {
 		if s[i] == c {
