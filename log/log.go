@@ -79,7 +79,7 @@ func (l *Logger) parseURL(url string) (err error) {
 			case "quite":
 				l.SetQuite(strings.ToLower(value) == "true" || value == "1")
 			case "buffer":
-				i, err := strconv.ParseByte(value)
+				i, err := strconv.ParseBytes(value)
 				if err == nil {
 					l.SetBuffer(int(i))
 				}
@@ -196,6 +196,14 @@ func (l *Logger) Printf(format string, v ...interface{}) {
 	l.log(-1, format, v...)
 }
 
+func (l *Logger) Log(level string, v ...interface{}) {
+	l.log(LevelByName(level), "", v...)
+}
+
+func (l *Logger) Logf(level, format string, v ...interface{}) {
+	l.log(LevelByName(level), format, v...)
+}
+
 func (l *Logger) Debug(v ...interface{}) {
 	l.log(L_DEBUG, "", v...)
 }
@@ -234,12 +242,6 @@ func (l *Logger) Fatal(v ...interface{}) {
 
 func (l *Logger) Fatalf(format string, v ...interface{}) {
 	l.fatal(format, v...)
-}
-
-func (l *Logger) fatal(format string, v ...interface{}) {
-	l.log(L_FATAL, format, v...)
-	l.Flush()
-	os.Exit(1)
 }
 
 func (l *Logger) log(level Level, format string, v ...interface{}) {
@@ -313,6 +315,12 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	}
 
 	l.Write(p)
+}
+
+func (l *Logger) fatal(format string, v ...interface{}) {
+	l.log(L_FATAL, format, v...)
+	l.Flush()
+	os.Exit(1)
 }
 
 func (l *Logger) Write(p []byte) (n int, err error) {
