@@ -5,29 +5,48 @@ import (
 	"crypto/hmac"
 	"crypto/sha512"
 	"math/rand"
+	"sync"
 )
 
 const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 type PWHasher struct {
+	lock       sync.RWMutex
 	publicSalt []byte
 	complexity int
 }
 
-func New(publicSalt string, complexity int) *PWHasher {
+func New(publicSalt string, complexity int) (pwh *PWHasher) {
+	pwh = &PWHasher{}
+	pwh.Config(publicSalt, complexity)
+	return
+}
+
+func (pwh *PWHasher) Config(publicSalt string, complexity int) {
 	if complexity < 1 {
 		complexity = 1
 	}
 	publicSaltHasher := sha512.New()
 	publicSaltHasher.Write([]byte(publicSalt))
-	return &PWHasher{publicSaltHasher.Sum(nil), complexity}
+
+	pwh.lock.Lock()
+	defer pwh.lock.Unlock()
+
+	pwh.complexity = complexity
+	pwh.publicSalt = publicSaltHasher.Sum(nil)
 }
 
 func (pwh *PWHasher) Hash(word, salt string) string {
+	pwh.lock.RLock()
+	defer pwh.lock.RUnlock()
+
 	return string(pwh.hash(rand.Int()%pwh.complexity, word, salt))
 }
 
 func (pwh *PWHasher) Match(word, salt, hash string) bool {
+	pwh.lock.RLock()
+	defer pwh.lock.RUnlock()
+
 	for i := 0; i < pwh.complexity; i++ {
 		if bytes.Equal([]byte(hash), pwh.hash(i, word, salt)) {
 			return true
@@ -40,6 +59,10 @@ func (pwh *PWHasher) MatchX(word, salt, hash string, routines int) bool {
 	if routines < 2 {
 		return pwh.Match(word, salt, hash)
 	}
+
+	pwh.lock.RLock()
+	defer pwh.lock.RUnlock()
+
 	groups := (pwh.complexity + routines - 1) / routines
 	matchc := make(chan bool, routines)
 	matched := 0
@@ -85,4 +108,32 @@ func (pwh *PWHasher) hash(r int, word, salt string) []byte {
 		hash[j+3] = codeTable[hashBytes[i+2]&0x3f]
 	}
 	return hash
+}
+
+var defaultPWHasher *PWHasher
+
+func Config(publicSalt string, complexity int) {
+	if complexity < 1 {
+		complexity = 1
+	}
+	publicSaltHasher := sha512.New()
+	publicSaltHasher.Write([]byte(publicSalt))
+	defaultPWHasher.complexity = complexity
+	defaultPWHasher.publicSalt = publicSaltHasher.Sum(nil)
+}
+
+func Hash(word, salt string) string {
+	return defaultPWHasher.Hash(word, salt)
+}
+
+func Match(word, salt, hash string) bool {
+	return defaultPWHasher.Match(word, salt, hash)
+}
+
+func MatchX(word, salt, hash string, routines int) bool {
+	return defaultPWHasher.MatchX(word, salt, hash, routines)
+}
+
+func init() {
+	defaultPWHasher = New("", 512)
 }
