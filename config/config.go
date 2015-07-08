@@ -20,7 +20,8 @@ package config
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
+	"os"
 	"regexp"
 )
 
@@ -30,16 +31,25 @@ type Config struct {
 }
 
 func New(configFile string) (config *Config, err error) {
-	data, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return
-	}
 	config = &Config{}
-	config.defaultSection, config.extendedSections = Parse(data)
+	if len(configFile) > 0 {
+		var file *os.File
+		file, err = os.Open(configFile)
+		if err != nil {
+			if os.IsExist(err) {
+				config = nil
+			}
+			return
+		}
+		defer file.Close()
+		config.defaultSection, config.extendedSections, err = Parse(file)
+	}
 	return
 }
 
-func Parse(data []byte) (defaultSection Section, extendedSections map[string]Section) {
+func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Section, err error) {
+	var n int
+	var c byte
 	var sectionKey string
 	var section Section
 	regSplitKV := regexp.MustCompile(`^([^ ]+)\s+(.+)$`)
@@ -79,21 +89,33 @@ func Parse(data []byte) (defaultSection Section, extendedSections map[string]Sec
 			}
 		}
 	}
+	buf := make([]byte, 1)
+	line := bytes.NewBuffer(nil)
+
 	section = Section{}
 	extendedSections = map[string]Section{}
-	for i, j, l := 0, 0, len(data); i < l; i++ {
-		switch data[i] {
-		case '\r', '\n':
-			if i > j {
-				parse(data[j:i])
+
+	for {
+		n, err = r.Read(buf)
+		if err != nil {
+			if err != io.EOF {
+				return
 			}
-			j = i + 1
-		default:
-			if i == l-1 && j < l {
-				parse(data[j:])
-			}
+			err = nil
+			break
+		}
+		if n == 0 {
+			break
+		}
+		c = buf[0]
+		if c == '\r' || c == '\n' {
+			parse(line.Bytes())
+			line.Reset()
+		} else {
+			line.WriteByte(c)
 		}
 	}
+
 	if len(sectionKey) == 0 {
 		defaultSection = section
 	} else {
