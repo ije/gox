@@ -8,10 +8,6 @@ import (
 	"github.com/ije/gox/crypto/mist"
 )
 
-var (
-	ErrNotFound = cache.ErrNotFound
-)
-
 type Session struct {
 	prevExpired bool
 	storage     cache.Cache
@@ -38,28 +34,53 @@ func Init(storage cache.Cache, w http.ResponseWriter, cookie *http.Cookie, lifet
 			goto SIDGEN
 		}
 		cookie.HttpOnly = true
+		cookie.Expires = time.Now().Add(lifetime)
 		w.Header().Add("Set-Cookie", cookie.String())
 	}
 
 	sess = &Session{storage: storage, values: map[string]interface{}{}, lifetime: lifetime, ResponseWriter: w, Cookie: cookie}
 	v, err := storage.Get(sess.Value)
 	if err != nil {
-		if err == cache.ErrNotFound {
+		if err == cache.ErrNotFound || err.Error() == cache.ErrNotFound.Error() {
 			err = nil
-		} else if err == cache.ErrExpired {
+		} else if err == cache.ErrExpired || err.Error() == cache.ErrExpired.Error() {
 			err = nil
 			sess.prevExpired = true
 		}
 		return
 	}
+
 	values, ok := v.(map[string]interface{})
-	if !ok {
-		err = storage.Delete(sess.Value)
-		if err != nil {
-			sess = nil
-		}
-	} else if values != nil {
+	if ok && values != nil {
 		sess.values = values
+	}
+
+	// If the storage chache driver is base network, the values type maybe is '*map[interface{}]interface{}'
+	if !ok {
+		var weirdValues *map[interface{}]interface{}
+		weirdValues, ok = v.(*map[interface{}]interface{})
+		if ok && weirdValues != nil {
+			for vk, value := range *weirdValues {
+				key, yes := vk.(string)
+				if !yes {
+					continue
+				}
+				if values == nil {
+					values = map[string]interface{}{}
+				}
+				values[key] = value
+			}
+			if values != nil {
+				sess.values = values
+			}
+		}
+	}
+
+	if !ok {
+		if err = storage.Delete(sess.Value); err != nil {
+			sess = nil
+			return
+		}
 	}
 	return
 }
@@ -68,11 +89,8 @@ func (sess *Session) SID() string {
 	return sess.Value
 }
 
-func (sess *Session) Get(key string) (value interface{}, err error) {
-	value, ok := sess.values[key]
-	if !ok {
-		err = ErrNotFound
-	}
+func (sess *Session) Get(key string) (value interface{}) {
+	value, _ = sess.values[key]
 	return
 }
 
@@ -97,6 +115,7 @@ func (sess *Session) Save() error {
 func (sess *Session) Destory() error {
 	sess.Value = "-"
 	sess.Expires = time.Now().Truncate(time.Second).UTC()
+	sess.HttpOnly = true
 	sess.ResponseWriter.Header().Add("Set-Cookie", sess.String())
 	return sess.storage.Delete(sess.Value)
 }
