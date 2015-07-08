@@ -3,12 +3,14 @@ package log
 import (
 	"io"
 	"os"
+	"path"
 	"strconv"
-	"time"
 
 	strconv2 "github.com/ije/gox/strconv"
 	"github.com/ije/gox/utils"
 )
+
+var fws = map[string]*fileWriter{}
 
 type fileWriter struct {
 	writed   int
@@ -34,26 +36,16 @@ func (fw *fileWriter) Write(p []byte) (n int, err error) {
 }
 
 func (fw *fileWriter) Rename(c int) (name string) {
-	filename, ext := fw.filePath, ""
-	for i := len(filename) - 1; i > 0; i-- {
-		if filename[i] == '.' {
-			ext = filename[i:]
-			filename = filename[:i]
-			break
-		}
-	}
-	name = filename + "." + time.Now().Format("060102")
+	name, ext := utils.SplitByLastByte(fw.filePath, '.')
 	if c > 0 {
-		name += "-" + strconv.Itoa(c)
+		name += "." + strconv.Itoa(c)
 	}
-	name += ext
-	if _, err := os.Lstat(name); err == nil {
+	name += "." + ext
+	if _, err := os.Lstat(name); err == nil || os.IsExist(err) {
 		return fw.Rename(c + 1)
 	}
 	return
 }
-
-var fws map[string]*fileWriter
 
 func getFW(filePath string, maxBytes int) (fw *fileWriter, err error) {
 	fw, ok := fws[filePath]
@@ -64,13 +56,7 @@ func getFW(filePath string, maxBytes int) (fw *fileWriter, err error) {
 		return
 	}
 
-	var dir = "."
-	for i := len(filePath) - 1; i > 0; i-- {
-		if filePath[i] == '/' || filePath[i] == '\\' {
-			dir = filePath[:i]
-			break
-		}
-	}
+	dir := path.Dir(filePath)
 	if dir != "" && dir != "." {
 		if err = os.MkdirAll(dir, 0755); err != nil {
 			return
@@ -90,7 +76,7 @@ type fwDriver struct{}
 func (fwd *fwDriver) Open(addr string, args map[string]string) (io.Writer, error) {
 	maxBytes := 0
 	if s, ok := args["maxBytes"]; ok && len(s) > 0 {
-		i, err := strconv2.ParseByte(s)
+		i, err := strconv2.ParseBytes(s)
 		if err != nil {
 			return nil, err
 		}
@@ -100,6 +86,5 @@ func (fwd *fwDriver) Open(addr string, args map[string]string) (io.Writer, error
 }
 
 func init() {
-	fws = map[string]*fileWriter{}
 	Register("file", &fwDriver{})
 }
