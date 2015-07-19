@@ -135,5 +135,5 @@ func MatchX(word, salt, hash string, routines int) bool {
 }
 
 func init() {
-	defaultPWHasher = New("", 512)
+	defaultPWHasher = New("go", 1024)
 }
