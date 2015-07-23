@@ -11,6 +11,37 @@ import (
 	"syscall"
 )
 
+func Contains(p interface{}, c interface{}) bool {
+	switch a := p.(type) {
+	case []string:
+		if len(a) == 0 {
+			return false
+		}
+		s, ok := c.(string)
+		if !ok {
+			return false
+		}
+		for _, i := range a {
+			if i == s {
+				return true
+			}
+		}
+		return false
+	case []interface{}:
+		if len(a) == 0 {
+			return false
+		}
+		for _, i := range a {
+			if i == c {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
 func CatchExit(callback func()) {
 	sig := make(chan os.Signal)
 	signal.Notify(sig, os.Kill, os.Interrupt, syscall.SIGTERM)
