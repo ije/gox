@@ -42,12 +42,9 @@ type Logger struct {
 	onWriteError func(data []byte, err error)
 }
 
-func New(url string) (l *Logger, err error) {
-	l = &Logger{}
-	if err = l.parseURL(url); err != nil {
-		l = nil
-	}
-	return
+func New(url string) (*Logger, error) {
+	l := &Logger{}
+	return l, l.parseURL(url)
 }
 
 func (l *Logger) parseURL(url string) (err error) {
@@ -177,6 +174,10 @@ func (l *Logger) OnWriteError(callback func(message []byte, err error)) {
 func (l *Logger) Flush() (n int, err error) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
+
+	if l.writer == nil {
+		return
+	}
 
 	if l.buflen > 0 {
 		n, err = l.writer.Write(l.buffer[:l.buflen])
