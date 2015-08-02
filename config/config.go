@@ -80,11 +80,11 @@ func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Sec
 					return
 				}
 			default:
-				if ll >= 3 {
-					matches := regSplitKV.FindSubmatch(line)
-					if len(matches) == 3 {
-						section[string(matches[1])] = string(matches[2])
-					}
+				matches := regSplitKV.FindSubmatch(line)
+				if len(matches) == 3 {
+					section[string(matches[1])] = string(matches[2])
+				} else {
+					section[string(line)] = ""
 				}
 			}
 		}

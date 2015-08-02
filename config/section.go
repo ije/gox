@@ -19,14 +19,32 @@ func (section Section) Contains(key string) (ok bool) {
 	return
 }
 
-func (section Section) String(key string, def string) string {
+func (section Section) Keys() (keys []string) {
+	var i int
+	keys = make([]string, len(section))
+	for key, _ := range section {
+		keys[i] = key
+		i++
+	}
+	return
+}
+
+func (section Section) String(key string, extra ...string) string {
+	var def string
+	if len(extra) > 0 {
+		def = extra[0]
+	}
 	if val, ok := section[key]; ok {
 		return val
 	}
 	return def
 }
 
-func (section Section) Bool(key string, def bool) bool {
+func (section Section) Bool(key string, extra ...bool) bool {
+	var def bool
+	if len(extra) > 0 {
+		def = extra[0]
+	}
 	if val, ok := section[key]; ok {
 		switch strings.ToLower(val) {
 		case "false", "0", "no", "off", "disable":
@@ -38,7 +56,11 @@ func (section Section) Bool(key string, def bool) bool {
 	return def
 }
 
-func (section Section) Int(key string, def int) int {
+func (section Section) Int(key string, extra ...int) int {
+	var def int
+	if len(extra) > 0 {
+		def = extra[0]
+	}
 	if val, ok := section[key]; ok {
 		if i, err := strconv.Atoi(val); err == nil {
 			return i
@@ -48,7 +70,11 @@ func (section Section) Int(key string, def int) int {
 	return def
 }
 
-func (section Section) Int64(key string, def int64) int64 {
+func (section Section) Int64(key string, extra ...int64) int64 {
+	var def int64
+	if len(extra) > 0 {
+		def = extra[0]
+	}
 	if val, ok := section[key]; ok {
 		if i, err := strconv.ParseInt(val, 10, 64); err == nil {
 			return i
@@ -58,7 +84,11 @@ func (section Section) Int64(key string, def int64) int64 {
 	return def
 }
 
-func (section Section) Bytes(key string, def int64) int64 {
+func (section Section) Bytes(key string, extra ...int64) int64 {
+	var def int64
+	if len(extra) > 0 {
+		def = extra[0]
+	}
 	if val, ok := section[key]; ok {
 		if i, err := strconv2.ParseBytes(val); err == nil {
 			return i
@@ -68,7 +98,11 @@ func (section Section) Bytes(key string, def int64) int64 {
 	return def
 }
 
-func (section Section) Float64(key string, def float64) float64 {
+func (section Section) Float64(key string, extra ...float64) float64 {
+	var def float64
+	if len(extra) > 0 {
+		def = extra[0]
+	}
 	if val, ok := section[key]; ok {
 		if f, err := strconv.ParseFloat(val, 64); err == nil {
 			return f
