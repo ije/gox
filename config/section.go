@@ -84,20 +84,6 @@ func (section Section) Int64(key string, extra ...int64) int64 {
 	return def
 }
 
-func (section Section) Bytes(key string, extra ...int64) int64 {
-	var def int64
-	if len(extra) > 0 {
-		def = extra[0]
-	}
-	if val, ok := section[key]; ok {
-		if i, err := strconv2.ParseBytes(val); err == nil {
-			return i
-		}
-		delete(section, key)
-	}
-	return def
-}
-
 func (section Section) Float64(key string, extra ...float64) float64 {
 	var def float64
 	if len(extra) > 0 {
@@ -106,6 +92,20 @@ func (section Section) Float64(key string, extra ...float64) float64 {
 	if val, ok := section[key]; ok {
 		if f, err := strconv.ParseFloat(val, 64); err == nil {
 			return f
+		}
+		delete(section, key)
+	}
+	return def
+}
+
+func (section Section) Bytes(key string, extra ...int64) int64 {
+	var def int64
+	if len(extra) > 0 {
+		def = extra[0]
+	}
+	if val, ok := section[key]; ok {
+		if i, err := strconv2.ParseBytes(val); err == nil {
+			return i
 		}
 		delete(section, key)
 	}

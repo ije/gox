@@ -11,6 +11,21 @@ import (
 	"syscall"
 )
 
+func CatchExit(callback func()) {
+	sig := make(chan os.Signal)
+	signal.Notify(sig, os.Kill, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		for {
+			switch <-sig {
+			case os.Kill, os.Interrupt, syscall.SIGTERM:
+				callback()
+				os.Exit(1)
+			}
+		}
+	}()
+}
+
 func Contains(p interface{}, c interface{}) bool {
 	switch a := p.(type) {
 	case []string:
@@ -40,21 +55,6 @@ func Contains(p interface{}, c interface{}) bool {
 	default:
 		return false
 	}
-}
-
-func CatchExit(callback func()) {
-	sig := make(chan os.Signal)
-	signal.Notify(sig, os.Kill, os.Interrupt, syscall.SIGTERM)
-
-	go func() {
-		for {
-			switch <-sig {
-			case os.Kill, os.Interrupt, syscall.SIGTERM:
-				callback()
-				os.Exit(1)
-			}
-		}
-	}()
 }
 
 func CopyFile(src, dst string) (int64, error) {
@@ -147,7 +147,7 @@ func HtmlToText(s string, limit int) string {
 	return string(text[:i])
 }
 
-func SplitToLines(s string, chars string) (lines []string) {
+func SplitToLines(s string) (lines []string) {
 	for i, j, l := 0, 0, len(s); i < l; i++ {
 		switch s[i] {
 		case '\r', '\n':
@@ -192,7 +192,7 @@ func FileExt(filename string) (ext string) {
 	return
 }
 
-// PathClean has the same function with path.Clean(strings.ToLower(strings.Replace(strings.TrimSpace(s), "\\", "/", -1))),
+// PathClean has the same function with path.Clean(strings.Replace(strings.TrimSpace(s), "\\", "/", -1)),
 // but it's faster!
 func PathClean(path string, toLower bool) string {
 	pl := len(path)
@@ -239,9 +239,6 @@ func PathClean(path string, toLower bool) string {
 			newpath[n] = '.'
 			n++
 		default:
-			if toLower && c >= 'A' && c <= 'Z' {
-				c += 32 // ToLower
-			}
 			newpath[n] = c
 			n++
 		}

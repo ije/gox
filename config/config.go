@@ -36,9 +36,12 @@ func New(configFile string) (config *Config, err error) {
 		var file *os.File
 		file, err = os.Open(configFile)
 		if err != nil {
-			if os.IsExist(err) {
-				config = nil
+			if os.IsNotExist(err) {
+				err = nil
+				config.defaultSection = Section{}
+				return
 			}
+			config = nil
 			return
 		}
 		defer file.Close()

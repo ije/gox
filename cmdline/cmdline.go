@@ -15,11 +15,11 @@ type CMDLine struct {
 type clStep struct {
 	typeTips   string
 	retypeTips string
-	verify     func(line string) interface{}
+	verify     func(input string) interface{}
 	next       *clStep
 }
 
-func (cl *CMDLine) AddStep(tips string, verify func(line string) interface{}) *CMDLine {
+func (cl *CMDLine) AddStep(tips string, verify func(input string) interface{}) *CMDLine {
 	var label string
 	var typeTips string
 	var retypeTips string
@@ -77,9 +77,6 @@ func (cl *CMDLine) GotoStep(s int) bool {
 }
 
 func (cl *CMDLine) Scan(callback func()) {
-	var c byte
-	buf := bytes.NewBuffer(nil)
-
 	if cl.firstStep == nil {
 		return
 	}
@@ -87,6 +84,8 @@ func (cl *CMDLine) Scan(callback func()) {
 	cl.step = cl.firstStep
 	fmt.Print(cl.step.typeTips, " ")
 
+	var c byte
+	buf := bytes.NewBuffer(nil)
 SCAN:
 	for {
 		if _, err := fmt.Scanf("%c", &c); err != nil {
