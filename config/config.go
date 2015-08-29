@@ -135,28 +135,28 @@ func (config *Config) Contains(key string) bool {
 	return config.defaultSection.Contains(key)
 }
 
-func (config *Config) String(key, def string) string {
-	return config.defaultSection.String(key, def)
+func (config *Config) String(key string, extra ...string) string {
+	return config.defaultSection.String(key, extra...)
 }
 
-func (config *Config) Bool(key string, def bool) bool {
-	return config.defaultSection.Bool(key, def)
+func (config *Config) Bool(key string, def ...bool) bool {
+	return config.defaultSection.Bool(key, def...)
 }
 
-func (config *Config) Int(key string, def int) int {
-	return config.defaultSection.Int(key, def)
+func (config *Config) Int(key string, def ...int) int {
+	return config.defaultSection.Int(key, def...)
 }
 
-func (config *Config) Int64(key string, def int64) int64 {
-	return config.defaultSection.Int64(key, def)
+func (config *Config) Int64(key string, def ...int64) int64 {
+	return config.defaultSection.Int64(key, def...)
 }
 
-func (config *Config) Bytes(key string, def int64) int64 {
-	return config.defaultSection.Bytes(key, def)
+func (config *Config) Bytes(key string, def ...int64) int64 {
+	return config.defaultSection.Bytes(key, def...)
 }
 
-func (config *Config) Float64(key string, def float64) float64 {
-	return config.defaultSection.Float64(key, def)
+func (config *Config) Float64(key string, def ...float64) float64 {
+	return config.defaultSection.Float64(key, def...)
 }
 
 func (config *Config) Set(key string, value interface{}) {
