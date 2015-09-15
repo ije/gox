@@ -6,8 +6,9 @@ import (
 )
 
 var (
-	Hex    *Mist
-	Base64 *Mist
+	Digital *Mist
+	Hex     *Mist
+	Base64  *Mist
 )
 
 type Mist struct {
@@ -16,6 +17,9 @@ type Mist struct {
 
 func New(tab string) *Mist {
 	tl := byte(len(tab))
+	if tl == 0 {
+		panic("empty tab")
+	}
 	mist := &Mist{pipe: make(chan []byte, runtime.NumCPU())}
 	go func() {
 		var (
@@ -58,6 +62,7 @@ func (mist *Mist) String(len int) string {
 }
 
 func init() {
+	Digital = New("0123456789")
 	Hex = New("0123456789abcdef")
 	Base64 = New("./0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 }
