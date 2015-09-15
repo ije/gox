@@ -55,27 +55,6 @@ func Init(storage cache.Cache, w http.ResponseWriter, cookie *http.Cookie, lifet
 		sess.values = values
 	}
 
-	// If the storage chache driver is base network, the values type maybe is '*map[interface{}]interface{}'
-	if !ok {
-		var weirdValues *map[interface{}]interface{}
-		weirdValues, ok = v.(*map[interface{}]interface{})
-		if ok && weirdValues != nil {
-			for vk, value := range *weirdValues {
-				key, yes := vk.(string)
-				if !yes {
-					continue
-				}
-				if values == nil {
-					values = map[string]interface{}{}
-				}
-				values[key] = value
-			}
-			if values != nil {
-				sess.values = values
-			}
-		}
-	}
-
 	if !ok {
 		if err = storage.Delete(sess.Value); err != nil {
 			sess = nil
