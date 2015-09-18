@@ -168,12 +168,11 @@ func (config *Config) Section(name string) (section Section) {
 		section = config.defaultSection
 		return
 	}
-	section, ok := config.extendedSections[name]
-	if ok {
-		return
+	section, _ = config.extendedSections[name]
+	if section == nil {
+		section = Section{}
+		config.extendedSections[name] = section
 	}
-	section = Section{}
-	config.extendedSections[name] = section
 	return
 }
 
