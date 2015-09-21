@@ -168,7 +168,7 @@ func (config *Config) Section(name string) (section Section) {
 		section = config.defaultSection
 		return
 	}
-	section, _ = config.extendedSections[name]
+	section = config.extendedSections[name]
 	if section == nil {
 		section = Section{}
 		config.extendedSections[name] = section
