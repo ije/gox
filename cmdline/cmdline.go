@@ -10,6 +10,14 @@ type CMDLine struct {
 	labels    map[string]*clStep
 	firstStep *clStep
 	step      *clStep
+	callback  func()
+}
+
+func New(callback func()) *CMDLine {
+	return &CMDLine{
+		labels:   map[string]*clStep{},
+		callback: callback,
+	}
 }
 
 type clStep struct {
@@ -76,7 +84,7 @@ func (cl *CMDLine) GotoStep(s int) bool {
 	return true
 }
 
-func (cl *CMDLine) Scan(callback func()) {
+func (cl *CMDLine) Scan() {
 	if cl.firstStep == nil {
 		return
 	}
@@ -97,7 +105,9 @@ SCAN:
 			case bool:
 				if r {
 					if cl.step.next == nil {
-						callback()
+						if cl.callback != nil {
+							cl.callback()
+						}
 						break SCAN
 					}
 					cl.step = cl.step.next
