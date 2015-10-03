@@ -7,14 +7,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/smtp"
 	"time"
 
 	"github.com/ije/gox/valid"
-)
-
-var (
-	CRLF = []byte("\r\n")
 )
 
 var (
@@ -24,18 +21,27 @@ var (
 	ErrEmptyRecipients = errors.New("Empty Recipients")
 )
 
+var (
+	CRLF = []byte("\r\n")
+)
+
 type Mail struct {
-	smtp     *Smtp
-	from     Contact
-	to       Contacts
-	subject  string
-	text     string
-	html     string
-	boundary string
+	from        Contact
+	to          Contacts
+	subject     string
+	text        []byte
+	html        []byte
+	attachments []Attachment
 	*bytes.Buffer
 }
 
-func NewMail(smtp *Smtp, from Contact, to Contacts, subject, text, html string) (mail *Mail, err error) {
+type Attachment struct {
+	Type    string
+	Name    string
+	Content []byte
+}
+
+func NewMail(from Contact, to Contacts, subject, text, html string, attachments []Attachment) (mail *Mail, err error) {
 	if len(subject) == 0 {
 		err = ErrEmptySubject
 		return
@@ -53,42 +59,60 @@ func NewMail(smtp *Smtp, from Contact, to Contacts, subject, text, html string) 
 		return
 	}
 	mail = &Mail{
-		smtp:    smtp,
 		from:    from,
 		to:      to,
 		subject: subject,
-		text:    text,
-		html:    html,
+		text:    []byte(text),
+		html:    []byte(html),
 		Buffer:  bytes.NewBuffer(nil),
 	}
 	return
 }
 
-func (mail *Mail) Send() error {
+func (mail *Mail) Send(s *Smtp) error {
+	var boundary, boundary2 string
 	mail.writeln("MIME-Version: 1.0")
 	mail.writeln("Date: ", time.Now().Format(time.RFC1123Z))
 	mail.writeln("Subject: ", encodeSubject(mail.subject))
 	mail.writeln("From: ", mail.from)
 	mail.writeln("To: ", mail.to)
-	if len(mail.text) > 0 && len(mail.html) > 0 {
-		boundary := uuid()
-		mail.writeln("Content-Type: multipart/alternative; boundary=", boundary)
+	if len(mail.attachments) > 0 {
+		boundary = buid()
+		mail.writeln("Content-Type: multipart/mixed; boundary=", boundary)
 		mail.writeln()
 		mail.writeln("--", boundary)
+	}
+	if len(mail.text) > 0 && len(mail.html) > 0 {
+		boundary2 = buid()
+		mail.writeln("Content-Type: multipart/alternative; boundary=", boundary2)
+		mail.writeln()
+		mail.writeln("--", boundary2)
 		mail.writeTextBody()
 		mail.writeln()
 		mail.writeln()
-		mail.writeln("--", boundary)
+		mail.writeln("--", boundary2)
 		mail.writeHtmlBody()
 		mail.writeln()
 		mail.writeln()
-		fmt.Fprint(mail, "--", boundary, "--")
+		mail.writeln("--", boundary2, "--")
 	} else if len(mail.text) > 0 {
 		mail.writeTextBody()
 	} else if len(mail.html) > 0 {
 		mail.writeHtmlBody()
 	}
-	return smtp.SendMail(mail.smtp.addr, mail.smtp.auth, mail.from.Email, mail.to.EmailList(), mail.Bytes())
+	if len(mail.attachments) > 0 {
+		for _, attchment := range mail.attachments {
+			mail.writeln("Content-Type: ", attchment.Type, "; name=", attchment.Name, ";")
+			mail.writeln("Content-Transfer-Encoding: base64")
+			mail.writeln("Content-Disposition: attachment; filename=", attchment.Name, ";")
+			mail.writeln()
+			mail.WriteString(base64.StdEncoding.EncodeToString(attchment.Content))
+			mail.writeln()
+			mail.writeln()
+		}
+		mail.writeln("--", boundary, "--")
+	}
+	return smtp.SendMail(s.addr, s.auth, mail.from.Email, mail.to.EmailList(), mail.Bytes())
 }
 
 func (mail *Mail) writeTextBody() {
@@ -98,13 +122,13 @@ func (mail *Mail) writeTextBody() {
 		if c > 127 {
 			mail.writeln("Content-Transfer-Encoding: base64")
 			mail.writeln()
-			mail.WriteString(base64.StdEncoding.EncodeToString([]byte(mail.text)))
+			mail.WriteString(base64.StdEncoding.EncodeToString(mail.text))
 			return
 		}
 	}
 
 	mail.writeln()
-	mail.WriteString(mail.text)
+	mail.Write(mail.text)
 }
 
 func (mail *Mail) writeHtmlBody() {
@@ -133,7 +157,7 @@ func (mail *Mail) writeHtmlBody() {
 	}
 
 	mail.writeln()
-	mail.WriteString(mail.html)
+	mail.Write(mail.html)
 }
 
 func (mail *Mail) writeln(s ...interface{}) {
@@ -150,8 +174,8 @@ func encodeSubject(subject string) string {
 	return subject
 }
 
-func uuid() string {
+func buid() string {
 	h := md5.New()
-	fmt.Fprintln(h, time.Now().UnixNano())
+	fmt.Fprint(h, time.Now().UnixNano(), rand.Int())
 	return hex.EncodeToString(h.Sum(nil))
 }

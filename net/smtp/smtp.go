@@ -23,10 +23,10 @@ func (s *Smtp) Auth() (err error) {
 	return c.Auth(s.auth)
 }
 
-func (s *Smtp) SendMail(from Contact, to Contacts, subject, text, html string) error {
-	mail, err := NewMail(s, from, to, subject, text, html)
+func (s *Smtp) SendMail(from Contact, to Contacts, subject, text, html string, attachments []Attachment) error {
+	mail, err := NewMail(from, to, subject, text, html, attachments)
 	if err != nil {
 		return err
 	}
-	return mail.Send()
+	return mail.Send(s)
 }
