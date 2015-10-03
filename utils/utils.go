@@ -1,8 +1,14 @@
 package utils
 
 import (
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
+	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
+	"hash"
 	"html"
 	"io"
 	"net"
@@ -76,6 +82,27 @@ func CopyFile(src, dst string) (int64, error) {
 	return io.Copy(df, sf)
 }
 
+func HashString(hasher string, input interface{}) string {
+	var h hash.Hash
+	switch hasher {
+	case "sha1":
+		h = sha1.New()
+	case "sha256":
+		h = sha256.New()
+	default:
+		h = md5.New()
+	}
+	switch i := input.(type) {
+	case []byte:
+		h.Write(i)
+	case string:
+		h.Write([]byte(i))
+	case io.Reader:
+		io.Copy(h, i)
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
+
 func JSONUnmarshalFile(filename string, v interface{}) (err error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -92,6 +119,24 @@ func JSONMarshalFile(filename string, v interface{}) (err error) {
 	}
 	defer f.Close()
 	return json.NewEncoder(f).Encode(v)
+}
+
+func GobUnmarshalFile(filename string, v interface{}) (err error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	return gob.NewDecoder(f).Decode(v)
+}
+
+func GobMarshalFile(filename string, v interface{}) (err error) {
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	return gob.NewEncoder(f).Encode(v)
 }
 
 func HtmlToText(s string, limit int) string {
