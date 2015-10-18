@@ -7,16 +7,16 @@ import (
 )
 
 type CMDLine struct {
-	labels    map[string]*clStep
-	firstStep *clStep
-	step      *clStep
-	callback  func()
+	labelSetps map[string]*clStep
+	firstStep  *clStep
+	step       *clStep
+	callback   func()
 }
 
 func New(callback func()) *CMDLine {
 	return &CMDLine{
-		labels:   map[string]*clStep{},
-		callback: callback,
+		labelSetps: map[string]*clStep{},
+		callback:   callback,
 	}
 }
 
@@ -35,7 +35,7 @@ func (cl *CMDLine) AddStep(tips string, verify func(input string) interface{}) *
 	sp := strings.SplitN(tips, "::", 2)
 	if len(sp) == 2 {
 		label = strings.TrimSpace(sp[0])
-		tips = sp[1]
+		tips = strings.TrimSpace(sp[1])
 	}
 
 	sp = strings.SplitN(tips, "||", 2)
@@ -50,11 +50,11 @@ func (cl *CMDLine) AddStep(tips string, verify func(input string) interface{}) *
 
 	step := &clStep{typeTips: typeTips, retypeTips: retypeTips, verify: verify}
 	if len(label) > 0 {
-		if cl.labels == nil {
-			cl.labels = map[string]*clStep{}
+		if cl.labelSetps == nil {
+			cl.labelSetps = map[string]*clStep{}
 		}
-		if _, ok := cl.labels[label]; !ok {
-			cl.labels[label] = step
+		if _, ok := cl.labelSetps[label]; !ok {
+			cl.labelSetps[label] = step
 		}
 	}
 
@@ -125,8 +125,8 @@ SCAN:
 				fmt.Print(cl.step.typeTips, " ")
 
 			case string:
-				if len(cl.labels) > 0 {
-					if step, ok := cl.labels[r]; ok {
+				if len(cl.labelSetps) > 0 {
+					if step, ok := cl.labelSetps[r]; ok {
 						cl.step = step
 						fmt.Print(cl.step.typeTips, " ")
 					}

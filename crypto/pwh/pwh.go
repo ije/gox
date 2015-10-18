@@ -110,7 +110,7 @@ func (pwh *PWHasher) hash(r int, word, salt string) []byte {
 	return hash
 }
 
-var defaultPWHasher *PWHasher
+var globalPWHasher *PWHasher
 
 func Config(publicSalt string, complexity int) {
 	if complexity < 1 {
@@ -118,22 +118,22 @@ func Config(publicSalt string, complexity int) {
 	}
 	publicSaltHasher := sha512.New()
 	publicSaltHasher.Write([]byte(publicSalt))
-	defaultPWHasher.complexity = complexity
-	defaultPWHasher.publicSalt = publicSaltHasher.Sum(nil)
+	globalPWHasher.complexity = complexity
+	globalPWHasher.publicSalt = publicSaltHasher.Sum(nil)
 }
 
 func Hash(word, salt string) string {
-	return defaultPWHasher.Hash(word, salt)
+	return globalPWHasher.Hash(word, salt)
 }
 
 func Match(word, salt, hash string) bool {
-	return defaultPWHasher.Match(word, salt, hash)
+	return globalPWHasher.Match(word, salt, hash)
 }
 
 func MatchX(word, salt, hash string, routines int) bool {
-	return defaultPWHasher.MatchX(word, salt, hash, routines)
+	return globalPWHasher.MatchX(word, salt, hash, routines)
 }
 
 func init() {
-	defaultPWHasher = New("go", 1024)
+	globalPWHasher = New("go", 1024)
 }

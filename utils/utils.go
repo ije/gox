@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
@@ -14,6 +15,8 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 )
 
@@ -34,6 +37,15 @@ func CatchExit(callback func()) {
 
 func Contains(p interface{}, c interface{}) bool {
 	switch a := p.(type) {
+	case string:
+		if len(a) == 0 {
+			return false
+		}
+		sep, ok := c.(string)
+		if !ok {
+			return false
+		}
+		return strings.Index(a, sep) > -1
 	case []string:
 		if len(a) == 0 {
 			return false
@@ -89,6 +101,8 @@ func HashString(hasher string, input interface{}) string {
 		h = sha1.New()
 	case "sha256":
 		h = sha256.New()
+	case "sha512":
+		h = sha512.New()
 	default:
 		h = md5.New()
 	}
@@ -320,4 +334,36 @@ func LongToIpv4(ipLong uint32) string {
 	binary.BigEndian.PutUint32(ipByte, ipLong)
 	ip := net.IP(ipByte)
 	return ip.String()
+}
+
+func ToNumber(v interface{}) (f float64, ok bool) {
+	ok = true
+	switch i := v.(type) {
+	case string:
+		i64, err := strconv.ParseInt(i, 10, 64)
+		if err != nil {
+			ok = false
+		} else {
+			f = float64(i64)
+		}
+	case int:
+		f = float64(i)
+	case byte:
+		f = float64(i)
+	case int8:
+		f = float64(i)
+	case int16:
+		f = float64(i)
+	case int32:
+		f = float64(i)
+	case int64:
+		f = float64(i)
+	case float32:
+		f = float64(i)
+	case float64:
+		f = i
+	default:
+		ok = false
+	}
+	return
 }

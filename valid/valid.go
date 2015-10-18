@@ -7,13 +7,13 @@ import (
 )
 
 var (
-	v09    = &Validator{[]Range{{'0', '9'}}}
-	vaz    = &Validator{[]Range{{'a', 'z'}}}
-	vazAZ  = &Validator{[]Range{{'a', 'z'}, {'A', 'Z'}}}
-	v09AZ  = &Validator{[]Range{{'0', '9'}, {'A', 'Z'}}}
-	vHex   = &Validator{[]Range{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}}
-	vSlug  = &Validator{[]Range{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}}
-	vEmail = &Validator{[]Range{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}}
+	v09        = &Validator{[]Range{{'0', '9'}}}
+	vaz        = &Validator{[]Range{{'a', 'z'}}}
+	vazAZ      = &Validator{[]Range{{'a', 'z'}, {'A', 'Z'}}}
+	v09AZ      = &Validator{[]Range{{'0', '9'}, {'A', 'Z'}}}
+	vHex       = &Validator{[]Range{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}}
+	vSlug      = &Validator{[]Range{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}}
+	vEmailName = &Validator{[]Range{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}}
 )
 
 func IsNumber(s string, n ...int) bool {
@@ -29,7 +29,10 @@ func IsIETFLangTag(s string) bool {
 	if !vaz.Is(l, 2) {
 		return false
 	}
-	return len(c) > 0 && v09AZ.Is(c)
+	if len(c) > 0 {
+		return v09AZ.Is(c)
+	}
+	return true
 }
 
 func IsIP(s string) bool {
@@ -46,22 +49,12 @@ func IsDomain(s string) bool {
 		return false
 	}
 	dn, dt := utils.SplitByLastByte(s, '.')
-	dl, tl := len(dn), len(dt)
-	if dl*tl == 0 {
-		return false
-	}
-	for _, c := range []byte{dn[0], dn[dl-1]} {
-		switch c {
-		case '.', '-':
-			return false
-		}
-	}
-	return vSlug.Is(dn) && vazAZ.Is(dt)
+	return IsSlug(dn, 0) && vazAZ.Is(dt)
 }
 
-func IsSlug(s string) bool {
+func IsSlug(s string, maxLen int) bool {
 	l := len(s)
-	if l == 0 {
+	if l == 0 || (maxLen > 0 && l > maxLen) {
 		return false
 	}
 	for _, c := range []byte{s[0], s[l-1]} {
@@ -91,5 +84,5 @@ func IsEmail(s string) bool {
 			return false
 		}
 	}
-	return vEmail.Is(name)
+	return vEmailName.Is(name)
 }
