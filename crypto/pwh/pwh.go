@@ -10,6 +10,8 @@ import (
 
 const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+var globalPWHasher *PWHasher
+
 type PWHasher struct {
 	lock       sync.RWMutex
 	publicSalt []byte
@@ -95,10 +97,11 @@ func (pwh *PWHasher) hash(r int, word, salt string) []byte {
 	for i, p := 0, rand.New(rand.NewSource(int64(r))).Perm(64); i < 64; i++ {
 		codeTable[i] = pwTable[p[i]]
 	}
-	hmac := hmac.New(sha512.New384, pwh.publicSalt)
-	hmac.Write([]byte(word))
-	hmac.Write([]byte(salt))
-	hashBytes := hmac.Sum(nil)
+	hasher := hmac.New(sha512.New, pwh.publicSalt)
+	hasher.Write([]byte(salt))
+	hasher = hmac.New(sha512.New384, hasher.Sum(nil))
+	hasher.Write([]byte(word))
+	hashBytes := hasher.Sum(nil)
 	hash := make([]byte, 64)
 	for i, j := 0, 0; i < 48; i += 3 {
 		j = i * 4 / 3
@@ -109,8 +112,6 @@ func (pwh *PWHasher) hash(r int, word, salt string) []byte {
 	}
 	return hash
 }
-
-var globalPWHasher *PWHasher
 
 func Config(publicSalt string, complexity int) {
 	if complexity < 1 {
