@@ -10,7 +10,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"hash"
-	"html"
 	"io"
 	"net"
 	"os"
@@ -151,59 +150,6 @@ func GobMarshalFile(filename string, v interface{}) (err error) {
 	}
 	defer f.Close()
 	return gob.NewEncoder(f).Encode(v)
-}
-
-func HtmlToText(s string, limit int) string {
-	var i int
-	var tagStart bool
-	var sigStart bool
-	var sig []rune
-	text := make([]rune, len(s))
-	appendr := func(r rune) {
-		text[i] = r
-		i++
-	}
-	for _, r := range []rune(s) {
-		if limit > -1 && i >= limit {
-			break
-		}
-		switch r {
-		case '<':
-			tagStart = true
-		case '>':
-			tagStart = false
-		case '&':
-			if tagStart {
-				break
-			}
-			sigStart = true
-			sig = nil
-		case ';':
-			if tagStart {
-				break
-			}
-			if sigStart {
-				if tr := []rune(html.UnescapeString(string(append([]rune{'&'}, append(sig, ';')...)))); len(tr) > 0 {
-					appendr(tr[0])
-				}
-			}
-			sigStart = false
-			sig = nil
-		default:
-			if tagStart {
-				break
-			}
-			if sigStart {
-				if r >= 'A' && r <= 'Z' {
-					r += 32 // ToLower
-				}
-				sig = append(sig, r)
-				break
-			}
-			appendr(r)
-		}
-	}
-	return string(text[:i])
 }
 
 func SplitToLines(s string) (lines []string) {

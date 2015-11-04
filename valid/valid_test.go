@@ -28,6 +28,7 @@ func TestValid(t *testing.T) {
 	check(t, IsHexString("12345abc") == true)
 	check(t, IsHexString("12345abcDEF") == true)
 	check(t, IsHexString("12345abcDEFXYZ") == false)
+	check(t, IsSlug("1234", 0) == true)
 	check(t, IsIP("192.168.1.1") == true)
 	check(t, IsDomain("google.com") == true)
 	check(t, IsDomain("i-je.mail.google.com") == true)
