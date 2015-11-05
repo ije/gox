@@ -36,9 +36,9 @@ type Mail struct {
 }
 
 type Attachment struct {
-	Type    string
-	Name    string
-	Content []byte
+	Name        string
+	ContentType string
+	Content     []byte
 }
 
 func NewMail(from Contact, to Contacts, subject, text, html string, attachments []Attachment) (mail *Mail, err error) {
@@ -59,12 +59,13 @@ func NewMail(from Contact, to Contacts, subject, text, html string, attachments 
 		return
 	}
 	mail = &Mail{
-		from:    from,
-		to:      to,
-		subject: subject,
-		text:    []byte(text),
-		html:    []byte(html),
-		Buffer:  bytes.NewBuffer(nil),
+		from:        from,
+		to:          to,
+		subject:     subject,
+		text:        []byte(text),
+		html:        []byte(html),
+		attachments: attachments,
+		Buffer:      bytes.NewBuffer(nil),
 	}
 	return
 }
@@ -102,14 +103,17 @@ func (mail *Mail) Send(s *Smtp) error {
 	}
 	if len(mail.attachments) > 0 {
 		for _, attchment := range mail.attachments {
-			mail.writeln("Content-Type: ", attchment.Type, "; name=", attchment.Name, ";")
+			mail.writeln()
+			mail.writeln()
+			mail.writeln("--", boundary)
+			mail.writeln("Content-Type: ", attchment.ContentType, "; name=", attchment.Name, ";")
 			mail.writeln("Content-Transfer-Encoding: base64")
 			mail.writeln("Content-Disposition: attachment; filename=", attchment.Name, ";")
 			mail.writeln()
 			mail.WriteString(base64.StdEncoding.EncodeToString(attchment.Content))
-			mail.writeln()
-			mail.writeln()
 		}
+		mail.writeln()
+		mail.writeln()
 		mail.writeln("--", boundary, "--")
 	}
 	return smtp.SendMail(s.addr, s.auth, mail.from.Email, mail.to.EmailList(), mail.Bytes())
@@ -177,5 +181,5 @@ func encodeSubject(subject string) string {
 func buid() string {
 	h := md5.New()
 	fmt.Fprint(h, time.Now().UnixNano(), rand.Int())
-	return hex.EncodeToString(h.Sum(nil))
+	return fmt.Sprintf("--%s--", hex.EncodeToString(h.Sum(nil)))
 }
