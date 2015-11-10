@@ -35,14 +35,14 @@ func (fw *fileWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (fw *fileWriter) Rename(c int) (name string) {
+func (fw *fileWriter) Rename(i int) (name string) {
 	name, ext := utils.SplitByLastByte(fw.filePath, '.')
-	if c > 0 {
-		name += "." + strconv.Itoa(c)
+	if i > 0 {
+		name += "." + strconv.Itoa(i)
 	}
 	name += "." + ext
 	if _, err := os.Lstat(name); err == nil || os.IsExist(err) {
-		return fw.Rename(c + 1)
+		return fw.Rename(i + 1)
 	}
 	return
 }
@@ -71,9 +71,9 @@ func getFW(filePath string, maxBytes int) (fw *fileWriter, err error) {
 	return
 }
 
-type fwDriver struct{}
+type fileLoggerDriver struct{}
 
-func (fwd *fwDriver) Open(addr string, args map[string]string) (io.Writer, error) {
+func (fwd *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer, error) {
 	maxBytes := 0
 	if s, ok := args["maxBytes"]; ok && len(s) > 0 {
 		i, err := strconv2.ParseBytes(s)
@@ -86,5 +86,5 @@ func (fwd *fwDriver) Open(addr string, args map[string]string) (io.Writer, error
 }
 
 func init() {
-	Register("file", &fwDriver{})
+	Register("file", &fileLoggerDriver{})
 }

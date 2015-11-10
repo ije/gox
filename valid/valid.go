@@ -16,12 +16,12 @@ var (
 	vEmailName = &Validator{[]Range{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}}
 )
 
-func IsNumber(s string, n ...int) bool {
-	return v09.Is(s, n...)
+func IsNumber(s string, a ...int) bool {
+	return v09.Is(s, a...)
 }
 
-func IsHexString(s string, n ...int) bool {
-	return vHex.Is(s, n...)
+func IsHexString(s string, a ...int) bool {
+	return vHex.Is(s, a...)
 }
 
 func IsIETFLangTag(s string) bool {
@@ -52,7 +52,11 @@ func IsDomain(s string) bool {
 	return IsSlug(dn, 0) && vazAZ.Is(dt)
 }
 
-func IsSlug(s string, maxLen int) bool {
+func IsSlug(s string, a ...int) bool {
+	var maxLen int
+	if len(a) > 0 {
+		maxLen = a[0]
+	}
 	l := len(s)
 	if l == 0 || (maxLen > 0 && l > maxLen) {
 		return false

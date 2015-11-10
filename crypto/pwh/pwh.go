@@ -10,8 +10,6 @@ import (
 
 const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-var globalPWHasher *PWHasher
-
 type PWHasher struct {
 	lock       sync.RWMutex
 	publicSalt []byte
@@ -28,14 +26,14 @@ func (pwh *PWHasher) Config(publicSalt string, complexity int) {
 	if complexity < 1 {
 		complexity = 1
 	}
-	publicSaltHasher := sha512.New()
-	publicSaltHasher.Write([]byte(publicSalt))
+	saltHasher := sha512.New()
+	saltHasher.Write([]byte(publicSalt))
 
 	pwh.lock.Lock()
 	defer pwh.lock.Unlock()
 
 	pwh.complexity = complexity
-	pwh.publicSalt = publicSaltHasher.Sum(nil)
+	pwh.publicSalt = saltHasher.Sum(nil)
 }
 
 func (pwh *PWHasher) Hash(word, salt string) string {
@@ -113,14 +111,16 @@ func (pwh *PWHasher) hash(r int, word, salt string) []byte {
 	return hash
 }
 
+var globalPWHasher *PWHasher
+
 func Config(publicSalt string, complexity int) {
 	if complexity < 1 {
 		complexity = 1
 	}
-	publicSaltHasher := sha512.New()
-	publicSaltHasher.Write([]byte(publicSalt))
+	saltHasher := sha512.New()
+	saltHasher.Write([]byte(publicSalt))
 	globalPWHasher.complexity = complexity
-	globalPWHasher.publicSalt = publicSaltHasher.Sum(nil)
+	globalPWHasher.publicSalt = saltHasher.Sum(nil)
 }
 
 func Hash(word, salt string) string {

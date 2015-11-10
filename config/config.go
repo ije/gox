@@ -128,11 +128,19 @@ func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Sec
 }
 
 func (config *Config) IsEmpty() bool {
-	return config.defaultSection.IsEmpty() && len(config.extendedSections) == 0
+	return config.defaultSection.IsEmpty()
 }
 
 func (config *Config) Contains(key string) bool {
 	return config.defaultSection.Contains(key)
+}
+
+func (config *Config) Keys() []string {
+	return config.defaultSection.Keys()
+}
+
+func (config *Config) Each(hanlder func(key string, value string)) {
+	config.defaultSection.Each(hanlder)
 }
 
 func (config *Config) String(key string, extra ...string) string {

@@ -29,6 +29,12 @@ func (section Section) Keys() (keys []string) {
 	return
 }
 
+func (section Section) Each(hanlder func(key string, value string)) {
+	for key, value := range section {
+		hanlder(key, value)
+	}
+}
+
 func (section Section) String(key string, extra ...string) string {
 	var def string
 	if len(extra) > 0 {

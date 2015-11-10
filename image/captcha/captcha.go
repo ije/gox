@@ -248,7 +248,7 @@ func (m *PNG) randomBrightness(c color.RGBA, max uint8) color.RGBA {
 // Same purpose, id and digits will result in the same derived seed for this
 // instance of running application.
 //
-//   out = HMAC(rngKey, sid || digits)  (cut to 16 bytes)
+//   out = HMAC(rngKey, [sid, digits])  (cut to 16 bytes)
 //
 func deriveSeed(rngKey, sid, digits string) (out [16]byte) {
 	h := hmac.New(sha256.New, []byte(rngKey))
