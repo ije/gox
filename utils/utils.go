@@ -20,16 +20,14 @@ import (
 )
 
 func CatchExit(callback func()) {
-	sig := make(chan os.Signal)
-	signal.Notify(sig, os.Kill, os.Interrupt, syscall.SIGTERM)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
 		for {
-			switch <-sig {
-			case os.Kill, os.Interrupt, syscall.SIGTERM:
-				callback()
-				os.Exit(1)
-			}
+			<-c
+			callback()
+			os.Exit(1)
 		}
 	}()
 }
