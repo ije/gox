@@ -5,11 +5,12 @@ import (
 )
 
 func TestFileLogger(t *testing.T) {
-	log, err := New("file:/tmp/go.test.log?maxBytes=2kb")
+	log, err := New("file:/tmp/test.log?maxBytes=2kb&prefix=[hello]")
 	if err != nil {
 		t.Fatal(err)
 	}
 	log.Print("Hello World !")
+	log.Log("debug", "Hello World !")
 	log.Debug("Hello World !")
 	log.Info("Hello World !")
 	log.Warn("Hello World !")

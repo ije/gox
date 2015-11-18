@@ -55,6 +55,8 @@ func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Sec
 	var c byte
 	var sectionKey string
 	var section Section
+	buf := make([]byte, 1)
+	line := bytes.NewBuffer(nil)
 	regSplitKV := regexp.MustCompile(`^([^ ]+)\s+(.+)$`)
 	regSplitKVWithLongKey := regexp.MustCompile(`^"([^"]+)"\s+(.+)$`)
 	parse := func(line []byte) {
@@ -92,8 +94,6 @@ func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Sec
 			}
 		}
 	}
-	buf := make([]byte, 1)
-	line := bytes.NewBuffer(nil)
 
 	section = Section{}
 	extendedSections = map[string]Section{}

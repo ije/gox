@@ -3,8 +3,6 @@ package utils
 import (
 	"crypto/md5"
 	"crypto/sha1"
-	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
@@ -91,25 +89,29 @@ func CopyFile(src, dst string) (int64, error) {
 	return io.Copy(df, sf)
 }
 
-func HashString(hasher string, input interface{}) string {
+func HashString(hasher, input interface{}) string {
 	var h hash.Hash
-	switch hasher {
-	case "sha1":
-		h = sha1.New()
-	case "sha256":
-		h = sha256.New()
-	case "sha512":
-		h = sha512.New()
-	default:
+	switch v := hasher.(type) {
+	case hash.Hash:
+		h = v
+	case string:
+		switch v {
+		case "sha1":
+			h = sha1.New()
+		case "md5":
+			h = md5.New()
+		}
+	}
+	if h == nil {
 		h = md5.New()
 	}
-	switch i := input.(type) {
+	switch v := input.(type) {
 	case []byte:
-		h.Write(i)
+		h.Write(v)
 	case string:
-		h.Write([]byte(i))
+		h.Write([]byte(v))
 	case io.Reader:
-		io.Copy(h, i)
+		io.Copy(h, v)
 	}
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -292,8 +294,6 @@ func ToNumber(v interface{}) (f float64, ok bool) {
 		}
 	case int:
 		f = float64(i)
-	case byte:
-		f = float64(i)
 	case int8:
 		f = float64(i)
 	case int16:
@@ -301,6 +301,16 @@ func ToNumber(v interface{}) (f float64, ok bool) {
 	case int32:
 		f = float64(i)
 	case int64:
+		f = float64(i)
+	case uint:
+		f = float64(i)
+	case uint8:
+		f = float64(i)
+	case uint16:
+		f = float64(i)
+	case uint32:
+		f = float64(i)
+	case uint64:
 		f = float64(i)
 	case float32:
 		f = float64(i)

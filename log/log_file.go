@@ -4,26 +4,25 @@ import (
 	"io"
 	"os"
 	"path"
-	"strconv"
 
-	strconv2 "github.com/ije/gox/strconv"
+	"github.com/ije/gox/strconv"
 	"github.com/ije/gox/utils"
 )
 
 var fws = map[string]*fileWriter{}
 
 type fileWriter struct {
-	writed   int
-	maxBytes int
-	filePath string
+	filePath    string
+	maxBytes    int
+	writedBytes int
 }
 
 func (fw *fileWriter) Write(p []byte) (n int, err error) {
-	if fw.maxBytes > 0 && fw.writed > fw.maxBytes {
-		if err = os.Rename(fw.filePath, fw.Rename(0)); err != nil {
+	if fw.maxBytes > 0 && fw.writedBytes > fw.maxBytes {
+		if err = os.Rename(fw.filePath, fixFilePath(fw.filePath, 0)); err != nil {
 			return
 		}
-		fw.writed = 0
+		fw.writedBytes = 0
 	}
 	file, err := os.OpenFile(fw.filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
@@ -31,18 +30,18 @@ func (fw *fileWriter) Write(p []byte) (n int, err error) {
 	}
 	defer file.Close()
 	n, err = file.Write(p)
-	fw.writed += n
+	fw.writedBytes += n
 	return
 }
 
-func (fw *fileWriter) Rename(i int) (name string) {
-	name, ext := utils.SplitByLastByte(fw.filePath, '.')
+func fixFilePath(filePath string, i int) (path string) {
+	path, ext := utils.SplitByLastByte(filePath, '.')
 	if i > 0 {
-		name += "." + strconv.Itoa(i)
+		path += "." + strconv.Itoa(i)
 	}
-	name += "." + ext
-	if _, err := os.Lstat(name); err == nil || os.IsExist(err) {
-		return fw.Rename(i + 1)
+	path += "." + ext
+	if _, err := os.Lstat(path); err == nil || os.IsExist(err) {
+		return fixFilePath(path, i+1)
 	}
 	return
 }
@@ -65,7 +64,7 @@ func getFW(filePath string, maxBytes int) (fw *fileWriter, err error) {
 
 	fw = &fileWriter{filePath: filePath, maxBytes: maxBytes}
 	if fi, err := os.Lstat(filePath); err == nil {
-		fw.writed = int(fi.Size())
+		fw.writedBytes = int(fi.Size())
 	}
 	fws[filePath] = fw
 	return
@@ -76,7 +75,7 @@ type fileLoggerDriver struct{}
 func (fwd *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer, error) {
 	maxBytes := 0
 	if s, ok := args["maxBytes"]; ok && len(s) > 0 {
-		i, err := strconv2.ParseBytes(s)
+		i, err := strconv.ParseBytes(s)
 		if err != nil {
 			return nil, err
 		}

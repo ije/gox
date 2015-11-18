@@ -5,11 +5,9 @@ type Range struct {
 	To   byte
 }
 
-type Validator struct {
-	ranges []Range
-}
+type Validator []Range
 
-func (v *Validator) Is(s string, n ...int) bool {
+func (v Validator) Is(s string, n ...int) bool {
 	i := len(s)
 	if i == 0 {
 		return false
@@ -38,8 +36,8 @@ func (v *Validator) Is(s string, n ...int) bool {
 	return true
 }
 
-func (v *Validator) inRanges(c byte) bool {
-	for _, r := range v.ranges {
+func (v Validator) inRanges(c byte) bool {
+	for _, r := range v {
 		if r.To > 0 {
 			if c >= r.From && c <= r.To {
 				return true

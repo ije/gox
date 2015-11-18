@@ -7,13 +7,13 @@ import (
 )
 
 var (
-	v09        = &Validator{[]Range{{'0', '9'}}}
-	vaz        = &Validator{[]Range{{'a', 'z'}}}
-	vazAZ      = &Validator{[]Range{{'a', 'z'}, {'A', 'Z'}}}
-	v09AZ      = &Validator{[]Range{{'0', '9'}, {'A', 'Z'}}}
-	vHex       = &Validator{[]Range{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}}
-	vSlug      = &Validator{[]Range{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}}
-	vEmailName = &Validator{[]Range{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}}
+	v09        = &Validator{{'0', '9'}}
+	vaz        = &Validator{{'a', 'z'}}
+	vazAZ      = &Validator{{'a', 'z'}, {'A', 'Z'}}
+	v09AZ      = &Validator{{'0', '9'}, {'A', 'Z'}}
+	vHex       = &Validator{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}
+	vSlug      = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}
+	vEmailName = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}
 )
 
 func IsNumber(s string, a ...int) bool {

@@ -82,7 +82,7 @@ func (pwh *PWHasher) MatchX(word, salt, hash string, routines int) bool {
 	}
 	for {
 		if <-matchc {
-			matched = routines // Use for stoping all hasher goroutines
+			matched = routines // stop tasks
 			return true
 		} else if matched++; matched == routines {
 			return false

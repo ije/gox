@@ -1,4 +1,4 @@
-package mist
+package rs
 
 import (
 	"crypto/rand"
@@ -6,21 +6,21 @@ import (
 )
 
 var (
-	Digital *Mist
-	Hex     *Mist
-	Base64  *Mist
+	Digital *RSGen
+	Hex     *RSGen
+	Base64  *RSGen
 )
 
-type Mist struct {
+type RSGen struct {
 	pipe chan []byte
 }
 
-func New(tab string) *Mist {
+func New(tab string) *RSGen {
 	tl := byte(len(tab))
 	if tl == 0 {
 		panic("empty tab")
 	}
-	mist := &Mist{pipe: make(chan []byte, runtime.NumCPU())}
+	gen := &RSGen{pipe: make(chan []byte, runtime.NumCPU())}
 	go func() {
 		var (
 			i int
@@ -34,31 +34,31 @@ func New(tab string) *Mist {
 			for i = 0; i < 32; i++ {
 				m[i] = tab[r[i]%tl]
 			}
-			mist.pipe <- m
+			gen.pipe <- m
 		}
 	}()
-	return mist
+	return gen
 }
 
-func (mist *Mist) Byte(len int) []byte {
+func (gen *RSGen) Byte(len int) []byte {
 	if len <= 0 {
 		return nil
 	} else if len <= 32 {
-		return (<-mist.pipe)[:len]
+		return (<-gen.pipe)[:len]
 	} else {
 		bytes := make([]byte, len)
 		for i := 0; i < len/32; i++ {
-			copy(bytes[32*i:], <-mist.pipe)
+			copy(bytes[32*i:], <-gen.pipe)
 		}
 		if l := len % 32; l > 0 {
-			copy(bytes[len-l:], (<-mist.pipe)[:l])
+			copy(bytes[len-l:], (<-gen.pipe)[:l])
 		}
 		return bytes
 	}
 }
 
-func (mist *Mist) String(len int) string {
-	return string(mist.Byte(len))
+func (gen *RSGen) String(len int) string {
+	return string(gen.Byte(len))
 }
 
 func init() {

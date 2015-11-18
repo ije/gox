@@ -2,10 +2,9 @@ package config
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
-	strconv2 "github.com/ije/gox/strconv"
+	"github.com/ije/gox/strconv"
 )
 
 type Section map[string]string
@@ -110,7 +109,7 @@ func (section Section) Bytes(key string, extra ...int64) int64 {
 		def = extra[0]
 	}
 	if val, ok := section[key]; ok {
-		if i, err := strconv2.ParseBytes(val); err == nil {
+		if i, err := strconv.ParseBytes(val); err == nil {
 			return i
 		}
 		delete(section, key)
