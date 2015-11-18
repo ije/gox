@@ -17,17 +17,32 @@ import (
 	"syscall"
 )
 
-func CatchExit(callback func()) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+var (
+	exitListening bool
+	exitListeners []func()
+)
 
-	go func() {
-		for {
-			<-c
-			callback()
-			os.Exit(1)
-		}
-	}()
+func CatchExit(listener func()) {
+	if listener == nil {
+		return
+	}
+
+	exitListeners = append(exitListeners, listener)
+	if !exitListening {
+		go func() {
+			c := make(chan os.Signal, 1)
+			signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+			for {
+				<-c
+				for _, listener := range exitListeners {
+					listener()
+				}
+				os.Exit(1)
+			}
+		}()
+		exitListening = true
+	}
 }
 
 func Contains(p interface{}, c interface{}) bool {
