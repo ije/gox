@@ -158,13 +158,13 @@ func (l *Logger) On(level Level, callback func(message []byte)) {
 	defer l.lock.Unlock()
 
 	if l.logListeners == nil {
-		l.logListeners = map[Level][]func(message []byte){level: []func(message []byte){callback}}
+		l.logListeners = map[Level][]func([]byte){level: []func([]byte){callback}}
 	} else {
 		l.logListeners[level] = append(l.logListeners[level], callback)
 	}
 }
 
-func (l *Logger) OnWriteError(callback func(message []byte, err error)) {
+func (l *Logger) OnWriteError(callback func(data []byte, err error)) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 

@@ -37,6 +37,7 @@ func (fw *fileWriter) Write(p []byte) (n int, err error) {
 func fixFilePath(filePath string, i int) (path string) {
 	path, ext := utils.SplitByLastByte(filePath, '.')
 	if i > 0 {
+		path, _ = utils.SplitByLastByte(path, '.')
 		path += "." + strconv.Itoa(i)
 	}
 	path += "." + ext
