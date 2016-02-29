@@ -6,7 +6,7 @@ import (
 )
 
 func TestMCache(t *testing.T) {
-	cache, err := New("memory:hello?gcInterval=300")
+	cache, err := New("memory:region1?gcInterval=300")
 	if err != nil {
 		t.Error(err)
 		return
@@ -26,7 +26,7 @@ func TestMCache(t *testing.T) {
 	t.Log(cache.Get("key"))
 	cache.Set("key", "hello world 2", 0)
 
-	cache.SetRegion("world")
+	cache.SetRegion("region2")
 	cache.Set("key", "hello world~", 0)
 	t.Logf("%#v", cache)
 	t.Log(cache.Get("key"))

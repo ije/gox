@@ -70,16 +70,6 @@ func Contains(p interface{}, c interface{}) bool {
 			}
 		}
 		return false
-	case []interface{}:
-		if len(a) == 0 {
-			return false
-		}
-		for _, i := range a {
-			if i == c {
-				return true
-			}
-		}
-		return false
 	default:
 		return false
 	}
@@ -167,23 +157,6 @@ func GobMarshalFile(filename string, v interface{}) (err error) {
 	return gob.NewEncoder(f).Encode(v)
 }
 
-func SplitToLines(s string) (lines []string) {
-	for i, j, l := 0, 0, len(s); i < l; i++ {
-		switch s[i] {
-		case '\r', '\n':
-			if i > j {
-				lines = append(lines, s[j:i])
-			}
-			j = i + 1
-		default:
-			if i == l-1 && j < l {
-				lines = append(lines, s[j:])
-			}
-		}
-	}
-	return
-}
-
 func SplitByFirstByte(s string, c byte) (string, string) {
 	for i, l := 0, len(s); i < l; i++ {
 		if s[i] == c {
@@ -207,6 +180,26 @@ func FileExt(filename string) (ext string) {
 		if filename[i] == '.' {
 			ext = filename[i+1:]
 			break
+		}
+	}
+	return
+}
+
+func ToLines(s string) (lines []string) {
+	s = strings.Replace(s, "\r\n", "\n", -1)
+	for i, j, l := 0, 0, len(s); i < l; i++ {
+		switch s[i] {
+		case '\r', '\n':
+			if i == j {
+				lines = append(lines, "")
+			} else if i > j {
+				lines = append(lines, s[j:i])
+			}
+			j = i + 1
+		default:
+			if i == l-1 && j < l {
+				lines = append(lines, s[j:])
+			}
 		}
 	}
 	return

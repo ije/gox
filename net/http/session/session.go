@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/ije/gox/cache"
-	"github.com/ije/gox/crypto/mist"
+	"github.com/ije/gox/crypto/rs"
 )
 
 type Session struct {
@@ -112,5 +112,5 @@ func sidValid(sid string) bool {
 }
 
 func sidGen() string {
-	return mist.Base64.String(64)
+	return rs.Base64.String(64)
 }

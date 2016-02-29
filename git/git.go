@@ -8,12 +8,12 @@ import (
 )
 
 type Commit struct {
-	ID      string
 	Date    time.Time
+	Hash    string
 	Summary string
 }
 
-func GetLatestCommit(repoRoot string) (commit *Commit, err error) {
+func LatestCommit(repoRoot string) (commit *Commit, err error) {
 	cmd := exec.Command(
 		"git",
 		"log",
@@ -32,11 +32,16 @@ func GetLatestCommit(repoRoot string) (commit *Commit, err error) {
 		}
 		return
 	}
+
 	info := strings.SplitN(string(output), "|", 3)
+	date, err := time.Parse("Mon Jan 2 15:04:05 2006 -0700", info[1])
+	if err != nil {
+		return
+	}
 	commit = &Commit{
-		ID:      info[0],
+		Date:    date,
+		Hash:    info[0],
 		Summary: info[2],
 	}
-	commit.Date, _ = time.Parse("Mon Jan 2 15:04:05 2006 -0700", info[1])
 	return
 }

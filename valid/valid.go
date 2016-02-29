@@ -35,7 +35,7 @@ func IsIETFLangTag(s string) bool {
 	return true
 }
 
-func IsIP(s string) bool {
+func IsIPv4(s string) bool {
 	for i, p := range strings.Split(s, ".") {
 		if i > 3 || !v09.Is(p, 1, 3) || p[0] > '2' {
 			return false

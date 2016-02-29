@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"errors"
 	"runtime"
 	"sync"
 	"time"
@@ -8,8 +9,8 @@ import (
 	"github.com/ije/gox/strconv"
 )
 
-var mcPool = map[string]*mCache{}
 var mcPoolLock sync.Mutex
+var mcPool = map[string]*mCache{}
 
 func getMCache(region string) (mc *mCache) {
 	mcPoolLock.Lock()
@@ -49,21 +50,21 @@ func (mc *mCache) SetRegion(region string) error {
 		return nil
 	}
 
-	_mc := getMCache(region)
+	nmc := getMCache(region)
 
 	mc.lock.Lock()
-	_mc.lock.Lock()
-	gcInterval, _gcInterval := _mc.gcInterval, mc.gcInterval
-	mc.region, _mc.region = region, mc.region
-	mc.values, _mc.values = _mc.values, mc.values
+	nmc.lock.Lock()
+	gcInterval, _gcInterval := nmc.gcInterval, mc.gcInterval
+	mc.region, nmc.region = region, mc.region
+	mc.values, nmc.values = nmc.values, mc.values
 	mc.lock.Unlock()
-	_mc.lock.Unlock()
+	nmc.lock.Unlock()
 
 	mc.setGCInterval(gcInterval)
-	_mc.setGCInterval(_gcInterval)
+	nmc.setGCInterval(_gcInterval)
 
 	mcPoolLock.Lock()
-	mcPool[_mc.region], mcPool[mc.region] = _mc, mc
+	mcPool[nmc.region], mcPool[mc.region] = nmc, mc
 	mcPoolLock.Unlock()
 
 	return nil
@@ -181,7 +182,9 @@ type mcDriver struct{}
 func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, err error) {
 	var gcInterval time.Duration
 	if s, ok := args["gcInterval"]; ok && len(s) > 0 {
-		if gcInterval, err = strconv.ParseDuration(s); err != nil {
+		gcInterval, err = strconv.ParseDuration(s)
+		if err != nil {
+			err = errors.New("Invalid GC interval")
 			return
 		}
 	}

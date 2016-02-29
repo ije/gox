@@ -106,10 +106,10 @@ func ParseInt(s string, base int, bitSize int) (int64, error) {
 	return strconv.ParseInt(s, base, bitSize)
 }
 
-func ParseFloat(s string, bitSize int) (float64, error) {
-	return strconv.ParseFloat(s, bitSize)
-}
-
 func Atoi(s string) (int, error) {
 	return strconv.Atoi(s)
+}
+
+func ParseFloat(s string, bitSize int) (float64, error) {
+	return strconv.ParseFloat(s, bitSize)
 }
