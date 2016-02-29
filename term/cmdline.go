@@ -1,4 +1,4 @@
-package cmdline
+package term
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ type CMDLine struct {
 	callback   func()
 }
 
-func New(callback func()) *CMDLine {
+func NewCMDLine(callback func()) *CMDLine {
 	return &CMDLine{
 		labelSetps: map[string]*clStep{},
 		callback:   callback,
@@ -97,8 +97,14 @@ func (cl *CMDLine) Scan() {
 SCAN:
 	for {
 		if _, err := fmt.Scanf("%c", &c); err != nil {
-			break
+			if err.Error() == "unexpected newline" {
+				c = '\n'
+				err = nil
+			} else {
+				break
+			}
 		}
+
 		if c == '\n' {
 			vr := cl.step.verify(buf.String())
 			switch r := vr.(type) {
