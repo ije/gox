@@ -1,6 +1,8 @@
 package debug
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -142,11 +144,11 @@ func Run() {
 
 	for {
 		line, err := readlineEx.Readline()
-		if err != nil { // io.EOF, readline.ErrInterrupt
+		if err != nil {
 			break
 		}
 		ls := strings.Split(line, " ")
-		cmd, args := ls[0], ls[:1]
+		cmd, args := ls[0], ls[1:]
 		if handler, ok := commands[cmd]; ok {
 			if ret, err := handler(args...); err != nil {
 				errfmt.Print(cmd + ": " + err.Error())
@@ -158,6 +160,23 @@ func Run() {
 			break
 		}
 	}
+}
+
+func UseHttpProxy(proxyRules map[string]string) (err error) {
+	if len(proxyRules) == 0 {
+		return
+	}
+
+	rulesJson, err := json.Marshal(proxyRules)
+	if err != nil {
+		return
+	}
+
+	return AddProcess(&Process{
+		Sudo: true,
+		Name: "gox.debug.http-proxy",
+		Src:  fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rulesJson)),
+	})
 }
 
 func AddCommand(names string, handler func(args ...string) (ret string, err error)) {

@@ -16,7 +16,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = debug.AddHttpProxyProcess(":80", map[string]string{"godoc": "127.0.0.1:6060"})
+	err = debug.UseHttpProxy(map[string]string{"godoc": "127.0.0.1:6060"})
 	if err != nil {
 		log.Fatal(err)
 	}

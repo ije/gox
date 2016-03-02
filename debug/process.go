@@ -1,7 +1,6 @@
 package debug
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"go/build"
@@ -235,21 +234,4 @@ func AddProcess(process *Process) error {
 
 	processes = append(processes, process)
 	return nil
-}
-
-func AddHttpProxyProcess(addr string, proxyRules map[string]string) (err error) {
-	if len(addr) == 0 || len(proxyRules) == 0 {
-		return
-	}
-
-	rulesJson, err := json.Marshal(proxyRules)
-	if err != nil {
-		return
-	}
-
-	return AddProcess(&Process{
-		Sudo: true,
-		Name: "gox.debug.http-proxy",
-		Src:  fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rulesJson), addr),
-	})
 }

@@ -15,11 +15,11 @@ import (
 var rules = map[string]string%s
 
 func main() {
-	http.ListenAndServe("%s", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		var backServer string
-		
+
 		host, _ := utils.SplitByLastByte(r.Host, ':')
 		for match, server := range rules {
 			if len(server) > 0 && len(match) > 0 && (match == "*" || strings.Contains(match, host)) {
