@@ -1,21 +1,9 @@
 package pwh
 
-import (
-	"crypto/sha512"
-)
-
-const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
 var globalPWHasher *PWHasher
 
 func Config(publicSalt string, complexity int) {
-	if complexity < 1 {
-		complexity = 1
-	}
-	saltHasher := sha512.New()
-	saltHasher.Write([]byte(publicSalt))
-	globalPWHasher.complexity = complexity
-	globalPWHasher.publicSalt = saltHasher.Sum(nil)
+	globalPWHasher.Config(publicSalt, complexity)
 }
 
 func Hash(word, salt string) string {

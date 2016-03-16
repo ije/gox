@@ -8,6 +8,8 @@ import (
 	"sync"
 )
 
+const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 type PWHasher struct {
 	lock       sync.RWMutex
 	publicSalt []byte
@@ -80,7 +82,7 @@ func (pwh *PWHasher) MatchX(word, salt, hash string, routines int) bool {
 	}
 	for {
 		if <-matchc {
-			matched = routines // stop tasks
+			matched = routines // stop other running tasks
 			return true
 		} else if matched++; matched == routines {
 			return false
