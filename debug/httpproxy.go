@@ -4,32 +4,51 @@ const HTTP_PROXY_SERVER_SRC = `
 package main
 
 import (
-	"net/http"
-	"strings"
 	"fmt"
 	"io"
+	"net/http"
+	"regexp"
+	"strings"
 
 	"github.com/ije/gox/utils"
 )
 
-var rules = map[string]string%s
+var rules map[*rule]string
+
+type rule struct {
+	host   string
+	regexp *regexp.Regexp
+}
 
 func main() {
+	if len(rules) == 0 {
+		fmt.Println("proxy rules is empty")
+		return
+	}
+
 	http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
 		var backServer string
 
-		host, _ := utils.SplitByLastByte(r.Host, ':')
 		for match, server := range rules {
-			if len(server) > 0 && len(match) > 0 && (match == "*" || strings.Contains(match, host)) {
+			if match.host == r.Host {
 				backServer = server
 				break
 			}
 		}
 
 		if len(backServer) == 0 {
-			http.Error(w, "BackServer Not Found", 400)
+			for match, server := range rules {
+				if match.regexp != nil && match.regexp.MatchString(r.Host) {
+					backServer = server
+					break
+				}
+			}
+		}
+
+		if len(backServer) == 0 {
+			http.Error(w, "Back Server Not Found", 400)
 			return
 		}
 
@@ -39,7 +58,7 @@ func main() {
 			return
 		}
 
-		req.Host = host
+		req.Host = r.Host
 		for key, values := range r.Header {
 			req.Header[key] = values
 		}
@@ -61,4 +80,18 @@ func main() {
 
 		io.Copy(w, resp.Body)
 	}))
-}`
+}
+
+func init() {
+	rules = map[*rule]string{}
+	for match, server := range map[string]string%s {
+		if len(match) > 0 && len(server) > 0 && regexp.MustCompile("^[a-zA-Z0-9\\-\\.\\*]+$").MatchString(match) {
+			r := &rule{host: strings.ToLower(match)}
+			if strings.ContainsRune(r.host, '*') {
+				r.regexp = regexp.MustCompile("^" + strings.Replace(strings.Replace(strings.Replace(r.host, ".", "\\.", -1), "-", "\\-", -1), "*", ".*?", -1) + "$")
+			}
+			rules[r] = server
+		}
+	}
+}
+`

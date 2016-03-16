@@ -1,7 +1,6 @@
 package debug
 
 import (
-	"errors"
 	"fmt"
 	"go/build"
 	"io/ioutil"
@@ -20,7 +19,7 @@ type Process struct {
 	Sudo             bool
 	Name             string
 	Status           string
-	Src              string
+	Code             string
 	Path             string
 	Args             []string
 	LinkedPkgs       []string
@@ -46,12 +45,21 @@ func (process *Process) Build() (err error) {
 		}
 	}
 
-	if len(process.Src) > 0 {
-		exePath := path.Join(tempDir, "gox.debug", strings.ToLower(process.Name))
+	if len(process.Code) > 0 {
+		var processName string
+		if len(process.Path) > 0 {
+			_, processName = utils.SplitByLastByte(process.Path, os.PathSeparator)
+			if len(processName) == 0 {
+				processName = process.Path
+			}
+		} else {
+			processName = strings.ToLower(process.Name)
+		}
+		exePath := path.Join(tempDir, "gox.debug", processName)
 		goFile := exePath + ".go"
 
-		if err := ioutil.WriteFile(goFile, []byte(process.Src), 0644); err != nil {
-			return fmt.Errorf("create the '%s.go' failed: %v", strings.ToLower(process.Name), err.Error())
+		if err := ioutil.WriteFile(goFile, []byte(process.Code), 0644); err != nil {
+			return fmt.Errorf("create the '%s.go' failed: %v", strings.ToLower(process.Name), err)
 		}
 
 		if build.Default.GOOS == "windows" {
@@ -68,7 +76,7 @@ func (process *Process) Build() (err error) {
 
 func (process *Process) Start() (err error) {
 	if len(process.Path) == 0 {
-		return errors.New("missing path")
+		return fmt.Errorf("missing path")
 	}
 
 	var cmd *exec.Cmd
@@ -79,8 +87,12 @@ func (process *Process) Start() (err error) {
 		cmd = exec.Command(process.Path, process.Args...)
 	}
 
-	cmd.Stderr = &stderr{process.TermColorManager, &term.ColorTerm{LinePrefix: process.TermLinePrefix}}
-	cmd.Stdout = &stdout{process.TermColorManager, &term.ColorTerm{LinePrefix: process.TermLinePrefix}}
+	termLinePrefix := process.TermLinePrefix
+	if len(termLinePrefix) == 0 {
+		termLinePrefix = fmt.Sprintf("[%s] ", process.Name)
+	}
+	cmd.Stderr = &stderr{process.TermColorManager, &term.ColorTerm{LinePrefix: termLinePrefix}}
+	cmd.Stdout = &stdout{process.TermColorManager, &term.ColorTerm{LinePrefix: termLinePrefix}}
 
 	runErr := make(chan error)
 	go func() {
@@ -95,26 +107,35 @@ func (process *Process) Start() (err error) {
 	select {
 	case err = <-runErr:
 		return
-	case <-time.After(time.Second / 2):
+	case <-time.After(time.Second):
 	}
 
 	if process.Sudo && build.Default.GOOS != "windows" {
-		output, err := exec.Command("pgrep", strings.ToLower(process.Name)).Output()
+		var processName string
+		if len(process.Path) > 0 {
+			_, processName = utils.SplitByLastByte(process.Path, os.PathSeparator)
+			if len(processName) == 0 {
+				processName = process.Path
+			}
+		} else {
+			processName = strings.ToLower(process.Name)
+		}
+		output, err := exec.Command("pgrep", strings.ToLower(processName)).Output()
 		if err != nil || len(output) == 0 {
-			return errors.New("find child process failed: " + err.Error())
+			return fmt.Errorf("find child process failed: %v", err)
 		}
 		process.Process = nil
-		for _, pidstr := range utils.ToLines(string(output)) {
-			if pid, err := strconv.Atoi(pidstr); err == nil && pid > cmd.Process.Pid {
+		for _, ps := range utils.ToLines(string(output)) {
+			if pid, err := strconv.Atoi(ps); err == nil && pid > cmd.Process.Pid {
 				process.Process, err = os.FindProcess(pid)
 				if err != nil {
-					return errors.New("find child process failed: " + err.Error())
+					return fmt.Errorf("find child process failed: %v", err)
 				}
 				break
 			}
 		}
 		if process.Process == nil {
-			return errors.New("find child process failed: " + err.Error())
+			return fmt.Errorf("find child process failed: %v", err)
 		}
 	} else {
 		process.Process = cmd.Process
@@ -187,7 +208,7 @@ func (process *Process) watch() {
 	for path, prevModtime := range process.watchingFiles {
 		fi, err := os.Stat(path)
 		if err != nil && os.IsExist(err) {
-			errfmt.Printf("watch file '%s' failed: %v", path, err)
+			Warn.Printf("watch file '%s' failed: %v", path, err)
 			continue
 		}
 
@@ -197,22 +218,22 @@ func (process *Process) watch() {
 
 			err = process.Stop()
 			if err != nil {
-				errfmt.Print("Stop process '" + process.Name + "' unsuccessfully: " + err.Error())
+				Warn.Print("Stop process '%s' unsuccessfully: %v", process.Name, err)
 				continue
 			}
 
 			err = process.Build()
 			if err != nil {
-				errfmt.Print("Rebuild process '" + process.Name + "' unsuccessfully: " + err.Error())
+				Warn.Print("Rebuild process '%s' unsuccessfully: %v", process.Name, err)
 				continue
 			}
 
 			err = process.Start()
 			if err != nil {
-				errfmt.Print("Restart process '" + process.Name + "' unsuccessfully: " + err.Error())
+				Warn.Print("Restart process '%s' unsuccessfully: %v", process.Name, err)
 				continue
 			}
-			notice.Print("The process '" + process.Name + "' has been rebuild and restart")
+			Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
 		}
 	}
 
@@ -221,15 +242,22 @@ func (process *Process) watch() {
 
 func AddProcess(process *Process) error {
 	if process == nil {
-		return errors.New("nil process")
+		return fmt.Errorf("nil process")
 	}
 
 	if len(process.Name) == 0 {
-		return errors.New("missing process name")
+		if len(process.Path) > 0 {
+			_, process.Name = utils.SplitByLastByte(process.Path, os.PathSeparator)
+			if len(process.Name) == 0 {
+				process.Name = process.Path
+			}
+		} else {
+			return fmt.Errorf("missing process name")
+		}
 	}
 
-	if len(process.Src) == 0 && len(process.Path) == 0 {
-		return errors.New("missing process path")
+	if len(process.Code) == 0 && len(process.Path) == 0 {
+		return fmt.Errorf("missing process path")
 	}
 
 	processes = append(processes, process)

@@ -6,7 +6,7 @@ import (
 )
 
 func TestProcess(t *testing.T) {
-	err := AddHttpProxyProcess(":80", map[string]string{"godoc": "127.0.0.1:6060"})
+	err := UseHttpProxy(map[string]string{"godoc": "127.0.0.1:6060"})
 	if err != nil {
 		t.Fatal(err)
 	}

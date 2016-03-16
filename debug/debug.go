@@ -21,10 +21,10 @@ var (
 )
 
 var (
-	notice = &term.ColorTerm{
+	Ok = &term.ColorTerm{
 		Color: term.COLOR_GREEN,
 	}
-	errfmt = &term.ColorTerm{
+	Warn = &term.ColorTerm{
 		Color: term.COLOR_RED,
 	}
 )
@@ -76,14 +76,14 @@ func Run() {
 		for _, process := range processes {
 			if len(args) == 0 || utils.Contains(args, process.Name) {
 				if err := process.Stop(); err != nil {
-					errfmt.Print("Stop process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Print("Stop process '" + process.Name + "' unsuccessfully: " + err.Error())
 					continue
 				}
 				if err := process.Start(); err != nil {
-					errfmt.Print("Restart process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Print("Restart process '" + process.Name + "' unsuccessfully: " + err.Error())
 					continue
 				}
-				notice.Print("The process '" + process.Name + "' has been restarted")
+				Ok.Print("The process '" + process.Name + "' has been restarted")
 			}
 		}
 		return
@@ -91,20 +91,20 @@ func Run() {
 
 	AddCommand("rebuild", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
-			if len(args) == 0 || utils.Contains(args, process.Name) && len(process.Src) > 0 {
+			if (len(args) == 0 || utils.Contains(args, process.Name)) && len(process.Code) > 0 {
 				if err := process.Stop(); err != nil {
-					errfmt.Print("Stop process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Print("Stop process '" + process.Name + "' unsuccessfully: " + err.Error())
 					continue
 				}
 				if err := process.Build(); err != nil {
-					errfmt.Print("Rebuild process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Print("Rebuild process '" + process.Name + "' unsuccessfully: " + err.Error())
 					continue
 				}
 				if err := process.Start(); err != nil {
-					errfmt.Print("Restart process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Print("Restart process '" + process.Name + "' unsuccessfully: " + err.Error())
 					continue
 				}
-				notice.Print("The process '" + process.Name + "' has been rebuild and restart")
+				Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
 			}
 		}
 		return
@@ -113,23 +113,22 @@ func Run() {
 	AddCommand("exit|bye|quit", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if process.Stop() == nil {
-				notice.ColorPrint(term.COLOR_GRAY, "The process '"+process.Name+"' has been stoped")
+				Ok.ColorPrint(term.COLOR_GRAY, "The process '"+process.Name+"' has been stoped")
 			}
 		}
 
 		return
 	})
 
-	var err error
-
 	for _, process := range processes {
 		if err := process.Listen(); err != nil {
-			errfmt.Print("Listen process '" + process.Name + "' unsuccessfully: " + err.Error())
+			Warn.Print("Listen process '" + process.Name + "' unsuccessfully: " + err.Error())
 			continue
 		}
-		notice.Print("The process '" + process.Name + "' has been listened")
+		Ok.Print("The process '" + process.Name + "' has been listened")
 	}
 
+	var err error
 	readlineEx, err = readline.NewEx(&readline.Config{
 		Prompt:      "x$ ",
 		HistoryFile: path.Join(tempDir, "gox.debug/.rlh"),
@@ -139,8 +138,8 @@ func Run() {
 	}
 	defer readlineEx.Close()
 
-	notice.Pipe = readlineEx.Stdout()
-	errfmt.Pipe = readlineEx.Stderr()
+	Ok.Pipe = readlineEx.Stdout()
+	Warn.Pipe = readlineEx.Stderr()
 
 	for {
 		line, err := readlineEx.Readline()
@@ -151,13 +150,26 @@ func Run() {
 		cmd, args := ls[0], ls[1:]
 		if handler, ok := commands[cmd]; ok {
 			if ret, err := handler(args...); err != nil {
-				errfmt.Print(cmd + ": " + err.Error())
+				Warn.Print(cmd + ": " + err.Error())
 			} else if len(ret) > 0 {
-				notice.Print(ret)
+				Ok.Print(ret)
 			}
+			if cmd == "bye" || cmd == "exit" || cmd == "quit" {
+				break
+			}
+		} else {
+			Warn.Print("Unknown command: " + cmd)
 		}
-		if cmd == "bye" || cmd == "exit" || cmd == "quit" {
-			break
+	}
+}
+
+func AddCommand(names string, handler func(args ...string) (ret string, err error)) {
+	if commands == nil {
+		commands = map[string]func(args ...string) (ret string, err error){}
+	}
+	if len(names) > 0 && handler != nil {
+		for _, name := range strings.Split(names, "|") {
+			commands[name] = handler
 		}
 	}
 }
@@ -174,20 +186,9 @@ func UseHttpProxy(proxyRules map[string]string) (err error) {
 
 	return AddProcess(&Process{
 		Sudo: true,
-		Name: "gox.debug.http-proxy",
-		Src:  fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rulesJson)),
+		Name: "http-proxy",
+		Code: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rulesJson)),
 	})
-}
-
-func AddCommand(names string, handler func(args ...string) (ret string, err error)) {
-	if commands == nil {
-		commands = map[string]func(args ...string) (ret string, err error){}
-	}
-	if len(names) > 0 && handler != nil {
-		for _, name := range strings.Split(names, "|") {
-			commands[name] = handler
-		}
-	}
 }
 
 func init() {

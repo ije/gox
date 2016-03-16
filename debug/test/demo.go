@@ -10,7 +10,7 @@ func main() {
 	err := debug.AddProcess(&debug.Process{
 		Name: "godoc",
 		Path: "godoc",
-		Args: []string{"-http", ":6060"},
+		Args: []string{"-http=:6060"},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -21,7 +21,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	debug.AddCommand("cmd", func(args ...string) (ret string, err error) {
+	debug.AddCommand("test", func(args ...string) (ret string, err error) {
 		log.Println("hello world", args)
 		return
 	})
