@@ -37,15 +37,22 @@ type stdout struct {
 func (std *stdout) Write(p []byte) (n int, err error) {
 	var color term.Color
 	var pipe io.Writer
+
 	if std.colorManager != nil {
 		color = std.colorManager(p)
 	}
+
 	if readlineEx != nil {
 		pipe = readlineEx.Stdout()
 	} else {
 		pipe = os.Stdout
 	}
-	return std.ColorPrintTo(color, pipe, string(p))
+
+	_, err = std.ColorPrintTo(pipe, color, string(p))
+	if err == nil {
+		n = len(p) // shoud return a right length
+	}
+	return
 }
 
 type stderr struct {
@@ -56,15 +63,22 @@ type stderr struct {
 func (std *stderr) Write(p []byte) (n int, err error) {
 	var color term.Color
 	var pipe io.Writer
+
 	if std.colorManager != nil {
 		color = std.colorManager(p)
 	}
+
 	if readlineEx != nil {
 		pipe = readlineEx.Stderr()
 	} else {
 		pipe = os.Stderr
 	}
-	return std.ColorPrintTo(color, pipe, string(p))
+
+	_, err = std.ColorPrintTo(pipe, color, string(p))
+	if err == nil {
+		n = len(p) // shoud return a right length
+	}
+	return
 }
 
 func Run() {

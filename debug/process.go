@@ -30,6 +30,20 @@ type Process struct {
 	*os.Process
 }
 
+func (process *Process) PName() (processName string) {
+	if len(process.Path) > 0 {
+		_, processName = utils.SplitByLastByte(process.Path, os.PathSeparator)
+		if len(processName) == 0 {
+			processName = process.Path
+		}
+		return
+	}
+
+	processName = strings.ToLower(process.Name)
+
+	return
+}
+
 func (process *Process) Build() (err error) {
 	process.Status = "building"
 	defer func() {
@@ -39,23 +53,12 @@ func (process *Process) Build() (err error) {
 	for _, pkg := range process.LinkedPkgs {
 		output, err := exec.Command("go", "install", pkg).CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("install pkg '%s' failed: %v", pkg, err)
-		} else if len(output) > 0 {
-			return fmt.Errorf("install pkg '%s' failed: %s", pkg, string(output))
+			return fmt.Errorf("install pkg '%s' failed: %v", pkg, string(output))
 		}
 	}
 
 	if len(process.Code) > 0 {
-		var processName string
-		if len(process.Path) > 0 {
-			_, processName = utils.SplitByLastByte(process.Path, os.PathSeparator)
-			if len(processName) == 0 {
-				processName = process.Path
-			}
-		} else {
-			processName = strings.ToLower(process.Name)
-		}
-		exePath := path.Join(tempDir, "gox.debug", processName)
+		exePath := path.Join(tempDir, "gox.debug", process.PName())
 		goFile := exePath + ".go"
 
 		if err := ioutil.WriteFile(goFile, []byte(process.Code), 0644); err != nil {
@@ -91,6 +94,7 @@ func (process *Process) Start() (err error) {
 	if len(termLinePrefix) == 0 {
 		termLinePrefix = fmt.Sprintf("[%s] ", process.Name)
 	}
+
 	cmd.Stderr = &stderr{process.TermColorManager, &term.ColorTerm{LinePrefix: termLinePrefix}}
 	cmd.Stdout = &stdout{process.TermColorManager, &term.ColorTerm{LinePrefix: termLinePrefix}}
 
@@ -111,16 +115,7 @@ func (process *Process) Start() (err error) {
 	}
 
 	if process.Sudo && build.Default.GOOS != "windows" {
-		var processName string
-		if len(process.Path) > 0 {
-			_, processName = utils.SplitByLastByte(process.Path, os.PathSeparator)
-			if len(processName) == 0 {
-				processName = process.Path
-			}
-		} else {
-			processName = strings.ToLower(process.Name)
-		}
-		output, err := exec.Command("pgrep", strings.ToLower(processName)).Output()
+		output, err := exec.Command("pgrep", process.PName()).Output()
 		if err != nil || len(output) == 0 {
 			return fmt.Errorf("find child process failed: %v", err)
 		}
@@ -233,7 +228,10 @@ func (process *Process) watch() {
 				Warn.Print("Restart process '%s' unsuccessfully: %v", process.Name, err)
 				continue
 			}
-			Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
+
+			if !prevModtime.IsZero() {
+				Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
+			}
 		}
 	}
 
