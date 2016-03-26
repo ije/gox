@@ -186,7 +186,6 @@ func FileExt(filename string) (ext string) {
 }
 
 func ToLines(s string) (lines []string) {
-	s = strings.Replace(s, "\r\n", "\n", -1)
 	for i, j, l := 0, 0, len(s); i < l; i++ {
 		switch s[i] {
 		case '\r', '\n':
@@ -196,6 +195,10 @@ func ToLines(s string) (lines []string) {
 				lines = append(lines, s[j:i])
 			}
 			j = i + 1
+			if s[i] == '\r' && i+1 < l && s[i+1] == '\n' {
+				i++
+				j++
+			}
 		default:
 			if i == l-1 && j < l {
 				lines = append(lines, s[j:])

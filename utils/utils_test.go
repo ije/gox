@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+func TestToLines(t *testing.T) {
+	t.Log(strings.Join(ToLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n"), "\n"))
+}
+
 func TestPathClean(t *testing.T) {
 	for _, p := range []string{
 		"",
