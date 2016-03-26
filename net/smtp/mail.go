@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/smtp"
 	"time"
@@ -14,15 +15,13 @@ import (
 	"github.com/ije/gox/valid"
 )
 
+var CRLF = []byte("\r\n")
+
 var (
 	ErrEmptySubject    = errors.New("Empty Subject")
 	ErrEmptyContent    = errors.New("Empty Content")
 	ErrEmptySender     = errors.New("Empty Sender")
 	ErrEmptyRecipients = errors.New("Empty Recipients")
-)
-
-var (
-	CRLF = []byte("\r\n")
 )
 
 type Mail struct {
@@ -38,7 +37,7 @@ type Mail struct {
 type Attachment struct {
 	Name        string
 	ContentType string
-	Content     []byte
+	io.Reader
 }
 
 func NewMail(from Contact, to Contacts, subject, text, html string, attachments []Attachment) (mail *Mail, err error) {
@@ -110,7 +109,9 @@ func (mail *Mail) Send(s *Smtp) error {
 			mail.writeln("Content-Transfer-Encoding: base64")
 			mail.writeln("Content-Disposition: attachment; filename=", attchment.Name, ";")
 			mail.writeln()
-			mail.WriteString(base64.StdEncoding.EncodeToString(attchment.Content))
+			encoder := base64.NewEncoder(base64.StdEncoding, mail)
+			io.Copy(encoder, attchment)
+			encoder.Close()
 		}
 		mail.writeln()
 		mail.writeln()
