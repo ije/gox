@@ -19,78 +19,98 @@ import (
 
 var (
 	exitListening bool
-	exitListeners []func()
+	exitHandlers  []func()
 )
 
-func CatchExit(listener func()) {
-	if listener == nil {
+func CatchExit(handler func()) {
+	if handler == nil {
 		return
 	}
 
-	exitListeners = append(exitListeners, listener)
-	if !exitListening {
-		go func() {
-			c := make(chan os.Signal, 1)
-			signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	exitHandlers = append(exitHandlers, handler)
 
-			for {
-				<-c
-				for _, listener := range exitListeners {
-					listener()
-				}
-				os.Exit(1)
-			}
-		}()
-		exitListening = true
+	if exitListening {
+		return
 	}
+
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+		for {
+			<-c
+			for _, handler := range exitHandlers {
+				handler()
+			}
+			os.Exit(1)
+		}
+	}()
+	exitListening = true
 }
 
-func Contains(p interface{}, c interface{}) bool {
-	switch a := p.(type) {
+func Contains(items interface{}, item interface{}) (ok bool) {
+	switch a := items.(type) {
 	case string:
 		if len(a) == 0 {
-			return false
+			return
 		}
-		sep, ok := c.(string)
-		if !ok {
-			return false
-		}
-		return strings.Index(a, sep) > -1
+		sep, yes := item.(string)
+		ok = yes && strings.Index(a, sep) > -1
+		return
 	case []string:
 		if len(a) == 0 {
-			return false
+			return
 		}
-		s, ok := c.(string)
-		if !ok {
-			return false
-		}
-		for _, i := range a {
-			if i == s {
-				return true
+		s, yes := item.(string)
+		if yes {
+			for _, c := range a {
+				if c == s {
+					ok = true
+					return
+				}
 			}
 		}
-		return false
+		return
+	case []int:
+		if len(a) == 0 {
+			return
+		}
+		i, yes := item.(int)
+		if yes {
+			for _, c := range a {
+				if c == i {
+					return true
+				}
+			}
+		}
+		return
 	default:
-		return false
+		return
 	}
 }
 
-func CopyFile(src, dst string) (int64, error) {
+func CopyFile(src, dst string) (n int64, err error) {
 	if src == dst {
-		return 0, nil
+		return
 	}
+
+	_, err = os.Lstat(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return
+	}
+
 	sf, err := os.Open(src)
 	if err != nil {
-		return 0, err
+		return
 	}
-	if _, err := os.Lstat(dst); err != nil && !os.IsNotExist(err) {
-		return 0, err
-	}
+	defer sf.Close()
+
 	df, err := os.Create(dst)
 	if err != nil {
-		return 0, err
+		return
 	}
 	defer df.Close()
+
 	return io.Copy(df, sf)
 }
 
@@ -208,6 +228,46 @@ func ToLines(s string) (lines []string) {
 	return
 }
 
+func ToNumber(v interface{}) (f float64, ok bool) {
+	ok = true
+	switch i := v.(type) {
+	case string:
+		i64, err := strconv.ParseInt(i, 10, 64)
+		if err != nil {
+			ok = false
+		} else {
+			f = float64(i64)
+		}
+	case int:
+		f = float64(i)
+	case int8:
+		f = float64(i)
+	case int16:
+		f = float64(i)
+	case int32:
+		f = float64(i)
+	case int64:
+		f = float64(i)
+	case uint:
+		f = float64(i)
+	case uint8:
+		f = float64(i)
+	case uint16:
+		f = float64(i)
+	case uint32:
+		f = float64(i)
+	case uint64:
+		f = float64(i)
+	case float32:
+		f = float64(i)
+	case float64:
+		f = i
+	default:
+		ok = false
+	}
+	return
+}
+
 // PathClean has the same function with path.Clean(strings.Replace(strings.TrimSpace(s), "\\", "/", -1)),
 // but it's faster!
 func PathClean(path string, toLower bool) string {
@@ -291,44 +351,4 @@ func LongToIpv4(ipLong uint32) string {
 	binary.BigEndian.PutUint32(ipByte, ipLong)
 	ip := net.IP(ipByte)
 	return ip.String()
-}
-
-func ToNumber(v interface{}) (f float64, ok bool) {
-	ok = true
-	switch i := v.(type) {
-	case string:
-		i64, err := strconv.ParseInt(i, 10, 64)
-		if err != nil {
-			ok = false
-		} else {
-			f = float64(i64)
-		}
-	case int:
-		f = float64(i)
-	case int8:
-		f = float64(i)
-	case int16:
-		f = float64(i)
-	case int32:
-		f = float64(i)
-	case int64:
-		f = float64(i)
-	case uint:
-		f = float64(i)
-	case uint8:
-		f = float64(i)
-	case uint16:
-		f = float64(i)
-	case uint32:
-		f = float64(i)
-	case uint64:
-		f = float64(i)
-	case float32:
-		f = float64(i)
-	case float64:
-		f = i
-	default:
-		ok = false
-	}
-	return
 }
