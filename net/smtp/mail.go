@@ -141,7 +141,7 @@ func (mail *Mail) Send(s *Smtp) error {
 	mail.writeln("MIME-Version: 1.0")
 	mail.writeln("Date: ", time.Now().Format(time.RFC1123Z))
 	mail.writeln("Subject: ", encodeSubject(mail.subject))
-	mail.writeln("From: ", mail.from.String())
+	mail.writeln("From: ", mail.from)
 	mail.writeln("To: ", mail.to)
 	if len(mail.attachments) > 0 {
 		boundary = buid()

@@ -23,7 +23,7 @@ func (s *Smtp) Auth() (err error) {
 	return c.Auth(s.auth)
 }
 
-func (s *Smtp) SendMail(from Contact, to Contacts, subject, text, html string, attachments []Attachment) error {
+func (s *Smtp) SendMail(from, to interface{}, subject, text, html string, attachments []Attachment) error {
 	mail, err := NewMail(from, to, subject, text, html, attachments)
 	if err != nil {
 		return err
