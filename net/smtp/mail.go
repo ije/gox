@@ -10,23 +10,25 @@ import (
 	"io"
 	"math/rand"
 	"net/smtp"
+	"strings"
 	"time"
 
+	"github.com/ije/gox/utils"
 	"github.com/ije/gox/valid"
 )
 
 var CRLF = []byte("\r\n")
 
 var (
-	ErrEmptySubject    = errors.New("Empty Subject")
-	ErrEmptyContent    = errors.New("Empty Content")
 	ErrEmptySender     = errors.New("Empty Sender")
 	ErrEmptyRecipients = errors.New("Empty Recipients")
+	ErrEmptySubject    = errors.New("Empty Subject")
+	ErrEmptyContent    = errors.New("Empty Content")
 )
 
 type Mail struct {
-	from        Contact
 	to          Contacts
+	from        *Contact
 	subject     string
 	text        []byte
 	html        []byte
@@ -40,26 +42,91 @@ type Attachment struct {
 	io.Reader
 }
 
-func NewMail(from Contact, to Contacts, subject, text, html string, attachments []Attachment) (mail *Mail, err error) {
+func NewMail(from, to interface{}, subject, text, html string, attachments []Attachment) (mail *Mail, err error) {
+	var recipients Contacts
+	if from != nil {
+		switch a := from.(type) {
+		case string:
+			for _, s := range strings.Split(a, ",") {
+				name, email := utils.SplitByFirstByte(s, ' ')
+				if len(email) == 0 {
+					email = name
+					name = ""
+				}
+				if email = strings.TrimSpace(email); valid.IsEmail(email) {
+					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
+				}
+			}
+		case []string:
+			for _, s := range a {
+				name, email := utils.SplitByFirstByte(s, ' ')
+				if len(email) == 0 {
+					email = name
+					name = ""
+				}
+				if email = strings.TrimSpace(email); valid.IsEmail(email) {
+					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
+				}
+			}
+		case map[string]string:
+			for email, name := range a {
+				if email = strings.TrimSpace(email); valid.IsEmail(email) {
+					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
+				}
+			}
+		case Contacts:
+			recipients = a
+		}
+	}
+	if recipients == nil {
+		err = ErrEmptyRecipients
+		return
+	}
+
+	var sender *Contact
+	if from != nil {
+		switch a := from.(type) {
+		case string:
+			name, email := utils.SplitByFirstByte(a, ' ')
+			if len(email) == 0 {
+				email = name
+				name = ""
+			}
+			if email = strings.TrimSpace(email); valid.IsEmail(email) {
+				sender = &Contact{Email: email, Name: strings.TrimSpace(name)}
+			}
+		case Contact:
+			if a.Email = strings.TrimSpace(a.Email); valid.IsEmail(a.Email) {
+				sender = &a
+			}
+		case *Contact:
+			if a.Email = strings.TrimSpace(a.Email); valid.IsEmail(a.Email) {
+				sender = a
+			}
+		}
+	}
+	if sender == nil {
+		err = ErrEmptySender
+		return
+	}
+
 	if len(subject) == 0 {
 		err = ErrEmptySubject
 		return
 	}
+
 	if len(text) == 0 && len(html) == 0 {
 		err = ErrEmptyContent
 		return
 	}
-	if len(to) == 0 || len(to.EmailList()) == 0 {
-		err = ErrEmptyRecipients
-		return
+
+	if len(text) == 0 {
+		text, _ = utils.Html2Text(bytes.NewReader([]byte(html)))
 	}
-	if !valid.IsEmail(from.Email) {
-		err = ErrEmptySender
-		return
-	}
+
 	mail = &Mail{
-		from:        from,
-		to:          to,
+		from:        sender,
+		to:          recipients,
 		subject:     subject,
 		text:        []byte(text),
 		html:        []byte(html),
@@ -74,7 +141,7 @@ func (mail *Mail) Send(s *Smtp) error {
 	mail.writeln("MIME-Version: 1.0")
 	mail.writeln("Date: ", time.Now().Format(time.RFC1123Z))
 	mail.writeln("Subject: ", encodeSubject(mail.subject))
-	mail.writeln("From: ", mail.from)
+	mail.writeln("From: ", mail.from.String())
 	mail.writeln("To: ", mail.to)
 	if len(mail.attachments) > 0 {
 		boundary = buid()

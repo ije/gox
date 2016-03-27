@@ -12,7 +12,7 @@ type Contact struct {
 	Name, Email string
 }
 
-func (contact Contact) String() string {
+func (contact *Contact) String() string {
 	if len(contact.Name) > 0 {
 		if strings.Contains(contact.Name, " ") {
 			return fmt.Sprintf(`"%s" <%s>`, contact.Name, contact.Email)
