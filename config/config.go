@@ -39,6 +39,7 @@ func New(configFile string) (config *Config, err error) {
 			if os.IsNotExist(err) {
 				err = nil
 				config.defaultSection = Section{}
+				config.extendedSections = map[string]Section{}
 				return
 			}
 			config = nil
