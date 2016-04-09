@@ -1,4 +1,4 @@
-package pg
+package pgx
 
 import (
 	"fmt"
@@ -14,16 +14,7 @@ type DBUpdateTask struct {
 	Table       string
 	Where       map[string]interface{}
 	UpdateDelay time.Duration
-	*ConnPool
-}
-
-func NewUpdateTask(pg *ConnPool, table string, where map[string]interface{}, updateDelay time.Duration) *DBUpdateTask {
-	return &DBUpdateTask{
-		Table:       table,
-		Where:       where,
-		UpdateDelay: updateDelay,
-		ConnPool:    pg,
-	}
+	*Instance
 }
 
 func (task *DBUpdateTask) AddTask(column string, value interface{}) {

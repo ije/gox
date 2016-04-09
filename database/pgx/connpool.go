@@ -1,11 +1,10 @@
-package pg
+package pgx
 
 import (
 	"github.com/jackc/pgx"
 )
 
 type ConnPoolConfig struct {
-	DefaultScheme  string
 	Host           string // host (e.g. localhost) or path to unix domain socket directory (e.g. /private/tmp)
 	Port           uint16 // default: 5432
 	Database       string
@@ -18,7 +17,6 @@ type ConnPoolConfig struct {
 }
 
 type ConnPool struct {
-	DefaultScheme string
 	*pgx.ConnPool
 }
 
@@ -40,50 +38,12 @@ func NewConnPool(config ConnPoolConfig) (pool *ConnPool, err error) {
 		return
 	}
 
-	pool = &ConnPool{config.DefaultScheme, xPool}
+	pool = &ConnPool{xPool}
 	return
 }
 
-func (pool *ConnPool) Scheme() string {
-	if len(pool.DefaultScheme) == 0 {
-		return "public"
-	}
-	return pool.DefaultScheme
-}
-
-func (pool *ConnPool) Count(table string, where map[string]interface{}, whereFilter func(expressions []string, values []interface{}) ([]string, []interface{}), columnFilter ...string) (count int, err error) {
-	if len(table) == 0 {
-		return
-	}
-
-	whereSql, values := ParseWhere(where, whereFilter, columnFilter...)
-
-	var rows int32
-	err = pool.QueryRow(SQLFormat(`SELECT COUNT(*) AS "rows" FROM "%s"."%s" %s`, pool.Scheme(), table, whereSql), values...).Scan(&rows)
-	if err == pgx.ErrNoRows {
-		err = nil
-	}
-
-	count = int(rows)
-	return
-}
-
-func (pool *ConnPool) Delete(table string, where map[string]interface{}, whereFilter func(expressions []string, values []interface{}) ([]string, []interface{}), columnFilter ...string) (affected int, err error) {
-	if len(table) == 0 || where == nil || len(where) == 0 {
-		return
-	}
-
-	whereSql, values := ParseWhere(where, whereFilter, columnFilter...)
-	if len(whereSql) > 0 {
-		var ret Result
-		ret, err = pool.Exec(SQLFormat(`DELETE FROM "%s"."%s" %s`, pool.Scheme(), table, whereSql), values...)
-		if err != nil {
-			return
-		}
-		affected = int(ret.RowsAffected())
-	}
-
-	return
+func (pool *ConnPool) Instance(defaultScheme string) *Instance {
+	return &Instance{DefaultScheme: defaultScheme, ConnPool: pool}
 }
 
 func (pool *ConnPool) Begin() (tx *Tx, err error) {
