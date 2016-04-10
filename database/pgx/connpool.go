@@ -42,8 +42,8 @@ func NewConnPool(config ConnPoolConfig) (pool *ConnPool, err error) {
 	return
 }
 
-func (pool *ConnPool) Instance(defaultScheme string) *Instance {
-	return &Instance{DefaultScheme: defaultScheme, ConnPool: pool}
+func (pool *ConnPool) Scheme(name string) *Scheme {
+	return &Scheme{Name: name, ConnPool: pool}
 }
 
 func (pool *ConnPool) Begin() (tx *Tx, err error) {

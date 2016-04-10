@@ -14,7 +14,7 @@ type DBUpdateTask struct {
 	Table       string
 	Where       map[string]interface{}
 	UpdateDelay time.Duration
-	*Instance
+	*Scheme
 }
 
 func (task *DBUpdateTask) AddTask(column string, value interface{}) {
@@ -53,7 +53,7 @@ func (task *DBUpdateTask) Update() (err error) {
 	}
 
 	whereSql, whereValues := ParseWhere(task.Where, nil)
-	_, err = task.Exec(SQLFormat(`UPDATE "%s"."%s" SET %s %s`, task.Scheme(), task.Table, strings.Join(sets, ","), whereSql), append(values, whereValues...)...)
+	_, err = task.Exec(SQLFormat(`UPDATE "%s"."%s" SET %s %s`, task.String(), task.Table, strings.Join(sets, ","), whereSql), append(values, whereValues...)...)
 	if err == nil {
 		task.changes = nil
 	}
