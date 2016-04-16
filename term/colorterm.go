@@ -25,11 +25,11 @@ func (term *ColorTerm) Printf(format string, args ...interface{}) (n int, err er
 }
 
 func (term *ColorTerm) ColorPrint(color Color, args ...interface{}) (n int, err error) {
-	return term.ColorPrintTo(color, term.Pipe, fmt.Sprint(args...))
+	return term.ColorPrintTo(term.Pipe, color, fmt.Sprint(args...))
 }
 
 func (term *ColorTerm) ColorPrintf(color Color, format string, args ...interface{}) (n int, err error) {
-	return term.ColorPrintTo(color, term.Pipe, fmt.Sprintf(format, args...))
+	return term.ColorPrintTo(term.Pipe, color, fmt.Sprintf(format, args...))
 }
 
 func (term *ColorTerm) PrintTo(pipe io.Writer, s string) (n int, err error) {
@@ -56,7 +56,7 @@ func (term *ColorTerm) PrintTo(pipe io.Writer, s string) (n int, err error) {
 	return
 }
 
-func (term *ColorTerm) ColorPrintTo(color Color, pipe io.Writer, s string) (n int, err error) {
+func (term *ColorTerm) ColorPrintTo(pipe io.Writer, color Color, s string) (n int, err error) {
 	if pipe == nil {
 		pipe = os.Stderr
 	}

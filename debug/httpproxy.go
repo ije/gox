@@ -85,10 +85,19 @@ func main() {
 func init() {
 	rules = map[*rule]string{}
 	for match, server := range map[string]string%s {
-		if len(match) > 0 && len(server) > 0 && regexp.MustCompile("^[a-zA-Z0-9\\-\\.\\*]+$").MatchString(match) {
-			r := &rule{host: strings.ToLower(match)}
-			if strings.ContainsRune(r.host, '*') {
-				r.regexp = regexp.MustCompile("^" + strings.Replace(strings.Replace(strings.Replace(r.host, ".", "\\.", -1), "-", "\\-", -1), "*", ".*?", -1) + "$")
+		if match = strings.TrimSpace(match); len(match) > 0 && len(server) > 0 && regexp.MustCompile("^[a-zA-Z0-9\\-\\.\\*]+$").MatchString(match) {
+			r := &rule{}
+			m := strings.ToLower(match)
+			if m[0] == '.' {
+				if !strings.ContainsRune(m, '*') {
+					r.host = m[1:]
+				}
+				m = "*" + m
+			}
+			if strings.ContainsRune(m, '*') {
+				r.regexp = regexp.MustCompile("^" + strings.Replace(strings.Replace(strings.Replace(m, ".", "\\.", -1), "-", "\\-", -1), "*", ".*?", -1) + "$")
+			} else {
+				r.host = m
 			}
 			rules[r] = server
 		}

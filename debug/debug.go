@@ -127,7 +127,7 @@ func Run() {
 	AddCommand("exit|bye|quit", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if process.Stop() == nil {
-				Ok.ColorPrint(term.COLOR_GRAY, "The process '"+process.Name+"' has been stoped")
+				Ok.ColorPrint(term.COLOR_NORMAL, "The process '"+process.Name+"' has been stoped")
 			}
 		}
 
@@ -193,7 +193,7 @@ func UseHttpProxy(proxyRules map[string]string) (err error) {
 		return
 	}
 
-	rulesJson, err := json.Marshal(proxyRules)
+	rules, err := json.Marshal(proxyRules)
 	if err != nil {
 		return
 	}
@@ -201,7 +201,7 @@ func UseHttpProxy(proxyRules map[string]string) (err error) {
 	return AddProcess(&Process{
 		Sudo: true,
 		Name: "http-proxy",
-		Code: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rulesJson)),
+		Code: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rules)),
 	})
 }
 
