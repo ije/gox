@@ -8,20 +8,30 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/ije/gox/utils"
 )
 
-var rules map[*rule]string
+var (
+	hostRules map[string]string
+	regexpRules []RegexpRule
+)
 
-type rule struct {
-	host   string
-	regexp *regexp.Regexp
+type RegexpRule struct {
+	Regexp *regexp.Regexp
+	Server string
 }
 
+type RegexpRules []RegexpRule
+
+func (a RegexpRules) Len() int           { return len(a) }
+func (a RegexpRules) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a RegexpRules) Less(i, j int) bool { return len(a[j].Regexp.String()) < len(a[i].Regexp.String()) }
+
 func main() {
-	if len(rules) == 0 {
+	if len(hostRules) == 0 && len(regexpRules) == 0 {
 		fmt.Println("proxy rules is empty")
 		return
 	}
@@ -31,17 +41,17 @@ func main() {
 
 		var backServer string
 
-		for match, server := range rules {
-			if match.host == r.Host {
+		for host, server := range hostRules {
+			if host == r.Host {
 				backServer = server
 				break
 			}
 		}
 
 		if len(backServer) == 0 {
-			for match, server := range rules {
-				if match.regexp != nil && match.regexp.MatchString(r.Host) {
-					backServer = server
+			for _, rule := range regexpRules {
+				if rule.Regexp != nil && rule.Regexp.MatchString(r.Host) {
+					backServer = rule.Server
 					break
 				}
 			}
@@ -83,24 +93,25 @@ func main() {
 }
 
 func init() {
-	rules = map[*rule]string{}
+	hostRules = map[string]string{}
 	for match, server := range map[string]string%s {
 		if match = strings.TrimSpace(match); len(match) > 0 && len(server) > 0 && regexp.MustCompile("^[a-zA-Z0-9\\-\\.\\*]+$").MatchString(match) {
-			r := &rule{}
 			m := strings.ToLower(match)
 			if m[0] == '.' {
 				if !strings.ContainsRune(m, '*') {
-					r.host = m[1:]
+					hostRules[m[1:]] = server
 				}
 				m = "*" + m
 			}
 			if strings.ContainsRune(m, '*') {
-				r.regexp = regexp.MustCompile("^" + strings.Replace(strings.Replace(strings.Replace(m, ".", "\\.", -1), "-", "\\-", -1), "*", ".*?", -1) + "$")
+				regexpRules = append(regexpRules, RegexpRule{regexp.MustCompile("^" + strings.Replace(strings.Replace(strings.Replace(m, ".", "\\.", -1), "-", "\\-", -1), "*", ".*?", -1) + "$"), server})
 			} else {
-				r.host = m
+				hostRules[m] = server
 			}
-			rules[r] = server
 		}
+	}
+	if len(regexpRules) > 0 {
+		sort.Sort(RegexpRules(regexpRules))
 	}
 }
 `

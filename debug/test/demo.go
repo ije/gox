@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strings"
 
 	"github.com/ije/gox/debug"
 	"github.com/ije/gox/term"
@@ -21,18 +22,14 @@ func main() {
 	}
 
 	err = debug.UseHttpProxy(map[string]string{
-		"godoc":    "127.0.0.1:6066",
-		"s.g.com":  "127.0.0.1:8080",
-		".g.com":   "127.0.0.1:8080",
-		".g-*.com": "127.0.0.1:8080",
-		"*.g.com":  "127.0.0.1:8080",
+		"godoc": "127.0.0.1:6066",
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	debug.AddCommand("test", func(args ...string) (ret string, err error) {
-		log.Println("hello world", args)
+	debug.AddCommand("say", func(args ...string) (ret string, err error) {
+		log.Println(strings.Join(args, " "))
 		return
 	})
 

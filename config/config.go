@@ -119,6 +119,8 @@ func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Sec
 			line.WriteByte(c)
 		}
 	}
+	parse(line.Bytes())
+	line.Reset()
 
 	if len(sectionKey) == 0 {
 		defaultSection = section
