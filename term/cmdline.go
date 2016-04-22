@@ -3,6 +3,7 @@ package term
 import (
 	"bytes"
 	"fmt"
+	"strings"
 )
 
 type CMDLine struct {
@@ -93,7 +94,7 @@ SCAN:
 		}
 
 		if c == '\n' {
-			vr := cl.step.verify(buf.String())
+			vr := cl.step.verify(strings.TrimSpace(buf.String()))
 			switch r := vr.(type) {
 			case bool:
 				if r {
