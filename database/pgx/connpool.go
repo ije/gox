@@ -42,8 +42,8 @@ func NewConnPool(config ConnPoolConfig) (pool *ConnPool, err error) {
 	return
 }
 
-func (pool *ConnPool) Scheme(name string) *Scheme {
-	return &Scheme{Name: name, ConnPool: pool}
+func (pool *ConnPool) Schema(name string) *Schema {
+	return &Schema{Name: name, ConnPool: pool}
 }
 
 func (pool *ConnPool) Begin() (tx *Tx, err error) {

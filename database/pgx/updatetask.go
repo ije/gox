@@ -14,7 +14,7 @@ type DBUpdateTask struct {
 	Table       string
 	Where       map[string]interface{}
 	UpdateDelay time.Duration
-	*Scheme
+	*Schema
 }
 
 func (task *DBUpdateTask) AddTask(column string, value interface{}) {
