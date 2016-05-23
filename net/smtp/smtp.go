@@ -10,7 +10,7 @@ type Smtp struct {
 	auth smtp.Auth
 }
 
-func New(host string, port int, username, password string) *Smtp {
+func New(host string, port uint16, username, password string) *Smtp {
 	return &Smtp{fmt.Sprintf("%s:%d", host, port), smtp.PlainAuth("", username, password, host)}
 }
 

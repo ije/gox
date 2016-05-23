@@ -43,57 +43,17 @@ type Attachment struct {
 }
 
 func NewMail(from, to interface{}, subject, text, html string, attachments []Attachment) (mail *Mail, err error) {
-	var recipients Contacts
-	if from != nil {
-		switch a := from.(type) {
-		case string:
-			for _, s := range strings.Split(a, ",") {
-				name, email := utils.SplitByFirstByte(s, ' ')
-				if len(email) == 0 {
-					email = name
-					name = ""
-				}
-				if email = strings.TrimSpace(email); valid.IsEmail(email) {
-					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
-				}
-			}
-		case []string:
-			for _, s := range a {
-				name, email := utils.SplitByFirstByte(s, ' ')
-				if len(email) == 0 {
-					email = name
-					name = ""
-				}
-				if email = strings.TrimSpace(email); valid.IsEmail(email) {
-					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
-				}
-			}
-		case map[string]string:
-			for email, name := range a {
-				if email = strings.TrimSpace(email); valid.IsEmail(email) {
-					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
-				}
-			}
-		case Contacts:
-			recipients = a
-		}
-	}
-	if recipients == nil {
-		err = ErrEmptyRecipients
-		return
-	}
-
 	var sender *Contact
 	if from != nil {
 		switch a := from.(type) {
 		case string:
-			name, email := utils.SplitByFirstByte(a, ' ')
+			name, email := utils.SplitByLastByte(a, ' ')
 			if len(email) == 0 {
 				email = name
 				name = ""
 			}
 			if email = strings.TrimSpace(email); valid.IsEmail(email) {
-				sender = &Contact{Email: email, Name: strings.TrimSpace(name)}
+				sender = &Contact{Name: strings.TrimSpace(name), Email: email}
 			}
 		case Contact:
 			if a.Email = strings.TrimSpace(a.Email); valid.IsEmail(a.Email) {
@@ -107,6 +67,50 @@ func NewMail(from, to interface{}, subject, text, html string, attachments []Att
 	}
 	if sender == nil {
 		err = ErrEmptySender
+		return
+	}
+
+	var recipients Contacts
+	if to != nil {
+		switch a := to.(type) {
+		case string:
+			for _, s := range strings.Split(a, ",") {
+				name, email := utils.SplitByLastByte(strings.TrimSpace(s), ' ')
+				if len(email) == 0 {
+					email = name
+					name = ""
+				}
+				if email = strings.TrimSpace(email); valid.IsEmail(email) {
+					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
+				}
+			}
+		case []string:
+			for _, s := range a {
+				name, email := utils.SplitByLastByte(strings.TrimSpace(s), ' ')
+				if len(email) == 0 {
+					email = name
+					name = ""
+				}
+				if email = strings.TrimSpace(email); valid.IsEmail(email) {
+					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
+				}
+			}
+		case map[string]string:
+			b := map[string]string{}
+			for name, email := range a {
+				if email = strings.TrimSpace(email); valid.IsEmail(email) {
+					b[email] = strings.TrimSpace(name)
+				}
+			}
+			for email, name := range b {
+				recipients = append(recipients, Contact{Email: email, Name: name})
+			}
+		case Contacts:
+			recipients = a
+		}
+	}
+	if recipients == nil {
+		err = ErrEmptyRecipients
 		return
 	}
 
@@ -144,13 +148,13 @@ func (mail *Mail) Send(s *Smtp) error {
 	mail.writeln("From: ", mail.from)
 	mail.writeln("To: ", mail.to)
 	if len(mail.attachments) > 0 {
-		boundary = buid()
+		boundary = bhGen()
 		mail.writeln("Content-Type: multipart/mixed; boundary=", boundary)
 		mail.writeln()
 		mail.writeln("--", boundary)
 	}
 	if len(mail.text) > 0 && len(mail.html) > 0 {
-		boundary2 = buid()
+		boundary2 = bhGen()
 		mail.writeln("Content-Type: multipart/alternative; boundary=", boundary2)
 		mail.writeln()
 		mail.writeln("--", boundary2)
@@ -246,7 +250,7 @@ func encodeSubject(subject string) string {
 	return subject
 }
 
-func buid() string {
+func bhGen() string {
 	h := md5.New()
 	fmt.Fprint(h, time.Now().UnixNano(), rand.Int())
 	return fmt.Sprintf("--%s--", hex.EncodeToString(h.Sum(nil)))
