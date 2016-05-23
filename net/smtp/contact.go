@@ -1,11 +1,8 @@
 package smtp
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
-
-	"github.com/ije/gox/valid"
 )
 
 type Contact struct {
@@ -26,26 +23,17 @@ func (contact *Contact) String() string {
 type Contacts []Contact
 
 func (contacts Contacts) EmailList() []string {
-	var i int
 	list := make([]string, len(contacts))
-	for _, contact := range contacts {
-		if valid.IsEmail(contact.Email) {
-			list[i] = contact.Email
-			i++
-		}
+	for i, contact := range contacts {
+		list[i] = contact.Email
 	}
-	return list[:i]
+	return list
 }
 
 func (contacts Contacts) String() string {
-	buf := bytes.NewBuffer(nil)
-	for _, contact := range contacts {
-		if valid.IsEmail(contact.Email) {
-			fmt.Fprint(buf, contact, ", ")
-		}
+	cs := make([]string, len(contacts))
+	for i, contact := range contacts {
+		cs[i] = contact.String()
 	}
-	if l := buf.Len(); l > 2 {
-		return buf.String()[:l-2]
-	}
-	return ""
+	return strings.Join(cs, ",")
 }
