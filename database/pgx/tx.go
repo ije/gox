@@ -18,11 +18,12 @@ func (tx *Tx) Exec(sql string, args ...interface{}) (ret Result, err error) {
 }
 
 func (tx *Tx) Query(sql string, args ...interface{}) (rows *Rows, err error) {
-	xRows, err := tx.Tx.Query(sql, args...)
+	rs, err := tx.Tx.Query(sql, args...)
 	if err != nil {
 		return
 	}
-	rows = &Rows{xRows}
+
+	rows = &Rows{rs}
 	return
 }
 

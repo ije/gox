@@ -47,11 +47,12 @@ func (pool *ConnPool) Schema(name string) *Schema {
 }
 
 func (pool *ConnPool) Begin() (tx *Tx, err error) {
-	xTx, err := pool.ConnPool.Begin()
+	t, err := pool.ConnPool.Begin()
 	if err != nil {
 		return
 	}
-	tx = &Tx{xTx}
+
+	tx = &Tx{t}
 	return
 }
 
@@ -60,6 +61,7 @@ func (pool *ConnPool) Exec(sql string, args ...interface{}) (ret Result, err err
 	if err != nil {
 		return
 	}
+
 	ret = Result(commandTag)
 	return
 }
@@ -69,6 +71,7 @@ func (pool *ConnPool) Query(sql string, args ...interface{}) (rows *Rows, err er
 	if err != nil {
 		return
 	}
+
 	rows = &Rows{xRows}
 	return
 }

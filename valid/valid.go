@@ -57,7 +57,7 @@ func IsDomain(s string) bool {
 		return false
 	}
 	dn, dt := utils.SplitByLastByte(s, '.')
-	return IsSlug(dn, 0) && vazAZ.Is(dt)
+	return IsSlug(dn) && vazAZ.Is(dt)
 }
 
 func IsSlug(s string, a ...int) bool {
