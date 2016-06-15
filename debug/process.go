@@ -22,6 +22,7 @@ type Process struct {
 	Code             string
 	Path             string
 	Args             []string
+	LinkedOAs        []string
 	LinkedPkgs       []string
 	LinkedFiles      []string
 	TermLinePrefix   string
@@ -40,7 +41,6 @@ func (process *Process) PName() (processName string) {
 	}
 
 	processName = strings.ToLower(process.Name)
-
 	return
 }
 
@@ -180,13 +180,22 @@ func (process *Process) Listen() (err error) {
 		process.watchingFiles = map[string]time.Time{}
 	}
 
+	defalutOA := build.Default.GOOS + "_" + build.Default.GOARCH
 	for _, pkg := range process.LinkedPkgs {
-		if len(pkg) > 0 {
-			process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", build.Default.GOOS+"_"+build.Default.GOARCH, pkg+".a")] = time.Time{}
+		if pkg = strings.TrimSpace(pkg); len(pkg) > 0 {
+			process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", defalutOA, pkg+".a")] = time.Time{}
+			if len(process.LinkedOAs) > 0 {
+				for _, oa := range process.LinkedOAs {
+					if oa = strings.TrimSpace(oa); len(oa) > 0 && oa != defalutOA {
+						process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", oa, pkg+".a")] = time.Time{}
+					}
+				}
+			}
 		}
 	}
+
 	for _, file := range process.LinkedFiles {
-		if len(file) > 0 {
+		if file = strings.TrimSpace(file); len(file) > 0 {
 			process.watchingFiles[file] = time.Time{}
 		}
 	}
