@@ -50,13 +50,6 @@ func (process *Process) Build() (err error) {
 		process.Status = ""
 	}()
 
-	for _, pkg := range process.LinkedPkgs {
-		output, err := exec.Command("go", "install", pkg).CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("install pkg '%s' failed: %v", pkg, string(output))
-		}
-	}
-
 	if len(process.Code) > 0 {
 		exePath := path.Join(tempDir, "gox.debug", process.PName())
 		goFile := exePath + ".go"
@@ -162,6 +155,13 @@ func (process *Process) Listen() (err error) {
 		return
 	}
 
+	for _, pkg := range process.LinkedPkgs {
+		output, err := exec.Command("go", "install", pkg).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("install pkg '%s' failed: %v", pkg, string(output))
+		}
+	}
+
 	err = process.Build()
 	if err != nil {
 		return
@@ -209,6 +209,8 @@ func (process *Process) watch() {
 		return
 	}
 
+	time.AfterFunc(time.Second, process.watch)
+
 	for path, prevModtime := range process.watchingFiles {
 		fi, err := os.Stat(path)
 		if err != nil && os.IsExist(err) {
@@ -216,35 +218,35 @@ func (process *Process) watch() {
 			continue
 		}
 
-		modtime := fi.ModTime()
-		if !modtime.Equal(prevModtime) {
+		if modtime := fi.ModTime(); !modtime.Equal(prevModtime) {
 			process.watchingFiles[path] = modtime
 
 			err = process.Stop()
 			if err != nil {
-				Warn.Print("Stop process '%s' unsuccessfully: %v", process.Name, err)
-				continue
+				Warn.Print("Stop process '%s' failed: %v", process.Name, err)
+				break
 			}
 
 			err = process.Build()
 			if err != nil {
-				Warn.Print("Rebuild process '%s' unsuccessfully: %v", process.Name, err)
-				continue
+				Warn.Print("Rebuild process '%s' failed: %v", process.Name, err)
+				break
 			}
 
 			err = process.Start()
 			if err != nil {
-				Warn.Print("Restart process '%s' unsuccessfully: %v", process.Name, err)
-				continue
+				Warn.Print("Restart process '%s' failed: %v", process.Name, err)
+				break
 			}
 
 			if !prevModtime.IsZero() {
 				Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
 			}
+
+			break
 		}
 	}
 
-	time.AfterFunc(time.Second, process.watch)
 }
 
 func AddProcess(process *Process) error {
