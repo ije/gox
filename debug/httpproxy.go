@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	hostRules map[string]string
+	hostRules   map[string]string
 	regexpRules []RegexpRule
 )
 
@@ -64,7 +64,7 @@ func main() {
 
 		req, err := http.NewRequest(r.Method, fmt.Sprintf("http://%%s%%s", backServer, r.RequestURI), r.Body)
 		if err != nil {
-			http.Error(w, "Proxy Server Error", 500)
+			http.Error(w, err.Error(), 500)
 			return
 		}
 
@@ -75,12 +75,20 @@ func main() {
 		remoteIp, _ := utils.SplitByLastByte(r.RemoteAddr, ':')
 		req.Header.Set("X-Forwarded-For", remoteIp)
 
-		resp, err := new(http.Client).Do(req)
+		client := &http.Client{CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return fmt.Errorf("Redirected!")
+		}}
+		resp, err := client.Do(req)
 		if err != nil {
-			http.Error(w, "Proxy Server Error", 500)
+			http.Error(w, err.Error(), 500)
 			return
 		}
 		defer resp.Body.Close()
+
+		if resp.StatusCode > 300 && resp.StatusCode < 400 {
+			http.Redirect(w, r, resp.Header.Get("Location"), resp.StatusCode)
+			return
+		}
 
 		header := w.Header()
 		for key, values := range resp.Header {
