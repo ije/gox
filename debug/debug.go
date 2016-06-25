@@ -147,7 +147,7 @@ func Run() {
 		cl := term.NewCMDLine(nil)
 		cl.AddStep("Please enter the SU Password:", func(input string) interface{} {
 			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" -k whoami`, input)).Output()
-			if err == nil && string(output) == "root" {
+			if err != nil || strings.TrimSpace(string(output)) != "root" {
 				return false
 			}
 

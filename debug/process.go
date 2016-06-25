@@ -19,12 +19,12 @@ type Process struct {
 	Sudo             bool
 	Name             string
 	Status           string
-	GoCode           string
 	Path             string
 	Args             []string
-	LinkedOAs        []string
+	GoCode           string
 	LinkedPkgs       []string
 	LinkedFiles      []string
+	LinkedPlatforms  []string
 	TermLinePrefix   string
 	TermColorManager func(b []byte) term.Color
 	watchingFiles    map[string]time.Time
@@ -81,7 +81,7 @@ func (process *Process) Start() (err error) {
 
 	var cmd *exec.Cmd
 	if process.Sudo && build.Default.GOOS != "windows" {
-		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S %s %s`, suPassword, process.Path, strings.Join(process.Args, " ")))
+		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" %s %s`, suPassword, process.Path, strings.Join(process.Args, " ")))
 	} else {
 		cmd = exec.Command(process.Path, process.Args...)
 	}
@@ -108,7 +108,7 @@ func (process *Process) Start() (err error) {
 	}
 
 	if process.Sudo && build.Default.GOOS != "windows" {
-		output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S pgrep %s`, suPassword, process.ProcessName())).CombinedOutput()
+		output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" pgrep %s`, suPassword, process.ProcessName())).CombinedOutput()
 		if err != nil || len(output) == 0 {
 			return fmt.Errorf("find child process failed: %v", err)
 		}
@@ -130,7 +130,7 @@ func (process *Process) Start() (err error) {
 func (process *Process) Stop() (err error) {
 	if process.Status == "running" && process.Process != nil {
 		if process.Sudo && build.Default.GOOS != "windows" {
-			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S kill %d`, suPassword, process.Pid)).CombinedOutput()
+			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" kill %d`, suPassword, process.Pid)).CombinedOutput()
 			if err == nil && len(output) > 0 {
 				err = fmt.Errorf("stop process '%s' failed: %s", process.Name, string(output))
 			}
@@ -175,14 +175,14 @@ func (process *Process) Listen() (err error) {
 	}
 	process.watchingFiles = map[string]time.Time{}
 
-	defalutOA := build.Default.GOOS + "_" + build.Default.GOARCH
+	currentPlatform := build.Default.GOOS + "_" + build.Default.GOARCH
 	for _, pkg := range process.LinkedPkgs {
 		if pkg = strings.TrimSpace(pkg); len(pkg) > 0 {
-			process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", defalutOA, pkg+".a")] = time.Time{}
-			if len(process.LinkedOAs) > 0 {
-				for _, oa := range process.LinkedOAs {
-					if oa = strings.TrimSpace(oa); len(oa) > 0 && oa != defalutOA {
-						process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", oa, pkg+".a")] = time.Time{}
+			process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", currentPlatform, pkg+".a")] = time.Time{}
+			if len(process.LinkedPlatforms) > 0 {
+				for _, platform := range process.LinkedPlatforms {
+					if platform = strings.TrimSpace(platform); len(platform) > 0 && platform != currentPlatform {
+						process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", platform, pkg+".a")] = time.Time{}
 					}
 				}
 			}
