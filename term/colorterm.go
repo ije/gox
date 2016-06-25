@@ -17,7 +17,8 @@ type ColorTerm struct {
 }
 
 func (term *ColorTerm) Print(args ...interface{}) (n int, err error) {
-	return term.PrintTo(term.Pipe, fmt.Sprint(args...))
+	msg, _ := utils.SplitByLastByte(fmt.Sprintln(args...), '\n')
+	return term.PrintTo(term.Pipe, msg)
 }
 
 func (term *ColorTerm) Printf(format string, args ...interface{}) (n int, err error) {
@@ -25,7 +26,8 @@ func (term *ColorTerm) Printf(format string, args ...interface{}) (n int, err er
 }
 
 func (term *ColorTerm) ColorPrint(color Color, args ...interface{}) (n int, err error) {
-	return term.ColorPrintTo(term.Pipe, color, fmt.Sprint(args...))
+	msg, _ := utils.SplitByLastByte(fmt.Sprintln(args...), '\n')
+	return term.ColorPrintTo(term.Pipe, color, msg)
 }
 
 func (term *ColorTerm) ColorPrintf(color Color, format string, args ...interface{}) (n int, err error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 
 var (
 	tempDir    string
+	suPassword string
 	processes  []*Process
 	commands   map[string]func(args ...string) (ret string, err error)
 	readlineEx *readline.Instance
@@ -90,14 +92,14 @@ func Run() {
 		for _, process := range processes {
 			if len(args) == 0 || utils.Contains(args, process.Name) {
 				if err := process.Stop(); err != nil {
-					Warn.Print("Stop process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Printf("Stop process %s failed: %v", process.Name, err)
 					continue
 				}
 				if err := process.Start(); err != nil {
-					Warn.Print("Restart process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Printf("Restart process %s failed: %v", process.Name, err)
 					continue
 				}
-				Ok.Print("The process '" + process.Name + "' has been restarted")
+				Ok.Printf("The process %s has been restarted", process.Name)
 			}
 		}
 		return
@@ -105,20 +107,20 @@ func Run() {
 
 	AddCommand("rebuild", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
-			if (len(args) == 0 || utils.Contains(args, process.Name)) && len(process.Code) > 0 {
+			if (len(args) == 0 || utils.Contains(args, process.Name)) && len(process.GoCode) > 0 {
 				if err := process.Stop(); err != nil {
-					Warn.Print("Stop process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Printf("Stop process %s failed: %v", process.Name, err)
 					continue
 				}
 				if err := process.Build(); err != nil {
-					Warn.Print("Rebuild process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Printf("Rebuild process %s failed: %v", process.Name, err)
 					continue
 				}
 				if err := process.Start(); err != nil {
-					Warn.Print("Restart process '" + process.Name + "' unsuccessfully: " + err.Error())
+					Warn.Printf("Restart process %s failed: %v", process.Name, err)
 					continue
 				}
-				Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
+				Ok.Printf("The process %s has been rebuild and restart", process.Name)
 			}
 		}
 		return
@@ -127,19 +129,40 @@ func Run() {
 	AddCommand("exit|bye|quit", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if process.Stop() == nil {
-				Ok.ColorPrint(term.COLOR_NORMAL, "The process '"+process.Name+"' has been stoped")
+				Ok.ColorPrintf(term.COLOR_NORMAL, "The process %s has been stoped", process.Name)
 			}
 		}
-
 		return
 	})
 
+	needSuPassword := false
+	for _, process := range processes {
+		if process.Sudo {
+			needSuPassword = true
+			break
+		}
+	}
+
+	if needSuPassword {
+		cl := term.NewCMDLine(nil)
+		cl.AddStep("Please enter the SU Password:", func(input string) interface{} {
+			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" -k whoami`, input)).Output()
+			if err == nil && string(output) == "root" {
+				return false
+			}
+
+			suPassword = input
+			return true
+		})
+		cl.Scan()
+	}
+
 	for _, process := range processes {
 		if err := process.Listen(); err != nil {
-			Warn.Print("Listen process '" + process.Name + "' unsuccessfully: " + err.Error())
+			Warn.Printf("Listen process %s failed: %v", process.Name, err)
 			continue
 		}
-		Ok.Print("The process '" + process.Name + "' has been listened")
+		Ok.Printf("The process %s has been listened", process.Name)
 	}
 
 	var err error
@@ -164,7 +187,7 @@ func Run() {
 		cmd, args := ls[0], ls[1:]
 		if handler, ok := commands[cmd]; ok {
 			if ret, err := handler(args...); err != nil {
-				Warn.Print(cmd + ": " + err.Error())
+				Warn.Printf("%s: v", cmd, err)
 			} else if len(ret) > 0 {
 				Ok.Print(ret)
 			}
@@ -172,7 +195,7 @@ func Run() {
 				break
 			}
 		} else {
-			Warn.Print("Unknown command: " + cmd)
+			Warn.Printf("Unknown command: %s", cmd)
 		}
 	}
 }
@@ -199,9 +222,9 @@ func UseHttpProxy(proxyRules map[string]string) (err error) {
 	}
 
 	return AddProcess(&Process{
-		Sudo: true,
-		Name: "http-proxy",
-		Code: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rules)),
+		Sudo:   true,
+		Name:   "http-proxy",
+		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rules)),
 	})
 }
 

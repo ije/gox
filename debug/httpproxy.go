@@ -80,15 +80,14 @@ func main() {
 		}}
 		resp, err := client.Do(req)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			if resp != nil && resp.StatusCode > 300 && resp.StatusCode < 400 {
+				http.Redirect(w, r, resp.Header.Get("Location"), resp.StatusCode)
+			} else {
+				http.Error(w, err.Error(), 500)
+			}
 			return
 		}
 		defer resp.Body.Close()
-
-		if resp.StatusCode > 300 && resp.StatusCode < 400 {
-			http.Redirect(w, r, resp.Header.Get("Location"), resp.StatusCode)
-			return
-		}
 
 		header := w.Header()
 		for key, values := range resp.Header {

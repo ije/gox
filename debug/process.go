@@ -19,7 +19,7 @@ type Process struct {
 	Sudo             bool
 	Name             string
 	Status           string
-	Code             string
+	GoCode           string
 	Path             string
 	Args             []string
 	LinkedOAs        []string
@@ -31,7 +31,7 @@ type Process struct {
 	*os.Process
 }
 
-func (process *Process) PName() (processName string) {
+func (process *Process) ProcessName() (processName string) {
 	if len(process.Path) > 0 {
 		_, processName = utils.SplitByLastByte(process.Path, os.PathSeparator)
 		if len(processName) == 0 {
@@ -45,16 +45,20 @@ func (process *Process) PName() (processName string) {
 }
 
 func (process *Process) Build() (err error) {
+	if process.Status == "running" {
+		process.Stop()
+	}
+
 	process.Status = "building"
 	defer func() {
-		process.Status = ""
+		process.Status = "stop"
 	}()
 
-	if len(process.Code) > 0 {
-		exePath := path.Join(tempDir, "gox.debug", process.PName())
+	if len(process.GoCode) > 0 {
+		exePath := path.Join(tempDir, "gox.debug", process.ProcessName())
 		goFile := exePath + ".go"
 
-		if err := ioutil.WriteFile(goFile, []byte(process.Code), 0644); err != nil {
+		if err := ioutil.WriteFile(goFile, []byte(process.GoCode), 0644); err != nil {
 			return fmt.Errorf("create the '%s.go' failed: %v", strings.ToLower(process.Name), err)
 		}
 
@@ -77,8 +81,7 @@ func (process *Process) Start() (err error) {
 
 	var cmd *exec.Cmd
 	if process.Sudo && build.Default.GOOS != "windows" {
-		exec.Command("/bin/bash", "-c", "sudo echo 0 > /dev/null").Run()
-		cmd = exec.Command("/bin/bash", "-c", strings.Join(append([]string{"sudo", process.Path}, process.Args...), " "))
+		cmd = exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S %s %s`, suPassword, process.Path, strings.Join(process.Args, " ")))
 	} else {
 		cmd = exec.Command(process.Path, process.Args...)
 	}
@@ -94,11 +97,8 @@ func (process *Process) Start() (err error) {
 	runErr := make(chan error)
 	go func() {
 		process.Status = "running"
-		defer func() {
-			process.Status = "stop"
-		}()
-
 		runErr <- cmd.Run()
+		process.Status = "stop"
 	}()
 
 	select {
@@ -108,11 +108,10 @@ func (process *Process) Start() (err error) {
 	}
 
 	if process.Sudo && build.Default.GOOS != "windows" {
-		output, err := exec.Command("pgrep", process.PName()).Output()
+		output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S pgrep %s`, suPassword, process.ProcessName())).CombinedOutput()
 		if err != nil || len(output) == 0 {
 			return fmt.Errorf("find child process failed: %v", err)
 		}
-		process.Process = nil
 		for _, ps := range utils.ToLines(string(output)) {
 			if pid, err := strconv.Atoi(ps); err == nil && pid > cmd.Process.Pid {
 				process.Process, err = os.FindProcess(pid)
@@ -121,9 +120,6 @@ func (process *Process) Start() (err error) {
 				}
 				break
 			}
-		}
-		if process.Process == nil {
-			return fmt.Errorf("find child process failed: %v", err)
 		}
 	} else {
 		process.Process = cmd.Process
@@ -134,7 +130,7 @@ func (process *Process) Start() (err error) {
 func (process *Process) Stop() (err error) {
 	if process.Status == "running" && process.Process != nil {
 		if process.Sudo && build.Default.GOOS != "windows" {
-			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf("sudo kill %d", process.Pid)).CombinedOutput()
+			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S kill %d`, suPassword, process.Pid)).CombinedOutput()
 			if err == nil && len(output) > 0 {
 				err = fmt.Errorf("stop process '%s' failed: %s", process.Name, string(output))
 			}
@@ -161,7 +157,6 @@ func (process *Process) Listen() (err error) {
 			return fmt.Errorf("install pkg '%s' failed: %v", pkg, string(output))
 		}
 	}
-
 	err = process.Build()
 	if err != nil {
 		return
@@ -172,13 +167,13 @@ func (process *Process) Listen() (err error) {
 		return
 	}
 
+	if process.watchingFiles != nil {
+		process.watchingFiles = nil
+	}
 	if len(process.LinkedPkgs) == 0 && len(process.LinkedFiles) == 0 {
 		return
 	}
-
-	if process.watchingFiles == nil {
-		process.watchingFiles = map[string]time.Time{}
-	}
+	process.watchingFiles = map[string]time.Time{}
 
 	defalutOA := build.Default.GOOS + "_" + build.Default.GOARCH
 	for _, pkg := range process.LinkedPkgs {
@@ -200,53 +195,52 @@ func (process *Process) Listen() (err error) {
 		}
 	}
 
-	process.watch()
+	process.watchFileChange()
 	return
 }
 
-func (process *Process) watch() {
-	if len(process.watchingFiles) == 0 {
+func (process *Process) watchFileChange() {
+	time.AfterFunc(time.Second, process.watchFileChange)
+
+	if len(process.watchingFiles) == 0 || process.Status != "running" {
 		return
 	}
 
-	time.AfterFunc(time.Second, process.watch)
-
 	for path, prevModtime := range process.watchingFiles {
 		fi, err := os.Stat(path)
-		if err != nil && os.IsExist(err) {
-			Warn.Printf("watch file '%s' failed: %v", path, err)
+		if err != nil {
+			Warn.Printf("touch file '%s' failed: %v", path, err)
 			continue
 		}
 
-		if modtime := fi.ModTime(); !modtime.Equal(prevModtime) {
+		if modtime := fi.ModTime(); prevModtime.IsZero() {
+			process.watchingFiles[path] = modtime
+		} else if !modtime.Equal(prevModtime) {
 			process.watchingFiles[path] = modtime
 
 			err = process.Stop()
 			if err != nil {
 				Warn.Print("Stop process '%s' failed: %v", process.Name, err)
-				break
 			}
 
 			err = process.Build()
 			if err != nil {
 				Warn.Print("Rebuild process '%s' failed: %v", process.Name, err)
-				break
+				return
 			}
 
 			err = process.Start()
 			if err != nil {
 				Warn.Print("Restart process '%s' failed: %v", process.Name, err)
-				break
+				return
 			}
 
 			if !prevModtime.IsZero() {
 				Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
 			}
-
-			break
+			return
 		}
 	}
-
 }
 
 func AddProcess(process *Process) error {
@@ -265,10 +259,11 @@ func AddProcess(process *Process) error {
 		}
 	}
 
-	if len(process.Code) == 0 && len(process.Path) == 0 {
+	if len(process.GoCode) == 0 && len(process.Path) == 0 {
 		return fmt.Errorf("missing process path")
 	}
 
+	process.Status = "stop"
 	processes = append(processes, process)
 	return nil
 }
