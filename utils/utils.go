@@ -145,7 +145,7 @@ func HashString(hasher, input interface{}) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func JSONUnmarshalFile(filename string, v interface{}) (err error) {
+func UnmarshalJSONFile(filename string, v interface{}) (err error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return
@@ -154,7 +154,7 @@ func JSONUnmarshalFile(filename string, v interface{}) (err error) {
 	return json.NewDecoder(f).Decode(v)
 }
 
-func JSONMarshalFile(filename string, v interface{}) (err error) {
+func MarshalJSONFile(filename string, v interface{}) (err error) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return
@@ -163,7 +163,7 @@ func JSONMarshalFile(filename string, v interface{}) (err error) {
 	return json.NewEncoder(f).Encode(v)
 }
 
-func GobUnmarshalFile(filename string, v interface{}) (err error) {
+func UnmarshalGobFile(filename string, v interface{}) (err error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return
@@ -172,7 +172,7 @@ func GobUnmarshalFile(filename string, v interface{}) (err error) {
 	return gob.NewDecoder(f).Decode(v)
 }
 
-func GobMarshalFile(filename string, v interface{}) (err error) {
+func MarshalGobFile(filename string, v interface{}) (err error) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return
@@ -302,7 +302,7 @@ func extractNode(node *html.Node, buf *bytes.Buffer) {
 
 // PathClean has the same function with path.Clean(strings.Replace(strings.TrimSpace(s), "\\", "/", -1)),
 // but it's faster!
-func PathClean(path string, toLower bool) string {
+func CleanPath(path string, toLower bool) string {
 	pl := len(path)
 	if pl == 0 {
 		return "."

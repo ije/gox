@@ -2,7 +2,7 @@ package term
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"io"
 	"os/exec"
 )
@@ -12,68 +12,101 @@ type Command struct {
 	stoped     bool
 	stdinPipe  io.WriteCloser
 	stdoutPipe io.ReadCloser
+	stderrPipe io.ReadCloser
+	stdError   error
+	inputError error
 	*exec.Cmd
 }
 
-func NewCMD(name string, args ...string) *Command {
-	c := exec.Command(name, args...)
-	stdinPipe, _ := c.StdinPipe()
-	stdoutPipe, _ := c.StdoutPipe()
-
-	return &Command{
-		stdinPipe:  stdinPipe,
-		stdoutPipe: stdoutPipe,
-		Cmd:        c,
+func CMD(name string, args ...string) (cmd *Command) {
+	cmd = &Command{Cmd: exec.Command(name, args...)}
+	cmd.stdinPipe, cmd.stdError = cmd.Cmd.StdinPipe()
+	if cmd.stdError != nil {
+		return
 	}
+	cmd.stdoutPipe, cmd.stdError = cmd.Cmd.StdoutPipe()
+	if cmd.stdError != nil {
+		return
+	}
+	cmd.stderrPipe, cmd.stdError = cmd.Cmd.StderrPipe()
+	return
 }
 
-func (c *Command) Input(v interface{}) (cmd *Command, err error) {
-	if !c.started {
-		err = c.Start()
-		if err != nil {
-			return
+func (cmd *Command) Input(v interface{}) *Command {
+	if cmd.stdError != nil {
+		return cmd
+	}
+
+	if !cmd.started {
+		cmd.inputError = cmd.Cmd.Start()
+		if cmd.inputError != nil {
+			return cmd
 		}
-		c.started = true
+		cmd.started = true
 	}
 
 	switch d := v.(type) {
 	case string:
-		_, err = c.stdinPipe.Write([]byte(d))
+		_, cmd.inputError = cmd.stdinPipe.Write([]byte(d))
 	case []byte:
-		_, err = c.stdinPipe.Write(d)
+		_, cmd.inputError = cmd.stdinPipe.Write(d)
 	case io.Reader:
-		_, err = io.Copy(c.stdinPipe, d)
-	default:
-		_, err = fmt.Fprintf(c.stdinPipe, "%v", d)
+		_, cmd.inputError = io.Copy(cmd.stdinPipe, d)
 	}
 
-	cmd = c
-	return
+	return cmd
 }
 
-func (c *Command) Output(prefix []byte) (ret *bytes.Buffer, err error) {
-	if !c.started {
-		err = fmt.Errorf("waiting input")
+func (cmd *Command) Output(wr io.Writer) (err error) {
+	if cmd.stdError != nil {
+		err = cmd.stdError
 		return
 	}
 
-	if c.stoped {
-		err = fmt.Errorf("stoped")
+	if cmd.inputError != nil {
+		err = cmd.inputError
 		return
 	}
 
-	c.stdinPipe.Close()
+	if !cmd.started {
+		err = cmd.Cmd.Start()
+		if err != nil {
+			return
+		}
+		cmd.started = true
+	}
 
-	buffer := bytes.NewBuffer(prefix)
-	io.Copy(buffer, c.stdoutPipe)
-	c.stdoutPipe.Close()
+	if cmd.stoped {
+		err = errors.New("stoped")
+		return
+	}
 
-	err = c.Wait()
+	err = cmd.stdinPipe.Close()
 	if err != nil {
 		return
 	}
 
-	ret = buffer
-	c.stoped = true
+	buf := bytes.NewBuffer(nil)
+	io.Copy(buf, cmd.stderrPipe)
+	err = cmd.stderrPipe.Close()
+	if err != nil {
+		return
+	} else if buf.Len() > 0 {
+		err = errors.New(buf.String())
+		return
+	}
+
+	io.Copy(wr, cmd.stdoutPipe)
+	err = cmd.stdoutPipe.Close()
+	if err != nil {
+		return
+	}
+
+	err = cmd.Wait()
+	if err != nil {
+		return
+	}
+
+	cmd.stoped = true
 	return
 }
