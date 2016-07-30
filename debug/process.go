@@ -200,11 +200,11 @@ func (process *Process) Listen() (err error) {
 }
 
 func (process *Process) watchFileChange() {
-	time.AfterFunc(time.Second, process.watchFileChange)
-
-	if len(process.watchingFiles) == 0 || process.Status != "running" {
+	if len(process.watchingFiles) == 0 {
 		return
 	}
+
+	defer time.AfterFunc(time.Second/3, process.watchFileChange)
 
 	for path, prevModtime := range process.watchingFiles {
 		fi, err := os.Stat(path)

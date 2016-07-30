@@ -9,7 +9,6 @@ import (
 
 type Command struct {
 	started    bool
-	stoped     bool
 	stdinPipe  io.WriteCloser
 	stdoutPipe io.ReadCloser
 	stderrPipe io.ReadCloser
@@ -32,6 +31,11 @@ func CMD(name string, args ...string) (cmd *Command) {
 	return
 }
 
+func (cmd *Command) CD(dir string) *Command {
+	cmd.Dir = dir
+	return cmd
+}
+
 func (cmd *Command) Input(v interface{}) *Command {
 	if cmd.stdError != nil {
 		return cmd
@@ -45,19 +49,25 @@ func (cmd *Command) Input(v interface{}) *Command {
 		cmd.started = true
 	}
 
-	switch d := v.(type) {
+	switch data := v.(type) {
 	case string:
-		_, cmd.inputError = cmd.stdinPipe.Write([]byte(d))
+		_, cmd.inputError = cmd.stdinPipe.Write([]byte(data))
 	case []byte:
-		_, cmd.inputError = cmd.stdinPipe.Write(d)
+		_, cmd.inputError = cmd.stdinPipe.Write(data)
 	case io.Reader:
-		_, cmd.inputError = io.Copy(cmd.stdinPipe, d)
+		_, cmd.inputError = io.Copy(cmd.stdinPipe, data)
 	}
 
 	return cmd
 }
 
-func (cmd *Command) Output(wr io.Writer) (err error) {
+func (cmd *Command) Output(wr io.Writer, ignoreStderr bool) (err error) {
+	defer func() {
+		if cmd.started {
+			cmd.Wait()
+		}
+	}()
+
 	if cmd.stdError != nil {
 		err = cmd.stdError
 		return
@@ -76,37 +86,26 @@ func (cmd *Command) Output(wr io.Writer) (err error) {
 		cmd.started = true
 	}
 
-	if cmd.stoped {
-		err = errors.New("stoped")
-		return
+	cmd.stdinPipe.Close()
+
+	if ignoreStderr {
+		cmd.stderrPipe.Close()
+	} else {
+		buf := bytes.NewBuffer(nil)
+		_, err = io.Copy(buf, cmd.stderrPipe)
+		cmd.stderrPipe.Close()
+		if err == nil && buf.Len() > 0 {
+			err = errors.New(buf.String())
+		}
+		if err != nil {
+			return
+		}
 	}
 
-	err = cmd.stdinPipe.Close()
-	if err != nil {
-		return
+	if wr != nil {
+		_, err = io.Copy(wr, cmd.stdoutPipe)
+		cmd.stdoutPipe.Close()
 	}
 
-	buf := bytes.NewBuffer(nil)
-	io.Copy(buf, cmd.stderrPipe)
-	err = cmd.stderrPipe.Close()
-	if err != nil {
-		return
-	} else if buf.Len() > 0 {
-		err = errors.New(buf.String())
-		return
-	}
-
-	io.Copy(wr, cmd.stdoutPipe)
-	err = cmd.stdoutPipe.Close()
-	if err != nil {
-		return
-	}
-
-	err = cmd.Wait()
-	if err != nil {
-		return
-	}
-
-	cmd.stoped = true
 	return
 }
