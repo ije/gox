@@ -7,32 +7,39 @@ type Range struct {
 
 type Validator []Range
 
-func (v Validator) Is(s string, n ...int) bool {
-	i := len(s)
-	if i == 0 {
+func (v Validator) Is(s string, a ...int) bool {
+	l := len(s)
+	if l == 0 {
 		return false
 	}
-	l := len(n)
-	if l > 0 {
-		min := n[0]
-		if l == 1 && min > 0 && i != min {
+
+	if al := len(a); al == 1 {
+		max := a[0]
+		if max > 0 && l > max {
 			return false
 		}
-		if l > 1 {
-			max := n[1]
-			if min > max {
-				min, max = max, min
-			}
-			if i < min || i > max {
+	} else if al > 1 {
+		min, max := a[0], a[1]
+		if min > 0 || max > 0 {
+			if min != max {
+				if min > max {
+					min, max = max, min
+				}
+				if l > max || (min > 0 && l < min) {
+					return false
+				}
+			} else if min > 0 && l != min {
 				return false
 			}
 		}
 	}
-	for i--; i >= 0; i-- {
-		if !v.inRanges(s[i]) {
+
+	for l--; l >= 0; l-- {
+		if !v.inRanges(s[l]) {
 			return false
 		}
 	}
+
 	return true
 }
 

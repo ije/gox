@@ -29,9 +29,11 @@ func IsIETFLangTag(s string) bool {
 	if !vaz.Is(l, 2) {
 		return false
 	}
+
 	if len(c) > 0 {
 		return v09AZ.Is(c)
 	}
+
 	return true
 }
 
@@ -45,6 +47,7 @@ func IsIPv4(s string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -56,45 +59,48 @@ func IsDomain(s string) bool {
 	if len(s) < 4 {
 		return false
 	}
+
 	dn, dt := utils.SplitByLastByte(s, '.')
 	return IsSlug(dn) && vazAZ.Is(dt)
 }
 
 func IsSlug(s string, a ...int) bool {
-	var maxLen int
-	if len(a) > 0 {
-		maxLen = a[0]
-	}
 	l := len(s)
-	if l == 0 || (maxLen > 0 && l > maxLen) {
+	if l == 0 {
 		return false
 	}
+
 	for _, c := range []byte{s[0], s[l-1]} {
 		switch c {
 		case '.', '-':
 			return false
 		}
 	}
-	return vSlug.Is(s)
+
+	return vSlug.Is(s, a...)
 }
 
 func IsEmail(s string) bool {
 	if len(s) < 6 {
 		return false
 	}
+
 	name, domain := utils.SplitByLastByte(s, '@')
 	if !IsDomain(domain) {
 		return false
 	}
+
 	nl := len(name)
 	if nl == 0 {
 		return false
 	}
+
 	for _, c := range []byte{name[0], name[nl-1]} {
 		switch c {
 		case '.', '_', '-':
 			return false
 		}
 	}
+
 	return vEmailName.Is(name)
 }
