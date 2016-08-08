@@ -146,37 +146,17 @@ func (process *Process) Stop() (err error) {
 }
 
 func (process *Process) Listen() (err error) {
-	err = process.Stop()
-	if err != nil {
-		return
+	if len(process.watchingFiles) == 0 {
+		process.watchingFiles = map[string]time.Time{}
 	}
 
+	currentPlatform := build.Default.GOOS + "_" + build.Default.GOARCH
 	for _, pkg := range process.LinkedPkgs {
 		output, err := exec.Command("go", "install", pkg).CombinedOutput()
 		if err != nil {
 			return fmt.Errorf("install pkg '%s' failed: %v", pkg, string(output))
 		}
-	}
-	err = process.Build()
-	if err != nil {
-		return
-	}
 
-	err = process.Start()
-	if err != nil {
-		return
-	}
-
-	if process.watchingFiles != nil {
-		process.watchingFiles = nil
-	}
-	if len(process.LinkedPkgs) == 0 && len(process.LinkedFiles) == 0 {
-		return
-	}
-	process.watchingFiles = map[string]time.Time{}
-
-	currentPlatform := build.Default.GOOS + "_" + build.Default.GOARCH
-	for _, pkg := range process.LinkedPkgs {
 		if pkg = strings.TrimSpace(pkg); len(pkg) > 0 {
 			process.watchingFiles[path.Join(build.Default.GOPATH, "pkg", currentPlatform, pkg+".a")] = time.Time{}
 			if len(process.LinkedPlatforms) > 0 {
@@ -217,26 +197,22 @@ func (process *Process) watchFileChange() {
 			process.watchingFiles[path] = modtime
 		} else if !modtime.Equal(prevModtime) {
 			process.watchingFiles[path] = modtime
-
-			err = process.Stop()
-			if err != nil {
-				Warn.Print("Stop process '%s' failed: %v", process.Name, err)
-			}
+			process.Stop()
 
 			err = process.Build()
 			if err != nil {
-				Warn.Print("Rebuild process '%s' failed: %v", process.Name, err)
+				Warn.Printf("Rebuild process '%s' failed: %v", process.Name, err)
 				return
 			}
 
 			err = process.Start()
 			if err != nil {
-				Warn.Print("Restart process '%s' failed: %v", process.Name, err)
+				Warn.Printf("Restart process '%s' failed: %v", process.Name, err)
 				return
 			}
 
 			if !prevModtime.IsZero() {
-				Ok.Print("The process '" + process.Name + "' has been rebuild and restart")
+				Ok.Printf("The process '%s' has been rebuild and restart", process.Name)
 			}
 			return
 		}
