@@ -23,6 +23,9 @@ var (
 )
 
 var (
+	Debug = &term.ColorTerm{
+		Color: term.COLOR_GRAY,
+	}
 	Ok = &term.ColorTerm{
 		Color: term.COLOR_GREEN,
 	}
@@ -91,12 +94,13 @@ func Run() {
 	AddCommand("restart", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if len(args) == 0 || utils.Contains(args, process.Name) {
+				Debug.Print("Stopping...")
 				if err := process.Stop(); err != nil {
 					Warn.Printf("Stop process %s failed: %v", process.Name, err)
-					continue
 				}
+				Debug.Print("Restarting...")
 				if err := process.Start(); err != nil {
-					Warn.Printf("Restart process %s failed: %v", process.Name, err)
+					Warn.Printf("Start process %s failed: %v", process.Name, err)
 					continue
 				}
 				Ok.Printf("The process %s has been restarted", process.Name)
@@ -108,16 +112,18 @@ func Run() {
 	AddCommand("rebuild", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if (len(args) == 0 || utils.Contains(args, process.Name)) && len(process.GoCode) > 0 {
+				Debug.Print("Stopping...")
 				if err := process.Stop(); err != nil {
 					Warn.Printf("Stop process %s failed: %v", process.Name, err)
-					continue
 				}
+				Debug.Print("Rebuilding...")
 				if err := process.Build(); err != nil {
-					Warn.Printf("Rebuild process %s failed: %v", process.Name, err)
+					Warn.Printf("Build process %s failed: %v", process.Name, err)
 					continue
 				}
+				Debug.Print("Restarting...")
 				if err := process.Start(); err != nil {
-					Warn.Printf("Restart process %s failed: %v", process.Name, err)
+					Warn.Printf("Start process %s failed: %v", process.Name, err)
 					continue
 				}
 				Ok.Printf("The process %s has been rebuild and restart", process.Name)
@@ -182,7 +188,7 @@ func Run() {
 	var err error
 	readlineEx, err = readline.NewEx(&readline.Config{
 		Prompt:      "x$ ",
-		HistoryFile: path.Join(tempDir, "gox.debug/.rlh"),
+		HistoryFile: path.Join(tempDir, "gox.debug/readline_history"),
 	})
 	if err != nil {
 		panic(err)
