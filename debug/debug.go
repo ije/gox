@@ -23,7 +23,7 @@ var (
 )
 
 var (
-	Debug = &term.ColorTerm{
+	Info = &term.ColorTerm{
 		Color: term.COLOR_GRAY,
 	}
 	Ok = &term.ColorTerm{
@@ -94,11 +94,11 @@ func Run() {
 	AddCommand("restart", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if len(args) == 0 || utils.Contains(args, process.Name) {
-				Debug.Print("Stopping...")
+				Info.Printf("Stopping %s...", process.Name)
 				if err := process.Stop(); err != nil {
 					Warn.Printf("Stop process %s failed: %v", process.Name, err)
 				}
-				Debug.Print("Restarting...")
+				Info.Printf("Starting %s...", process.Name)
 				if err := process.Start(); err != nil {
 					Warn.Printf("Start process %s failed: %v", process.Name, err)
 					continue
@@ -112,16 +112,16 @@ func Run() {
 	AddCommand("rebuild", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if (len(args) == 0 || utils.Contains(args, process.Name)) && len(process.GoCode) > 0 {
-				Debug.Print("Stopping...")
+				Info.Printf("Stopping %s...", process.Name)
 				if err := process.Stop(); err != nil {
 					Warn.Printf("Stop process %s failed: %v", process.Name, err)
 				}
-				Debug.Print("Rebuilding...")
+				Info.Printf("Building %s...", process.Name)
 				if err := process.Build(); err != nil {
 					Warn.Printf("Build process %s failed: %v", process.Name, err)
 					continue
 				}
-				Debug.Print("Restarting...")
+				Info.Printf("Starting %s...", process.Name)
 				if err := process.Start(); err != nil {
 					Warn.Printf("Start process %s failed: %v", process.Name, err)
 					continue

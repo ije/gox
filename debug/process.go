@@ -189,7 +189,6 @@ func (process *Process) watchFileChange() {
 	for path, prevModtime := range process.watchingFiles {
 		fi, err := os.Stat(path)
 		if err != nil {
-			Warn.Printf("touch file '%s' failed: %v", path, err)
 			continue
 		}
 
