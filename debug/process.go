@@ -189,6 +189,9 @@ func (process *Process) watchFileChange() {
 	for path, prevModtime := range process.watchingFiles {
 		fi, err := os.Stat(path)
 		if err != nil {
+			if os.IsExist(err) {
+				Warn.Printf("watcher: process '%s': %v", process.Name, err)
+			}
 			continue
 		}
 
@@ -200,18 +203,18 @@ func (process *Process) watchFileChange() {
 
 			err = process.Build()
 			if err != nil {
-				Warn.Printf("Rebuild process '%s' failed: %v", process.Name, err)
+				Warn.Printf("watcher: Build process '%s' failed: %v", process.Name, err)
 				return
 			}
 
 			err = process.Start()
 			if err != nil {
-				Warn.Printf("Restart process '%s' failed: %v", process.Name, err)
+				Warn.Printf("watcher: Start process '%s' failed: %v", process.Name, err)
 				return
 			}
 
 			if !prevModtime.IsZero() {
-				Ok.Printf("The process '%s' has been rebuild and restart", process.Name)
+				Ok.Printf("watcher: The process '%s' has been rebuild and restart", process.Name)
 			}
 			return
 		}

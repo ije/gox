@@ -8,9 +8,11 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"hash"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -161,6 +163,22 @@ func MarshalJSONFile(filename string, v interface{}) (err error) {
 	}
 	defer f.Close()
 	return json.NewEncoder(f).Encode(v)
+}
+
+func GetHttpJSON(url string, v interface{}) (err error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		err = errors.New(resp.Status)
+		return
+	}
+
+	err = json.NewDecoder(resp.Body).Decode(&v)
+	return
 }
 
 func UnmarshalGobFile(filename string, v interface{}) (err error) {

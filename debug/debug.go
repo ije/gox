@@ -24,13 +24,16 @@ var (
 
 var (
 	Info = &term.ColorTerm{
-		Color: term.COLOR_GRAY,
+		LinePrefix: "[Debug] ",
+		Color:      term.COLOR_GRAY,
 	}
 	Ok = &term.ColorTerm{
-		Color: term.COLOR_GREEN,
+		LinePrefix: "[Debug] ",
+		Color:      term.COLOR_GREEN,
 	}
 	Warn = &term.ColorTerm{
-		Color: term.COLOR_RED,
+		LinePrefix: "[Debug] ",
+		Color:      term.COLOR_RED,
 	}
 )
 
@@ -113,16 +116,19 @@ func Run() {
 		for _, process := range processes {
 			if (len(args) == 0 || utils.Contains(args, process.Name)) && len(process.GoCode) > 0 {
 				Info.Printf("Stopping %s...", process.Name)
-				if err := process.Stop(); err != nil {
+				err := process.Stop()
+				if err != nil {
 					Warn.Printf("Stop process %s failed: %v", process.Name, err)
 				}
 				Info.Printf("Building %s...", process.Name)
-				if err := process.Build(); err != nil {
+				err = process.Build()
+				if err != nil {
 					Warn.Printf("Build process %s failed: %v", process.Name, err)
 					continue
 				}
 				Info.Printf("Starting %s...", process.Name)
-				if err := process.Start(); err != nil {
+				err = process.Start()
+				if err != nil {
 					Warn.Printf("Start process %s failed: %v", process.Name, err)
 					continue
 				}
