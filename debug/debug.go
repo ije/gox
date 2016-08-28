@@ -24,15 +24,15 @@ var (
 
 var (
 	Info = &term.ColorTerm{
-		LinePrefix: "[Debug] ",
+		LinePrefix: "[debug] ",
 		Color:      term.COLOR_GRAY,
 	}
 	Ok = &term.ColorTerm{
-		LinePrefix: "[Debug] ",
+		LinePrefix: "[debug] ",
 		Color:      term.COLOR_GREEN,
 	}
 	Warn = &term.ColorTerm{
-		LinePrefix: "[Debug] ",
+		LinePrefix: "[debug] ",
 		Color:      term.COLOR_RED,
 	}
 )
