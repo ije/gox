@@ -7,7 +7,7 @@ import (
 
 var ErrNoRows = pgx.ErrNoRows
 
-func IsDupError(err error, cloumn string) bool {
+func IsDupError(err error, constraintName string) bool {
 	pgErr, ok := err.(pgx.PgError)
-	return ok && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, cloumn)
+	return ok && pgErr.Code == "23505" && (pgErr.ConstraintName == constraintName || strings.Contains(pgErr.ConstraintName, constraintName))
 }
