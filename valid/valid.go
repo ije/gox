@@ -7,13 +7,13 @@ import (
 )
 
 var (
-	v09        = &Validator{{'0', '9'}}
-	vaz        = &Validator{{'a', 'z'}}
-	vazAZ      = &Validator{{'a', 'z'}, {'A', 'Z'}}
-	v09AZ      = &Validator{{'0', '9'}, {'A', 'Z'}}
-	vHex       = &Validator{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}
-	vSlug      = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}
-	vEmailName = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}
+	v09     = &Validator{{'0', '9'}}
+	vaz     = &Validator{{'a', 'z'}}
+	vazAZ   = &Validator{{'a', 'z'}, {'A', 'Z'}}
+	v09AZ   = &Validator{{'0', '9'}, {'A', 'Z'}}
+	vHex    = &Validator{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}
+	vDomain = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}
+	vSlug   = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}
 )
 
 func IsNumber(s string, a ...int) bool {
@@ -61,7 +61,7 @@ func IsDomain(s string) bool {
 	}
 
 	dn, dt := utils.SplitByLastByte(s, '.')
-	return IsSlug(dn) && vazAZ.Is(dt)
+	return vDomain.Is(dn) && vazAZ.Is(dt)
 }
 
 func IsSlug(s string, a ...int) bool {
@@ -102,5 +102,5 @@ func IsEmail(s string) bool {
 		}
 	}
 
-	return vEmailName.Is(name)
+	return vSlug.Is(name)
 }
