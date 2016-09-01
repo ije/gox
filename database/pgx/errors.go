@@ -7,7 +7,7 @@ import (
 
 var ErrNoRows = pgx.ErrNoRows
 
-func IsDBError(err error) bool {
+func IsPGError(err error) bool {
 	_, ok := err.(pgx.PgError)
 	return ok
 }
