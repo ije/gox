@@ -402,3 +402,20 @@ func LongToIpv4(ipLong uint32) string {
 	ip := net.IP(ipByte)
 	return ip.String()
 }
+
+func GetLocalIp() (ip string) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				ip = ipnet.IP.String()
+				break
+			}
+		}
+	}
+	return
+}
