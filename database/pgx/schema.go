@@ -61,3 +61,9 @@ func (schema *Schema) NewUpdateTask(table string, where map[string]interface{}, 
 		Schema:      schema,
 	}
 }
+
+func (schema *Schema) Backup() (sql []byte, err error) {
+	// SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname='public'
+	// SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name ='posts'
+	return
+}
