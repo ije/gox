@@ -138,7 +138,7 @@ func Run() {
 		return
 	})
 
-	AddCommand("exit|quit", func(args ...string) (ret string, err error) {
+	AddCommand("exit|quit|bye", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if process.Stop() == nil {
 				Ok.ColorPrintf(term.COLOR_NORMAL, "The process %s has been stoped", process.Name)
@@ -217,7 +217,7 @@ func Run() {
 			} else if len(ret) > 0 {
 				Ok.Print(ret)
 			}
-			if cmd == "exit" || cmd == "quit" {
+			if cmd == "exit" || cmd == "quit" || cmd == "bye" {
 				break
 			}
 		} else {
