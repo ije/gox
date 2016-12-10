@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash"
 	"io"
 	"net"
@@ -24,34 +25,26 @@ import (
 )
 
 var (
-	exitListening bool
-	exitHandlers  []func()
+	exitCallbacks []func()
 )
 
-func CatchExit(handler func()) {
-	if handler == nil {
+func CatchExit(callback func(), wait bool) {
+	if callback == nil {
+		return
+	}
+	exitCallbacks = append(exitCallbacks, callback)
+
+	if !wait {
 		return
 	}
 
-	exitHandlers = append(exitHandlers, handler)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	if exitListening {
-		return
+	fmt.Println("exit signal catched:", <-c)
+	for _, callback := range exitCallbacks {
+		callback()
 	}
-
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-
-		for {
-			<-c
-			for _, handler := range exitHandlers {
-				handler()
-			}
-			os.Exit(1)
-		}
-	}()
-	exitListening = true
 }
 
 func Contains(items interface{}, item interface{}) (ok bool) {
