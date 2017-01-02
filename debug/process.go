@@ -22,6 +22,8 @@ type Process struct {
 	Path             string
 	Args             []string
 	GoCode           string
+	GoFile           string
+	GoPkg            string
 	LinkedPkgs       []string
 	LinkedFiles      []string
 	LinkedPlatforms  []string
@@ -54,12 +56,32 @@ func (process *Process) Build() (err error) {
 		process.Status = "stop"
 	}()
 
-	if len(process.GoCode) > 0 {
+	if len(process.GoCode) > 0 || len(process.GoFile) > 0 || len(process.GoPkg) > 0 {
 		exePath := path.Join(tempDir, "gox.debug", process.ProcessName())
-		goFile := exePath + ".go"
 
-		if err := ioutil.WriteFile(goFile, []byte(process.GoCode), 0644); err != nil {
-			return fmt.Errorf("create the '%s.go' failed: %v", strings.ToLower(process.Name), err)
+		var goFile string
+		if len(process.GoCode) > 0 {
+			goFile = exePath + ".go"
+			if err := ioutil.WriteFile(goFile, []byte(process.GoCode), 0644); err != nil {
+				return fmt.Errorf("create the '%s.go' failed: %v", strings.ToLower(process.Name), err)
+			}
+		} else if len(process.GoFile) > 0 {
+			goFile = process.GoFile
+			fi, err := os.Stat(goFile)
+			if err != nil && os.IsNotExist(err) {
+				return err
+			} else if !strings.HasSuffix(goFile, ".go") || (err == nil && fi.IsDir()) {
+				return fmt.Errorf("the 'GoFile' is not a go file")
+			}
+		} else {
+			fi, err := os.Stat(path.Join(build.Default.GOPATH, "src", process.GoPkg))
+			if err != nil && os.IsNotExist(err) {
+				return err
+			} else if err == nil && !fi.IsDir() {
+				return fmt.Errorf("the 'GoPkg' is not a directory")
+			}
+
+			goFile = process.GoPkg
 		}
 
 		if build.Default.GOOS == "windows" {
@@ -237,7 +259,7 @@ func AddProcess(process *Process) error {
 		}
 	}
 
-	if len(process.GoCode) == 0 && len(process.Path) == 0 {
+	if len(process.GoCode) == 0 && len(process.GoFile) == 0 && len(process.GoPkg) == 0 && len(process.Path) == 0 {
 		return fmt.Errorf("missing process path")
 	}
 

@@ -25,26 +25,33 @@ import (
 )
 
 var (
+	exitWaiting   bool
 	exitCallbacks []func()
 )
 
-func CatchExit(callback func(), wait bool) {
+func CatchExit(callback func()) {
 	if callback == nil {
 		return
 	}
 	exitCallbacks = append(exitCallbacks, callback)
 
-	if !wait {
+	if exitWaiting {
 		return
 	}
+	exitWaiting = true
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	go func() {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
-	fmt.Println("exit signal catched:", <-c)
-	for _, callback := range exitCallbacks {
-		callback()
-	}
+		for {
+			fmt.Println("exit signal catched:", <-c)
+			for _, callback := range exitCallbacks {
+				callback()
+			}
+			os.Exit(1)
+		}
+	}()
 }
 
 func Contains(items interface{}, item interface{}) (ok bool) {
@@ -396,7 +403,7 @@ func LongToIpv4(ipLong uint32) string {
 	return ip.String()
 }
 
-func GetLocalIp() (ip string) {
+func GetLocalIp() (ip string, err error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return
@@ -409,6 +416,10 @@ func GetLocalIp() (ip string) {
 				break
 			}
 		}
+	}
+
+	if len(ip) == 0 {
+		err = errors.New("not found")
 	}
 	return
 }
