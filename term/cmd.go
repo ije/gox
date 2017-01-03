@@ -88,9 +88,7 @@ func (cmd *Command) Output(wr io.Writer, ignoreStderr bool) (err error) {
 
 	cmd.stdinPipe.Close()
 
-	if ignoreStderr {
-		cmd.stderrPipe.Close()
-	} else {
+	if !ignoreStderr {
 		buf := bytes.NewBuffer(nil)
 		_, err = io.Copy(buf, cmd.stderrPipe)
 		cmd.stderrPipe.Close()
@@ -100,12 +98,14 @@ func (cmd *Command) Output(wr io.Writer, ignoreStderr bool) (err error) {
 		if err != nil {
 			return
 		}
+	} else {
+		cmd.stderrPipe.Close()
 	}
 
 	if wr != nil {
 		_, err = io.Copy(wr, cmd.stdoutPipe)
-		cmd.stdoutPipe.Close()
 	}
+	cmd.stdoutPipe.Close()
 
 	return
 }
