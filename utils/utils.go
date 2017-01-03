@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"bytes"
 	"crypto/md5"
-	"crypto/sha1"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/hex"
@@ -19,9 +17,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-
-	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 )
 
 var (
@@ -121,19 +116,8 @@ func CopyFile(src, dst string) (n int64, err error) {
 }
 
 func HashString(hasher, input interface{}) string {
-	var h hash.Hash
-	switch v := hasher.(type) {
-	case hash.Hash:
-		h = v
-	case string:
-		switch v {
-		case "sha1":
-			h = sha1.New()
-		case "md5":
-			h = md5.New()
-		}
-	}
-	if h == nil {
+	h, ok := hasher.(hash.Hash)
+	if !ok {
 		h = md5.New()
 	}
 	switch v := input.(type) {
@@ -288,34 +272,6 @@ func ToNumber(v interface{}) (f float64, ok bool) {
 		ok = false
 	}
 	return
-}
-
-func Html2Text(reader io.Reader) (text string, err error) {
-	buf := bytes.NewBuffer(nil)
-	doc, err := html.Parse(reader)
-	if err != nil {
-		return
-	}
-	extractNode(doc, buf)
-	text = buf.String()
-	return
-}
-
-func extractNode(node *html.Node, buf *bytes.Buffer) {
-	if node.Type == html.TextNode {
-		data := strings.Trim(node.Data, "\r\n ")
-		if len(data) > 0 {
-			buf.WriteString(data)
-			switch node.Parent.DataAtom {
-			case atom.A, atom.Image, atom.Span, atom.Strong, atom.B, atom.I, atom.Em, atom.Small, atom.Big, atom.Ins, atom.Del, atom.Button:
-			default:
-				buf.WriteByte('\n')
-			}
-		}
-	}
-	for c := node.FirstChild; c != nil; c = c.NextSibling {
-		extractNode(c, buf)
-	}
 }
 
 // PathClean has the same function with path.Clean(strings.Replace(strings.TrimSpace(s), "\\", "/", -1)),
