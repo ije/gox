@@ -1,7 +1,6 @@
 package tunnel
 
 import (
-	"encoding/binary"
 	"io"
 	"net"
 	"time"
@@ -10,7 +9,6 @@ import (
 type Service struct {
 	Name       string
 	Port       uint16
-	ProxyPort  uint16
 	clientConn net.Conn
 }
 
@@ -58,9 +56,7 @@ func (s *Service) handleConn(conn net.Conn) {
 		return
 	}
 
-	buf := make([]byte, 2)
-	binary.LittleEndian.PutUint16(buf, s.ProxyPort)
-	err := sendData(s.clientConn, "hello", buf)
+	err := sendData(s.clientConn, "hello", []byte(s.Name))
 	if err != nil {
 		if err == io.EOF {
 			s.clientConn = nil

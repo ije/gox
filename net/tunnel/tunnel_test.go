@@ -8,17 +8,17 @@ import (
 var aesKey = "hello"
 
 func Test(t *testing.T) {
-	go http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	go http.ListenAndServe(":8088", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("server", "go.test")
 		w.Write([]byte("Hello World!"))
 	}))
 
 	serv := &Server{
-		Port:   6066,
+		Port:   8090,
 		AESKey: aesKey,
 	}
 
-	err := serv.AddService("http", 8088, 8080)
+	err := serv.AddService("http", 8888)
 	if err != nil {
 		log.Error(err)
 		return
@@ -32,9 +32,10 @@ func Test(t *testing.T) {
 	}(serv)
 
 	client := &Client{
-		Server: "127.0.0.1:6066",
-		AESKey: aesKey,
-		Name:   "http",
+		Server:      ":8090",
+		AESKey:      aesKey,
+		ServiceName: "http",
+		ServicePort: 8088,
 	}
 	err = client.Listen()
 	if err != nil {

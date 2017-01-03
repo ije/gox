@@ -1,15 +1,15 @@
 package tunnel
 
 import (
-	"encoding/binary"
 	"io"
 	"net"
 )
 
 type Client struct {
-	Name   string
-	Server string
-	AESKey string
+	Server      string
+	AESKey      string
+	ServiceName string
+	ServicePort uint16
 }
 
 func (client *Client) Listen() error {
@@ -33,7 +33,7 @@ func (client *Client) Listen() error {
 func (client *Client) handleConn(conn net.Conn) (err error) {
 	defer conn.Close()
 
-	err = sendData(conn, "hello", []byte(client.Name))
+	err = sendData(conn, "hello", []byte(client.ServiceName))
 	if err != nil {
 		return
 	}
@@ -44,17 +44,16 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 	}
 
 	if flag != "hello" {
-		err = errf("invalid handshake message: %s", flag)
+		err = errf("invalid handshake message")
 		return
 	}
 
-	if len(data) != 2 {
-		err = errf("invalid proxy port data")
+	if string(data) != client.ServiceName {
+		err = errf("invalid handshake message")
 		return
 	}
 
-	proxyPort := binary.LittleEndian.Uint16(data)
-	proxyConn, err := dial("tcp", strf(":%d", proxyPort), "")
+	proxyConn, err := dial("tcp", strf(":%d", client.ServicePort), "")
 	if err != nil {
 		return
 	}

@@ -13,15 +13,14 @@ type Server struct {
 	services map[string]*Service
 }
 
-func (s *Server) AddService(name string, port uint16, proxyPort uint16) error {
+func (s *Server) AddService(name string, port uint16) error {
 	if s.services == nil {
 		s.services = map[string]*Service{}
 	}
 
 	service := &Service{
-		Name:      name,
-		Port:      port,
-		ProxyPort: proxyPort,
+		Name: name,
+		Port: port,
 	}
 
 	s.services[name] = service
