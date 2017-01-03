@@ -124,10 +124,6 @@ func NewMail(from, to interface{}, subject, text, html string, attachments []Att
 		return
 	}
 
-	if len(text) == 0 {
-		text, _ = utils.Html2Text(bytes.NewReader([]byte(html)))
-	}
-
 	mail = &Mail{
 		from:        sender,
 		to:          recipients,
