@@ -39,14 +39,9 @@ func (client *Client) Listen() error {
 }
 
 func (client *Client) handleConn(conn net.Conn) (err error) {
-	defer func() {
-		if err != nil {
-			conn.Close()
-		}
-	}()
-
 	err = sendData(conn, "hello", []byte(client.ServiceName))
 	if err != nil {
+		conn.Close()
 		return
 	}
 
@@ -70,6 +65,7 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 	select {
 	case err = <-ec:
 		if err != nil {
+			conn.Close()
 			return
 		}
 	case <-time.After(time.Minute):
@@ -84,6 +80,7 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 func (client *Client) proxy(conn net.Conn) {
 	proxyConn, err := dial("tcp", strf(":%d", client.ServicePort), "")
 	if err != nil {
+		log.Warnf("x.tunnel.client: dail service(%s) failed: %v", client.ServiceName, err)
 		conn.Close()
 		return
 	}

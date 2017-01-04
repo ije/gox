@@ -18,7 +18,7 @@ func init() {
 	log.SetLevel(logger.L_INFO)
 }
 
-func SetLog(l *logger.Logger) {
+func SetLogger(l *logger.Logger) {
 	if l != nil {
 		log = l
 	}
