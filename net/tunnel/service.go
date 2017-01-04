@@ -30,10 +30,11 @@ func (s *Service) handleConn(conn net.Conn) {
 		return
 	}
 
-	err := sendData(clientConn, "start proxy", []byte(s.Name))
+	err := sendData(clientConn, "start-proxy", []byte(s.Name))
 	if err != nil {
-		clientConn.Close()
+		log.Warnf("x.tunnel service(%s): send data: %v", s.Name, err)
 		conn.Close()
+		clientConn.Close()
 		return
 	}
 

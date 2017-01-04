@@ -7,8 +7,10 @@ import (
 var aesKey = "hello"
 
 func Test(t *testing.T) {
+	log.SetLevelByName("debug")
+
 	serv := &Server{
-		Port:   8080,
+		Port:   8088,
 		AESKey: aesKey,
 	}
 
@@ -26,7 +28,7 @@ func Test(t *testing.T) {
 	}(serv)
 
 	client := &Client{
-		Server:      ":8080",
+		Server:      ":8088",
 		AESKey:      aesKey,
 		ServiceName: "ssh",
 		ServicePort: 22,

@@ -30,7 +30,7 @@ func (client *Client) Listen() error {
 
 		err = client.handleConn(conn)
 		if err != nil && err != io.EOF {
-			log.Warnf("x.tunnel.client: handle conn:", err)
+			log.Warnf("x.tunnel.client: handle connection:", err)
 			continue
 		}
 	}
@@ -59,7 +59,7 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 			return
 		}
 
-		if flag != "start proxy" || string(data) != client.ServiceName {
+		if flag != "start-proxy" || string(data) != client.ServiceName {
 			ec <- errf("invalid handshake message")
 			return
 		}

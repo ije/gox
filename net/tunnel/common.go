@@ -14,41 +14,33 @@ import (
 
 var log = &logger.Logger{}
 
+func init() {
+	log.SetLevel(logger.L_INFO)
+}
+
+func SetLog(l *logger.Logger) {
+	if l != nil {
+		log = l
+	}
+}
+
 func SetLogLevel(level string) {
 	log.SetLevelByName(level)
 }
 
-func SetLogQuite(quite bool) {
-	log.SetQuite(quite)
-}
-
-var XTunnelHead = []byte{'X', '-', 'T', 'U', 'N', 'N', 'E', 'L'}
-
-func errf(format string, a ...interface{}) error {
-	return fmt.Errorf(format, a...)
-}
-
-func strf(format string, a ...interface{}) string {
-	return fmt.Sprintf(format, a...)
-}
-
-func proxy(conn net.Conn, proxyConn net.Conn) {
-	defer conn.Close()
-	defer proxyConn.Close()
-
-	closeChan := make(chan struct{}, 1)
-
-	go func(conn net.Conn, proxyConn net.Conn, cc chan struct{}) {
-		io.Copy(proxyConn, conn)
-		cc <- struct{}{}
-	}(proxyConn, conn, closeChan)
-
-	go func(conn net.Conn, proxyConn net.Conn, cc chan struct{}) {
-		io.Copy(conn, proxyConn)
-		cc <- struct{}{}
-	}(proxyConn, conn, closeChan)
-
-	<-closeChan
+func dial(network string, address string, aes string) (conn net.Conn, err error) {
+	for i := 0; i < 3; i++ {
+		if len(aes) > 0 {
+			conn, err = aestcp.Dial(network, address, []byte(aes))
+		} else {
+			conn, err = net.Dial(network, address)
+		}
+		if err == nil {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	return
 }
 
 func listen(l net.Listener, connHandler func(net.Conn)) error {
@@ -78,20 +70,26 @@ func listen(l net.Listener, connHandler func(net.Conn)) error {
 	}
 }
 
-func dial(network string, address string, aes string) (conn net.Conn, err error) {
-	for i := 0; i < 10; i++ {
-		if len(aes) > 0 {
-			conn, err = aestcp.Dial(network, address, []byte(aes))
-		} else {
-			conn, err = net.Dial(network, address)
-		}
-		if err == nil {
-			return
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	return
+func proxy(conn net.Conn, proxyConn net.Conn) {
+	defer conn.Close()
+	defer proxyConn.Close()
+
+	closeChan := make(chan struct{}, 1)
+
+	go func(conn net.Conn, proxyConn net.Conn, cc chan struct{}) {
+		io.Copy(proxyConn, conn)
+		cc <- struct{}{}
+	}(proxyConn, conn, closeChan)
+
+	go func(conn net.Conn, proxyConn net.Conn, cc chan struct{}) {
+		io.Copy(conn, proxyConn)
+		cc <- struct{}{}
+	}(proxyConn, conn, closeChan)
+
+	<-closeChan
 }
+
+var XTunnelHead = []byte("X-TUNNEL")
 
 func sendData(conn net.Conn, flag string, data []byte) (err error) {
 	flagLen := len(flag)
@@ -164,4 +162,12 @@ func parseData(conn net.Conn) (flag string, data []byte, err error) {
 		}
 	}
 	return
+}
+
+func errf(format string, a ...interface{}) error {
+	return fmt.Errorf(format, a...)
+}
+
+func strf(format string, a ...interface{}) string {
+	return fmt.Sprintf(format, a...)
 }
