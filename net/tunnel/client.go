@@ -3,6 +3,7 @@ package tunnel
 import (
 	"io"
 	"net"
+	"time"
 )
 
 type Client struct {
@@ -13,25 +14,36 @@ type Client struct {
 }
 
 func (client *Client) Listen() error {
+	conn, err := dial("tcp", client.Server, client.AESKey)
+	if err != nil {
+		return err
+	}
+	conn.Close()
+
 	for {
 		conn, err := dial("tcp", client.Server, client.AESKey)
 		if err != nil {
-			return err
+			log.Warnf("x.tunnel.client: dial:", err)
+			time.Sleep(100 * time.Millisecond)
+			continue
 		}
 
 		err = client.handleConn(conn)
 		if err != nil && err != io.EOF {
-			return err
+			log.Warnf("x.tunnel.client: handle conn:", err)
+			continue
 		}
-
-		log.Debugf("server connection was colosed, try to reconnect to server(%s)...", client.Server)
 	}
 
 	return nil
 }
 
 func (client *Client) handleConn(conn net.Conn) (err error) {
-	defer conn.Close()
+	defer func() {
+		if err != nil {
+			conn.Close()
+		}
+	}()
 
 	err = sendData(conn, "hello", []byte(client.ServiceName))
 	if err != nil {
@@ -43,12 +55,7 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 		return
 	}
 
-	if flag != "hello" {
-		err = errf("invalid handshake message")
-		return
-	}
-
-	if string(data) != client.ServiceName {
+	if flag != "start proxy" || string(data) != client.ServiceName {
 		err = errf("invalid handshake message")
 		return
 	}
@@ -57,20 +64,7 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 	if err != nil {
 		return
 	}
-	defer proxyConn.Close()
 
-	closeChan := make(chan struct{}, 1)
-
-	go func(proxyConn net.Conn, conn net.Conn, Exit chan struct{}) {
-		io.Copy(proxyConn, conn)
-		closeChan <- struct{}{}
-	}(proxyConn, conn, closeChan)
-
-	go func(proxyConn net.Conn, conn net.Conn, Exit chan struct{}) {
-		io.Copy(conn, proxyConn)
-		closeChan <- struct{}{}
-	}(proxyConn, conn, closeChan)
-
-	<-closeChan
+	go proxy(conn, proxyConn)
 	return
 }

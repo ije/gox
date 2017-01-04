@@ -2,7 +2,6 @@ package tunnel
 
 import (
 	"net"
-	"time"
 
 	"github.com/ije/gox/net/aestcp"
 )
@@ -19,8 +18,9 @@ func (s *Server) AddService(name string, port uint16) error {
 	}
 
 	service := &Service{
-		Name: name,
-		Port: port,
+		Name:       name,
+		Port:       port,
+		clientConn: make(chan net.Conn, 1),
 	}
 
 	s.services[name] = service
@@ -32,31 +32,8 @@ func (s *Server) Serve() (err error) {
 	if err != nil {
 		return
 	}
-	defer l.Close()
 
-	var tempDelay time.Duration
-	for {
-		conn, e := l.Accept()
-		if e != nil {
-			if ne, ok := e.(net.Error); ok && ne.Temporary() {
-				if tempDelay == 0 {
-					tempDelay = time.Millisecond
-				} else {
-					tempDelay *= 2
-				}
-				if max := 1 * time.Second; tempDelay > max {
-					tempDelay = max
-				}
-				time.Sleep(tempDelay)
-				log.Errorf("asetcp: Accept error: %v; retrying in %v", e, tempDelay)
-				continue
-			}
-			return e
-		}
-		tempDelay = 0
-		go s.handleConn(conn)
-	}
-	return
+	return listen(l, s.handleConn)
 }
 
 func (s *Server) handleConn(conn net.Conn) {
@@ -83,6 +60,6 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	service.clientConn = conn
-	log.Debugf("server: service(%s) client connected", service.Name)
+	service.clientConn <- conn
+	log.Debugf("server: service(%s) client connection added", service.Name)
 }
