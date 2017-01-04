@@ -50,21 +50,43 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 		return
 	}
 
-	flag, data, err := parseData(conn)
-	if err != nil {
+	ec := make(chan error, 1)
+
+	go func() {
+		flag, data, err := parseData(conn)
+		if err != nil {
+			ec <- err
+			return
+		}
+
+		if flag != "start proxy" || string(data) != client.ServiceName {
+			ec <- errf("invalid handshake message")
+			return
+		}
+
+		ec <- nil
+	}()
+
+	select {
+	case err = <-ec:
+		if err != nil {
+			return
+		}
+	case <-time.After(time.Minute):
+		conn.Close()
 		return
 	}
 
-	if flag != "start proxy" || string(data) != client.ServiceName {
-		err = errf("invalid handshake message")
-		return
-	}
+	go client.proxy(conn)
+	return
+}
 
+func (client *Client) proxy(conn net.Conn) {
 	proxyConn, err := dial("tcp", strf(":%d", client.ServicePort), "")
 	if err != nil {
+		conn.Close()
 		return
 	}
 
-	go proxy(conn, proxyConn)
-	return
+	proxy(conn, proxyConn)
 }

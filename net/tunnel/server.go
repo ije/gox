@@ -37,6 +37,11 @@ func (s *Server) Serve() (err error) {
 }
 
 func (s *Server) handleConn(conn net.Conn) {
+	if len(s.services) == 0 {
+		conn.Close()
+		return
+	}
+
 	flag, data, err := parseData(conn)
 	if err != nil {
 		conn.Close()
@@ -48,18 +53,15 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	if s.services == nil {
-		conn.Close()
-		return
-	}
-
-	serviceName := string(data)
-	service, ok := s.services[serviceName]
+	service, ok := s.services[string(data)]
 	if !ok {
 		conn.Close()
 		return
 	}
 
+	if len(service.clientConn) > 0 {
+		<-service.clientConn
+	}
 	service.clientConn <- conn
-	log.Debugf("server: service(%s) client connection added", service.Name)
+	log.Debugf("x.tunnel server: service(%s) client connection added", service.Name)
 }
