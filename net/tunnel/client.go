@@ -24,7 +24,7 @@ func (client *Client) Listen() error {
 		conn, err := dial("tcp", client.Server, client.AESKey)
 		if err != nil {
 			log.Warnf("x.tunnel.client: dial:", err)
-			time.Sleep(100 * time.Millisecond)
+			time.Sleep(time.Second)
 			continue
 		}
 

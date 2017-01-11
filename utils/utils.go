@@ -96,7 +96,7 @@ func CopyFile(src, dst string) (n int64, err error) {
 	}
 
 	_, err = os.Lstat(dst)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && os.IsExist(err) {
 		return
 	}
 
