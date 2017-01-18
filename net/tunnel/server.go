@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"net"
+	"time"
 
 	"github.com/ije/gox/net/aestcp"
 )
@@ -42,18 +43,37 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	flag, data, err := parseData(conn)
-	if err != nil {
+	var serviceName string
+	ec := make(chan error, 1)
+
+	go func() {
+		flag, data, err := parseData(conn)
+		if err != nil {
+			ec <- err
+			return
+		}
+
+		if flag != "hello" {
+			ec <- errf("invalid handshake message")
+			return
+		}
+
+		serviceName = string(data)
+		ec <- nil
+	}()
+
+	select {
+	case err := <-ec:
+		if err != nil {
+			conn.Close()
+			return
+		}
+	case <-time.After(5 * time.Second):
 		conn.Close()
 		return
 	}
 
-	if flag != "hello" {
-		conn.Close()
-		return
-	}
-
-	service, ok := s.services[string(data)]
+	service, ok := s.services[serviceName]
 	if !ok {
 		conn.Close()
 		return

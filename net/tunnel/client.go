@@ -31,7 +31,6 @@ func (client *Client) Listen() error {
 		err = client.handleConn(conn)
 		if err != nil && err != io.EOF {
 			log.Warnf("x.tunnel.client: handle connection:", err)
-			continue
 		}
 	}
 
@@ -69,7 +68,6 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 			return
 		}
 	case <-time.After(30 * time.Second):
-		err = errf("time out")
 		conn.Close()
 		return
 	}
