@@ -25,7 +25,7 @@ func (s *Service) handleConn(conn net.Conn) {
 	var clientConn net.Conn
 	select {
 	case clientConn = <-s.clientConn:
-	case <-time.After(30 * time.Second):
+	case <-time.After(15 * time.Second):
 		conn.Close()
 		return
 	}

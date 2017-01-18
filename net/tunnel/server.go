@@ -64,5 +64,5 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 	service.clientConn <- conn
 
-	log.Debugf("x.tunnel server: service(%s) client connection added", service.Name)
+	log.Info("x.tunnel server: service(%s) client connection added", service.Name)
 }

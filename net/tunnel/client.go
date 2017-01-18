@@ -68,7 +68,8 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 			conn.Close()
 			return
 		}
-	case <-time.After(time.Minute):
+	case <-time.After(30 * time.Second):
+		err = errf("time out")
 		conn.Close()
 		return
 	}
