@@ -3,6 +3,7 @@ package debug
 import (
 	"encoding/json"
 	"fmt"
+	"go/build"
 	"io"
 	"os"
 	"os/exec"
@@ -248,7 +249,7 @@ func UseHttpProxy(proxyRules map[string]string) (err error) {
 	}
 
 	return AddProcess(&Process{
-		Sudo:   true,
+		Sudo:   build.Default.GOOS == "darwin",
 		Name:   "http-proxy",
 		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rules)),
 	})
