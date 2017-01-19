@@ -11,6 +11,7 @@ type Client struct {
 	AESKey      string
 	ServiceName string
 	ServicePort uint16
+	Connections int
 }
 
 func (client *Client) Listen() error {
@@ -20,6 +21,15 @@ func (client *Client) Listen() error {
 	}
 	conn.Close()
 
+	for i := 0; i < client.Connections-1; i++ {
+		go client.dial()
+	}
+
+	client.dial()
+	return nil
+}
+
+func (client *Client) dial() {
 	for {
 		conn, err := dial("tcp", client.Server, client.AESKey)
 		if err != nil {
@@ -33,8 +43,6 @@ func (client *Client) Listen() error {
 			log.Warnf("x.tunnel.client: handle connection:", err)
 		}
 	}
-
-	return nil
 }
 
 func (client *Client) handleConn(conn net.Conn) (err error) {
@@ -61,13 +69,14 @@ func (client *Client) handleConn(conn net.Conn) (err error) {
 		ec <- nil
 	}()
 
+	// connection will be closed when not be used in 10 minutes
 	select {
 	case err = <-ec:
 		if err != nil {
 			conn.Close()
 			return
 		}
-	case <-time.After(30 * time.Second):
+	case <-time.After(10 * time.Minute):
 		conn.Close()
 		return
 	}

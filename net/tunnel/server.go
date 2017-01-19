@@ -13,15 +13,19 @@ type Server struct {
 	services map[string]*Service
 }
 
-func (s *Server) AddService(name string, port uint16) error {
+func (s *Server) AddService(name string, port uint16, maxClientConnections int) error {
 	if s.services == nil {
 		s.services = map[string]*Service{}
 	}
 
+	if maxClientConnections <= 0 {
+		maxClientConnections = 1
+	}
+
 	service := &Service{
-		Name:       name,
-		Port:       port,
-		clientConn: make(chan net.Conn, 1),
+		Name:        name,
+		Port:        port,
+		clientConns: make(chan net.Conn, maxClientConnections),
 	}
 
 	s.services[name] = service
@@ -62,6 +66,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		ec <- nil
 	}()
 
+	// connection will be closed when can not get the right handshake message in 5 seconds
 	select {
 	case err := <-ec:
 		if err != nil {
@@ -79,10 +84,12 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	if len(service.clientConn) > 0 {
-		<-service.clientConn
+	l, c := len(service.clientConns), cap(service.clientConns)
+	if l == c {
+		(<-service.clientConns).Close()
+		l--
 	}
-	service.clientConn <- conn
 
-	log.Info("x.tunnel server: service(%s) client connection added", service.Name)
+	service.clientConns <- conn
+	log.Infof("x.tunnel server: service(%s) client connected (%d/%d)", service.Name, l+1, c)
 }
