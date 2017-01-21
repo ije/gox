@@ -263,7 +263,9 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	case L_DEBUG:
 		prefix = "[debug] "
 	}
-	prefix += l.prefix + " "
+	if len(l.prefix) > 0 {
+		prefix += l.prefix + " "
+	}
 
 	if l := len(format); l > 0 {
 		if format[l-1] != '\n' {
