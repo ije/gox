@@ -3,6 +3,7 @@ package tunnel
 import (
 	"io"
 	"net"
+	"strings"
 	"time"
 )
 
@@ -18,11 +19,13 @@ func (s *Service) Serve() (err error) {
 		return
 	}
 
-	go listen(l, s.handleConn)
+	go listen(l, func(conn net.Conn) {
+		s.handleConn(-1, conn)
+	})
 	return
 }
 
-func (s *Service) handleConn(conn net.Conn) {
+func (s *Service) handleConn(firstByte int, conn net.Conn) {
 	var clientConn net.Conn
 	select {
 	case clientConn = <-s.clientConns:
@@ -31,10 +34,24 @@ func (s *Service) handleConn(conn net.Conn) {
 		return
 	}
 
-	err := sendData(clientConn, "start-proxy", []byte(s.Name))
+	buf := make([]byte, 1)
+	if firstByte > -1 && firstByte < 256 {
+		buf[0] = byte(firstByte)
+	} else {
+		_, err := conn.Read(buf)
+		if err != nil {
+			conn.Close()
+			go func(connChan chan net.Conn, conn net.Conn) {
+				connChan <- conn
+			}(s.clientConns, clientConn)
+			return
+		}
+	}
+
+	_, err := clientConn.Write(buf)
 	if err != nil {
-		if err == io.EOF || err.Error() == "use of closed network connection" {
-			s.handleConn(conn)
+		if err == io.EOF || strings.HasSuffix(err.Error(), "use of closed network connection") { // EOF or net.OpError.Err is "use of closed network connection"
+			s.handleConn(int(buf[0]), conn)
 			return
 		}
 
@@ -44,6 +61,6 @@ func (s *Service) handleConn(conn net.Conn) {
 		return
 	}
 
-	log.Infof("x.tunnel server: service(%s) client connection activated (%d/%d)", s.Name, len(s.clientConns), cap(s.clientConns))
+	log.Debugf("service(%s) client connection activated (%d/%d)", s.Name, len(s.clientConns), cap(s.clientConns))
 	proxy(conn, clientConn)
 }

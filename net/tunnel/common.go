@@ -52,15 +52,15 @@ func listen(l net.Listener, connHandler func(net.Conn)) error {
 		if e != nil {
 			if ne, ok := e.(net.Error); ok && ne.Temporary() {
 				if tempDelay == 0 {
-					tempDelay = time.Millisecond
+					tempDelay = 5 * time.Millisecond
 				} else {
 					tempDelay *= 2
 				}
-				if max := 1 * time.Second; tempDelay > max {
-					tempDelay = max
+				if tempDelay > time.Second {
+					tempDelay = time.Second
 				}
 				time.Sleep(tempDelay)
-				log.Errorf("net: Accept error: %v; retrying in %v", e, tempDelay)
+				log.Warnf("net: Accept error: %v; retrying in %v", e, tempDelay)
 				continue
 			}
 			return e
@@ -91,9 +91,9 @@ func proxy(conn net.Conn, proxyConn net.Conn) {
 
 var XTunnelHead = []byte("X-TUNNEL")
 
-func sendData(conn net.Conn, flag string, data []byte) (err error) {
+func sendMessage(conn net.Conn, flag string, data []byte) (err error) {
 	flagLen := len(flag)
-	if flagLen > 200 {
+	if flagLen > 255 {
 		err = fmt.Errorf("invalid flag")
 		return
 	}
@@ -125,7 +125,7 @@ func sendData(conn net.Conn, flag string, data []byte) (err error) {
 	return
 }
 
-func parseData(conn net.Conn) (flag string, data []byte, err error) {
+func parseMessage(conn net.Conn) (flag string, data []byte, err error) {
 	buf := make([]byte, 8)
 	_, err = conn.Read(buf)
 	if err != nil {
@@ -141,7 +141,6 @@ func parseData(conn net.Conn) (flag string, data []byte, err error) {
 	if err != nil {
 		return
 	}
-
 	buf = make([]byte, int(buf[0]))
 	_, err = conn.Read(buf)
 	if err != nil {

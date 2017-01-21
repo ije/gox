@@ -47,11 +47,11 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	var serviceName string
+	serviceName := make(chan string, 1)
 	ec := make(chan error, 1)
 
 	go func() {
-		flag, data, err := parseData(conn)
+		flag, data, err := parseMessage(conn)
 		if err != nil {
 			ec <- err
 			return
@@ -62,34 +62,28 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
-		serviceName = string(data)
+		serviceName <- string(data)
 		ec <- nil
 	}()
 
-	// connection will be closed when can not get the right handshake message in 5 seconds
+	// connection will be closed when can not get the right handshake message in 3 seconds
 	select {
 	case err := <-ec:
 		if err != nil {
 			conn.Close()
 			return
 		}
-	case <-time.After(5 * time.Second):
+	case <-time.After(3 * time.Second):
 		conn.Close()
 		return
 	}
 
-	service, ok := s.services[serviceName]
+	service, ok := s.services[<-serviceName]
 	if !ok {
 		conn.Close()
 		return
 	}
 
-	l, c := len(service.clientConns), cap(service.clientConns)
-	if l == c {
-		(<-service.clientConns).Close()
-		l--
-	}
-
 	service.clientConns <- conn
-	log.Infof("x.tunnel server: service(%s) client connected (%d/%d)", service.Name, l+1, c)
+	log.Debugf("service(%s) client connected (%d/%d)", service.Name, len(service.clientConns), cap(service.clientConns))
 }
