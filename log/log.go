@@ -113,7 +113,7 @@ func (l *Logger) SetPrefix(prefix string) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	l.prefix = strings.TrimSpace(prefix) + " "
+	l.prefix = strings.TrimSpace(prefix)
 }
 
 func (l *Logger) SetBuffer(maxMemory int) {
@@ -263,7 +263,7 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	case L_DEBUG:
 		prefix = "[debug] "
 	}
-	prefix += l.prefix
+	prefix += l.prefix + " "
 
 	if l := len(format); l > 0 {
 		if format[l-1] != '\n' {
@@ -276,7 +276,7 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 
 	var i int
 	buf := make([]byte, 20+len(prefix)+len(msg))
-	wrdt := func(u int, w int, suffix byte) {
+	fd := func(u int, w int, suffix byte) {
 		i += w
 		for j := 1; w > 0; j++ {
 			buf[i-j] = byte(u%10) + '0'
@@ -286,15 +286,16 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 		i++
 		buf[i-1] = suffix
 	}
+
 	now := time.Now()
 	year, month, day := now.Date()
 	hour, min, sec := now.Clock()
-	wrdt(year, 4, '/')
-	wrdt(int(month), 2, '/')
-	wrdt(day, 2, ' ')
-	wrdt(hour, 2, ':')
-	wrdt(min, 2, ':')
-	wrdt(sec, 2, ' ')
+	fd(year, 4, '/')
+	fd(int(month), 2, '/')
+	fd(day, 2, ' ')
+	fd(hour, 2, ':')
+	fd(min, 2, ':')
+	fd(sec, 2, ' ')
 	copy(buf[20:], prefix)
 	copy(buf[20+len(prefix):], msg)
 
