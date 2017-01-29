@@ -1,7 +1,6 @@
 package tunnel
 
 import (
-	"io"
 	"net"
 	"time"
 )
@@ -14,86 +13,84 @@ type Client struct {
 	Connections int
 }
 
-func (client *Client) Listen() error {
-	conn, err := dial("tcp", client.Server, client.AESKey)
-	if err != nil {
-		return err
-	}
-	conn.Close()
-
+func (client *Client) Run() {
 	for i := 0; i < client.Connections-1; i++ {
 		go client.dial()
 	}
-
 	client.dial()
-	return nil
 }
 
 func (client *Client) dial() {
 	for {
 		conn, err := dial("tcp", client.Server, client.AESKey)
 		if err != nil {
-			log.Warn("client: dial:", err)
+			log.Warnf("service(%s): dial remote: %v", client.ServiceName, err)
 			time.Sleep(time.Second)
 			continue
 		}
 
-		err = client.handleConn(conn)
-		if err != nil && err != io.EOF {
-			log.Warn("client: handle connection:", err)
+		err = sendMessage(conn, "hello", []byte(client.ServiceName))
+		if err != nil {
+			conn.Close()
+			continue
 		}
+
+		buf := make([]byte, 1)
+		_, err = conn.Read(buf)
+		if err != nil || buf[0] != 1 {
+			conn.Close()
+			continue
+		}
+
+		client.heartBeat(conn)
 	}
 }
 
-func (client *Client) handleConn(conn net.Conn) (err error) {
-	err = sendMessage(conn, "hello", []byte(client.ServiceName))
-	if err != nil {
-		conn.Close()
-		return
-	}
+func (client *Client) heartBeat(conn net.Conn) {
+	for {
+		ec := make(chan error, 1)
+		msg := make(chan byte, 1)
 
-	ec := make(chan error, 1)
-	firstByteChan := make(chan byte, 1)
+		go func() {
+			_, err := conn.Write([]byte{'!'})
+			if err != nil {
+				ec <- err
+				return
+			}
 
-	go func() {
-		buf := make([]byte, 1)
-		_, err := conn.Read(buf)
-		if err != nil {
-			ec <- err
-			return
-		}
+			buf := make([]byte, 1)
+			_, err = conn.Read(buf)
+			if err != nil {
+				ec <- err
+				return
+			}
 
-		firstByteChan <- buf[0]
-		ec <- nil
-	}()
+			ec <- nil
+			msg <- buf[0]
+		}()
 
-	// connection will be closed when not be used in 30 minutes
-	select {
-	case err = <-ec:
-		if err != nil {
+		select {
+		case err := <-ec:
+			if err != nil {
+				conn.Close()
+				return
+			}
+		case <-time.After(3 * time.Second):
 			conn.Close()
 			return
 		}
-	case <-time.After(30 * time.Minute):
-		conn.Close()
-		return
-	}
 
-	go client.proxy(<-firstByteChan, conn)
-	return
+		if <-msg == 1 {
+			go client.proxy(conn)
+			return
+		}
+	}
 }
 
-func (client *Client) proxy(firstByte byte, conn net.Conn) {
+func (client *Client) proxy(conn net.Conn) {
 	proxyConn, err := dial("tcp", strf(":%d", client.ServicePort), "")
 	if err != nil {
-		log.Warnf("client: service(%s) dail failed: %v", client.ServiceName, err)
-		conn.Close()
-		return
-	}
-
-	_, err = proxyConn.Write([]byte{firstByte})
-	if err != nil {
-		log.Warnf("client: service(%s) write first byte failed: %v", client.ServiceName, err)
+		log.Warnf("service(%s): dial local failed: %v", client.ServiceName, err)
 		conn.Close()
 		return
 	}

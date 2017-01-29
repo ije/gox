@@ -8,10 +8,13 @@ import (
 	"time"
 )
 
-const httpPort = 8088
-const poxyHttpPort = 8080
-const tunnelPort = 8087
-const aesKey = "hello"
+const (
+	httpPort        = 8088
+	poxyHttpPort    = 8080
+	tunnelPort      = 8087
+	aesKey          = "hello"
+	maxConncectines = 16
+)
 
 func init() {
 	log.SetLevelByName("debug")
@@ -26,27 +29,12 @@ func init() {
 	go s.ListenAndServe()
 
 	go func() {
-		client := &Client{
-			Server:      fmt.Sprintf("127.0.0.1:%d", tunnelPort),
-			AESKey:      aesKey,
-			ServiceName: "http",
-			ServicePort: httpPort,
-			Connections: 8,
-		}
-
-		err := client.Listen()
-		if err != nil {
-			log.Error("client listen:", err)
-		}
-	}()
-
-	go func() {
 		serv := &Server{
 			Port:   tunnelPort,
 			AESKey: aesKey,
 		}
 
-		err := serv.AddService("http", poxyHttpPort, 8)
+		err := serv.AddService("http", poxyHttpPort, maxConncectines)
 		if err != nil {
 			log.Error(err)
 			return
@@ -57,23 +45,34 @@ func init() {
 			log.Error(err)
 		}
 	}()
+
+	go func() {
+		client := &Client{
+			Server:      fmt.Sprintf("127.0.0.1:%d", tunnelPort),
+			AESKey:      aesKey,
+			ServiceName: "http",
+			ServicePort: httpPort,
+			Connections: maxConncectines,
+		}
+
+		client.Run()
+	}()
 }
 
 func Test(t *testing.T) {
 	for i := 0; i < 1000; i++ {
-		time.Sleep(5 * time.Millisecond)
-		go func(i int) {
+		time.Sleep(time.Millisecond)
+		go func() {
 			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
 			if err != nil {
-				t.Log("http get:", err)
-				return
+				t.Fatal(err)
 			}
 
 			ret, _ := ioutil.ReadAll(r.Body)
 			if string(ret) != "Hello World" {
-				t.Fatal(ret)
+				t.Fatal(string(ret))
 			}
-		}(i)
+		}()
 	}
 
 	time.Sleep(time.Second)

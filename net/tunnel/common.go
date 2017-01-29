@@ -38,7 +38,7 @@ func dial(network string, address string, aes string) (conn net.Conn, err error)
 		if err == nil {
 			return
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	return
 }

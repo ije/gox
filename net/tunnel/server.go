@@ -25,6 +25,7 @@ func (s *Server) AddService(name string, port uint16, maxClientConnections int) 
 	service := &Service{
 		Name:        name,
 		Port:        port,
+		connQueue:   make(chan struct{}, maxClientConnections),
 		clientConns: make(chan net.Conn, maxClientConnections),
 	}
 
@@ -66,7 +67,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		ec <- nil
 	}()
 
-	// connection will be closed when can not get the right handshake message in 3 seconds
+	// connection will be closed when can not get the valid handshake message in 3 seconds
 	select {
 	case err := <-ec:
 		if err != nil {
@@ -84,6 +85,37 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	service.clientConns <- conn
-	log.Debugf("service(%s) client connected (%d/%d)", service.Name, len(service.clientConns), cap(service.clientConns))
+	_, err := conn.Write([]byte{1})
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	for {
+		buf := make([]byte, 1)
+		_, err = conn.Read(buf)
+		if err != nil || buf[0] != '!' {
+			conn.Close()
+			return
+		}
+
+		select {
+		case <-service.connQueue:
+			_, err := conn.Write([]byte{1})
+			if err != nil {
+				service.clientConns <- nil
+				conn.Close()
+			} else {
+				service.clientConns <- conn
+				log.Debugf("service(%s) client connection activated", service.Name)
+			}
+			return
+		case <-time.After(time.Second):
+			_, err := conn.Write([]byte{0})
+			if err != nil {
+				conn.Close()
+				return
+			}
+		}
+	}
 }
