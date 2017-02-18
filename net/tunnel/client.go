@@ -76,6 +76,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 				return
 			}
 		case <-time.After(3 * time.Second):
+			msg <- 0
 			conn.Close()
 			return
 		}
