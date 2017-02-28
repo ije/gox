@@ -27,6 +27,7 @@ type Process struct {
 	LinkedPkgs       []string
 	LinkedFiles      []string
 	LinkedPlatforms  []string
+	BeforeBuild      func(*Process) error
 	TermLinePrefix   string
 	TermColorManager func(b []byte) term.Color
 	watchingFiles    map[string]time.Time
@@ -82,6 +83,13 @@ func (process *Process) Build() (err error) {
 			}
 
 			goFile = process.GoPkg
+		}
+
+		if process.BeforeBuild != nil {
+			err = process.BeforeBuild(process)
+			if err != nil {
+				return fmt.Errorf("call BeforeBuild: %v", err)
+			}
 		}
 
 		if build.Default.GOOS == "windows" {
@@ -167,7 +175,7 @@ func (process *Process) Stop() (err error) {
 	return
 }
 
-func (process *Process) Listen() (err error) {
+func (process *Process) watch() (err error) {
 	if len(process.watchingFiles) == 0 {
 		process.watchingFiles = map[string]time.Time{}
 	}

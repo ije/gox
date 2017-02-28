@@ -171,13 +171,13 @@ func Run() {
 	}
 
 	for _, process := range processes {
-		err := process.Listen()
+		err := process.watch()
 		if err != nil {
-			Warn.Printf("Listen process '%s' failed: %v", process.Name, err)
+			Warn.Printf("watch process '%s' failed: %v", process.Name, err)
 			continue
 		}
 
-		Ok.Printf("The process %s has been listened", process.Name)
+		Ok.Printf("The process %s has been watched", process.Name)
 
 		err = process.Build()
 		if err != nil {
