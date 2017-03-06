@@ -12,12 +12,13 @@ import (
 )
 
 type SMTP struct {
-	addr string
-	auth smtp.Auth
+	DefaultFrom *netmail.Address
+	addr        string
+	auth        smtp.Auth
 }
 
-func New(host string, port uint16, username string, password string) *SMTP {
-	return &SMTP{fmt.Sprintf("%s:%d", host, port), smtp.PlainAuth("", username, password, host)}
+func New(host string, port uint16, username string, password string, defaultForm *netmail.Address) *SMTP {
+	return &SMTP{defaultForm, fmt.Sprintf("%s:%d", host, port), smtp.PlainAuth("", username, password, host)}
 }
 
 func (s *SMTP) Auth() (err error) {
@@ -54,6 +55,9 @@ func (s *SMTP) SendMail(mail *Mail, from interface{}, to interface{}, oneToOne b
 				sender = a
 			}
 		}
+	}
+	if sender == nil {
+		sender = s.DefaultFrom
 	}
 	if sender == nil {
 		err = ErrEmptySender
