@@ -17,8 +17,8 @@ type SMTP struct {
 	auth        smtp.Auth
 }
 
-func New(host string, port uint16, username string, password string, defaultForm *netmail.Address) *SMTP {
-	return &SMTP{defaultForm, fmt.Sprintf("%s:%d", host, port), smtp.PlainAuth("", username, password, host)}
+func New(host string, port uint16, username string, password string, defaultForm string) *SMTP {
+	return &SMTP{Address(defaultForm), fmt.Sprintf("%s:%d", host, port), smtp.PlainAuth("", username, password, host)}
 }
 
 func (s *SMTP) Auth() (err error) {
