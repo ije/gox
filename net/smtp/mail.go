@@ -11,6 +11,8 @@ import (
 	"net/mail"
 	"strings"
 	"time"
+
+	"github.com/ije/gox/valid"
 )
 
 var CRLF = []byte("\r\n")
@@ -80,16 +82,6 @@ func (mail *Mail) MakeBody(from *mail.Address, to AddressList) []byte {
 	return buf.Bytes()
 }
 
-type AddressList []*mail.Address
-
-func (list AddressList) String() string {
-	var ss []string
-	for _, addr := range list {
-		ss = append(ss, addr.String())
-	}
-	return strings.Join(ss, ", ")
-}
-
 func Address(a ...string) *mail.Address {
 	var name string
 	var address string
@@ -99,10 +91,25 @@ func Address(a ...string) *mail.Address {
 		name = a[0]
 		address = a[1]
 	}
+
+	if len(address) == 0 || !valid.IsEmail(address) {
+		return nil
+	}
+
 	return &mail.Address{
 		Name:    name,
 		Address: address,
 	}
+}
+
+type AddressList []*mail.Address
+
+func (list AddressList) String() string {
+	var ss []string
+	for _, addr := range list {
+		ss = append(ss, addr.String())
+	}
+	return strings.Join(ss, ", ")
 }
 
 func (list AddressList) List() []string {
