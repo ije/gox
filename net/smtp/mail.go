@@ -86,7 +86,10 @@ func Address(a ...string) *mail.Address {
 	var name string
 	var address string
 	if len(a) == 1 {
-		address = a[0]
+		addr, err := mail.ParseAddress(a[0])
+		if err == nil {
+			return addr
+		}
 	} else if len(a) > 1 {
 		name = a[0]
 		address = a[1]
