@@ -5,35 +5,21 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"math/rand"
-	"net/smtp"
+	"net/mail"
 	"strings"
 	"time"
-
-	"github.com/ije/gox/utils"
-	"github.com/ije/gox/valid"
 )
 
 var CRLF = []byte("\r\n")
 
-var (
-	ErrEmptySender     = errors.New("Empty Sender")
-	ErrEmptyRecipients = errors.New("Empty Recipients")
-	ErrEmptySubject    = errors.New("Empty Subject")
-	ErrEmptyContent    = errors.New("Empty Content")
-)
-
 type Mail struct {
-	to          Contacts
-	from        *Contact
-	subject     string
-	text        []byte
-	html        []byte
-	attachments []Attachment
-	*bytes.Buffer
+	Subject     string
+	PlainText   []byte
+	Html        []byte
+	Attachments []*Attachment
 }
 
 type Attachment struct {
@@ -42,199 +28,143 @@ type Attachment struct {
 	io.Reader
 }
 
-func NewMail(from, to interface{}, subject, text, html string, attachments []Attachment) (mail *Mail, err error) {
-	var sender *Contact
-	if from != nil {
-		switch a := from.(type) {
-		case string:
-			name, email := utils.SplitByLastByte(a, ' ')
-			if len(email) == 0 {
-				email = name
-				name = ""
-			}
-			if email = strings.TrimSpace(email); valid.IsEmail(email) {
-				sender = &Contact{Name: strings.TrimSpace(name), Email: email}
-			}
-		case Contact:
-			if a.Email = strings.TrimSpace(a.Email); valid.IsEmail(a.Email) {
-				sender = &a
-			}
-		case *Contact:
-			if a.Email = strings.TrimSpace(a.Email); valid.IsEmail(a.Email) {
-				sender = a
-			}
-		}
+func (mail *Mail) MakeBody(from *mail.Address, to AddressList) []byte {
+	buf := &buffer{bytes.NewBuffer(nil)}
+	buf.writeln("MIME-Version: 1.0")
+	buf.writeln("Date: ", time.Now().Format(time.RFC1123Z))
+	buf.writeln("Subject: ", encodeSubject(mail.Subject))
+	buf.writeln("From: ", from)
+	buf.writeln("To: ", to)
+	var boundary string
+	if len(mail.Attachments) > 0 {
+		boundary = boundaryGen()
+		buf.writeln("Content-Type: multipart/mixed; boundary=", boundary)
+		buf.writeln()
+		buf.writeln("--", boundary)
 	}
-	if sender == nil {
-		err = ErrEmptySender
-		return
+	if len(mail.PlainText) > 0 && len(mail.Html) > 0 {
+		cBoundary := boundaryGen()
+		buf.writeln("Content-Type: multipart/alternative; boundary=", cBoundary)
+		buf.writeln()
+		buf.writeln("--", cBoundary)
+		buf.writeTextBody(mail.PlainText)
+		buf.writeln()
+		buf.writeln()
+		buf.writeln("--", cBoundary)
+		buf.writeHtmlBody(mail.Html)
+		buf.writeln()
+		buf.writeln()
+		buf.writeln("--", cBoundary, "--")
+	} else if len(mail.PlainText) > 0 {
+		buf.writeTextBody(mail.PlainText)
+	} else if len(mail.Html) > 0 {
+		buf.writeHtmlBody(mail.Html)
 	}
-
-	var recipients Contacts
-	if to != nil {
-		switch a := to.(type) {
-		case string:
-			for _, s := range strings.Split(a, ",") {
-				name, email := utils.SplitByLastByte(strings.TrimSpace(s), ' ')
-				if len(email) == 0 {
-					email = name
-					name = ""
-				}
-				if email = strings.TrimSpace(email); valid.IsEmail(email) {
-					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
-				}
-			}
-		case []string:
-			for _, s := range a {
-				name, email := utils.SplitByLastByte(strings.TrimSpace(s), ' ')
-				if len(email) == 0 {
-					email = name
-					name = ""
-				}
-				if email = strings.TrimSpace(email); valid.IsEmail(email) {
-					recipients = append(recipients, Contact{Email: email, Name: strings.TrimSpace(name)})
-				}
-			}
-		case map[string]string:
-			b := map[string]string{}
-			for name, email := range a {
-				if email = strings.TrimSpace(email); valid.IsEmail(email) {
-					b[email] = strings.TrimSpace(name)
-				}
-			}
-			for email, name := range b {
-				recipients = append(recipients, Contact{Email: email, Name: name})
-			}
-		case Contacts:
-			recipients = a
-		}
-	}
-	if recipients == nil {
-		err = ErrEmptyRecipients
-		return
-	}
-
-	if len(subject) == 0 {
-		err = ErrEmptySubject
-		return
-	}
-
-	if len(text) == 0 && len(html) == 0 {
-		err = ErrEmptyContent
-		return
-	}
-
-	mail = &Mail{
-		from:        sender,
-		to:          recipients,
-		subject:     subject,
-		text:        []byte(text),
-		html:        []byte(html),
-		attachments: attachments,
-		Buffer:      bytes.NewBuffer(nil),
-	}
-	return
-}
-
-func (mail *Mail) Send(s *Smtp) error {
-	var boundary, boundary2 string
-	mail.writeln("MIME-Version: 1.0")
-	mail.writeln("Date: ", time.Now().Format(time.RFC1123Z))
-	mail.writeln("Subject: ", encodeSubject(mail.subject))
-	mail.writeln("From: ", mail.from)
-	mail.writeln("To: ", mail.to)
-	if len(mail.attachments) > 0 {
-		boundary = bhGen()
-		mail.writeln("Content-Type: multipart/mixed; boundary=", boundary)
-		mail.writeln()
-		mail.writeln("--", boundary)
-	}
-	if len(mail.text) > 0 && len(mail.html) > 0 {
-		boundary2 = bhGen()
-		mail.writeln("Content-Type: multipart/alternative; boundary=", boundary2)
-		mail.writeln()
-		mail.writeln("--", boundary2)
-		mail.writeTextBody()
-		mail.writeln()
-		mail.writeln()
-		mail.writeln("--", boundary2)
-		mail.writeHtmlBody()
-		mail.writeln()
-		mail.writeln()
-		mail.writeln("--", boundary2, "--")
-	} else if len(mail.text) > 0 {
-		mail.writeTextBody()
-	} else if len(mail.html) > 0 {
-		mail.writeHtmlBody()
-	}
-	if len(mail.attachments) > 0 {
-		for _, attchment := range mail.attachments {
-			mail.writeln()
-			mail.writeln()
-			mail.writeln("--", boundary)
-			mail.writeln("Content-Type: ", attchment.ContentType, "; name=", attchment.Name, ";")
-			mail.writeln("Content-Transfer-Encoding: base64")
-			mail.writeln("Content-Disposition: attachment; filename=", attchment.Name, ";")
-			mail.writeln()
-			encoder := base64.NewEncoder(base64.StdEncoding, mail)
+	if len(mail.Attachments) > 0 {
+		for _, attchment := range mail.Attachments {
+			buf.writeln()
+			buf.writeln()
+			buf.writeln("--", boundary)
+			buf.writeln("Content-Type: ", attchment.ContentType, "; name=", attchment.Name, ";")
+			buf.writeln("Content-Transfer-Encoding: base64")
+			buf.writeln("Content-Disposition: attachment; filename=", attchment.Name, ";")
+			buf.writeln()
+			encoder := base64.NewEncoder(base64.StdEncoding, buf)
 			io.Copy(encoder, attchment)
 			encoder.Close()
 		}
-		mail.writeln()
-		mail.writeln()
-		mail.writeln("--", boundary, "--")
+		buf.writeln()
+		buf.writeln()
+		buf.writeln("--", boundary, "--")
 	}
-	return smtp.SendMail(s.addr, s.auth, mail.from.Email, mail.to.EmailList(), mail.Bytes())
+	return buf.Bytes()
 }
 
-func (mail *Mail) writeTextBody() {
-	mail.writeln("Content-Type: text/plain; charset=UTF-8")
+type AddressList []*mail.Address
 
-	for _, c := range mail.text {
+func (list AddressList) String() string {
+	var ss []string
+	for _, addr := range list {
+		ss = append(ss, addr.String())
+	}
+	return strings.Join(ss, ", ")
+}
+
+func Address(a ...string) *mail.Address {
+	var name string
+	var address string
+	if len(a) == 1 {
+		address = a[0]
+	} else if len(a) > 1 {
+		name = a[0]
+		address = a[1]
+	}
+	return &mail.Address{
+		Name:    name,
+		Address: address,
+	}
+}
+
+func (list AddressList) List() []string {
+	var ss []string
+	for _, addr := range list {
+		ss = append(ss, addr.Address)
+	}
+	return ss
+}
+
+type buffer struct {
+	*bytes.Buffer
+}
+
+func (buf *buffer) writeln(s ...interface{}) {
+	fmt.Fprint(buf, s...)
+	buf.Write(CRLF)
+}
+
+func (buf *buffer) writeTextBody(text []byte) {
+	buf.writeln("Content-Type: text/plain; charset=UTF-8")
+
+	for _, c := range text {
 		if c > 127 {
-			mail.writeln("Content-Transfer-Encoding: base64")
-			mail.writeln()
-			mail.WriteString(base64.StdEncoding.EncodeToString(mail.text))
+			buf.writeln("Content-Transfer-Encoding: base64")
+			buf.writeln()
+			buf.WriteString(base64.StdEncoding.EncodeToString(text))
 			return
 		}
 	}
 
-	mail.writeln()
-	mail.Write(mail.text)
+	buf.writeln()
+	buf.Write(text)
 }
 
-func (mail *Mail) writeHtmlBody() {
-	mail.writeln("Content-Type: text/html; charset=UTF-8")
+func (buf *buffer) writeHtmlBody(html []byte) {
+	buf.writeln("Content-Type: text/html; charset=UTF-8")
 
-	for _, c := range mail.html {
+	for _, c := range html {
 		if c > 127 {
-			mail.writeln("Content-Transfer-Encoding: quoted-printable")
-			mail.writeln()
+			buf.writeln("Content-Transfer-Encoding: quoted-printable")
+			buf.writeln()
 			var c byte
-			for i, l := 0, len(mail.html); i < l; i++ {
-				if c = mail.html[i]; c > 127 {
-					fmt.Fprintf(mail, "=%X", c)
+			for i, l := 0, len(html); i < l; i++ {
+				if c = html[i]; c > 127 {
+					fmt.Fprintf(buf, "=%X", c)
 					i++
-					fmt.Fprintf(mail, "=%X", mail.html[i])
+					fmt.Fprintf(buf, "=%X", html[i])
 					i++
-					fmt.Fprintf(mail, "=%X", mail.html[i])
+					fmt.Fprintf(buf, "=%X", html[i])
 				} else if c == '=' {
-					mail.WriteString("=3D")
+					buf.WriteString("=3D")
 				} else {
-					mail.WriteByte(c)
+					buf.WriteByte(c)
 				}
 			}
 			return
 		}
 	}
 
-	mail.writeln()
-	mail.Write(mail.html)
-}
-
-func (mail *Mail) writeln(s ...interface{}) {
-	fmt.Fprint(mail, s...)
-	mail.Write(CRLF)
+	buf.writeln()
+	buf.Write(html)
 }
 
 func encodeSubject(subject string) string {
@@ -246,7 +176,7 @@ func encodeSubject(subject string) string {
 	return subject
 }
 
-func bhGen() string {
+func boundaryGen() string {
 	h := md5.New()
 	fmt.Fprint(h, time.Now().UnixNano(), rand.Int())
 	return fmt.Sprintf("--%s--", hex.EncodeToString(h.Sum(nil)))
