@@ -56,6 +56,7 @@ func dial() {
 func Test(t *testing.T) {
 	go listen()
 	time.Sleep(time.Second * 1)
+
 	dial()
 	time.Sleep(time.Second * 1)
 }
