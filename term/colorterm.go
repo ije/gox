@@ -49,7 +49,7 @@ func (term *ColorTerm) PrintTo(pipe io.Writer, s string) (n int, err error) {
 	defer term.lock.Unlock()
 
 	var i int
-	for _, line := range utils.ToLines(s) {
+	for _, line := range utils.ParseLines(s, false) {
 		if term.Color > 30 && term.Color < 38 {
 			i, err = fmt.Fprintf(pipe, "\x1b[0;%dm%s%s\x1b[0m\n", term.Color, term.LinePrefix, line)
 		} else {
@@ -73,7 +73,7 @@ func (term *ColorTerm) ColorPrintTo(pipe io.Writer, color Color, s string) (n in
 	defer term.lock.Unlock()
 
 	var i int
-	for _, line := range utils.ToLines(s) {
+	for _, line := range utils.ParseLines(s, false) {
 		if color > 30 && color < 38 {
 			_, err = fmt.Fprintf(pipe, "\x1b[0;%dm%s%s\x1b[0m\n", color, term.LinePrefix, line)
 		} else {
