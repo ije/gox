@@ -6,8 +6,8 @@ import (
 	"testing"
 )
 
-func TestToLines(t *testing.T) {
-	t.Log(strings.Join(ToLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n"), "\n"))
+func TestParseLines(t *testing.T) {
+	t.Log(strings.Join(ParseLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n", true), "|"))
 }
 
 func TestPathClean(t *testing.T) {
@@ -25,10 +25,18 @@ func TestPathClean(t *testing.T) {
 		"a/c/b/..",
 		"/../a/c",
 		"/../a/b/../././/c",
+		"/../a/../abc/123///ccc/../b/../././/c",
 		"  /a/c/b/  ",
 		"E:\\One\\Design\\Photos\\DSC_123.JPG",
 	} {
-		cp := PathClean(p, true)
-		t.Logf("%s -> %s (%v)", p, cp, cp == path.Clean(strings.Replace(strings.ToLower(strings.TrimSpace(p)), "\\", "/", -1)))
+		cp := CleanPath(p, true)
+		cp2 := path.Clean(strings.Replace(strings.ToLower(strings.TrimSpace(p)), "\\", "/", -1))
+		if cp != cp2 {
+			t.Fatalf("%s -> %s (%v), should be %s", p, cp, cp == cp2, cp2)
+		}
 	}
+}
+
+func TestGetLocalIps(t *testing.T) {
+	t.Log(GetLocalIps())
 }
