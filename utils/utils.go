@@ -10,10 +10,12 @@ import (
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"strconv"
 	"strings"
 	"syscall"
@@ -90,29 +92,105 @@ func Contains(items interface{}, item interface{}) (ok bool) {
 	}
 }
 
-func CopyFile(src, dst string) (n int64, err error) {
+func CopyFile(src string, dst string) (n int64, err error) {
 	if src == dst {
 		return
 	}
 
-	_, err = os.Lstat(dst)
-	if err != nil && os.IsExist(err) {
-		return
-	}
-
-	sf, err := os.Open(src)
+	in, err := os.Open(src)
 	if err != nil {
 		return
 	}
-	defer sf.Close()
+	defer in.Close()
 
-	df, err := os.Create(dst)
+	out, err := os.Create(dst)
 	if err != nil {
 		return
 	}
-	defer df.Close()
+	defer func() {
+		if e := out.Close(); e != nil {
+			err = e
+		}
+	}()
 
-	return io.Copy(df, sf)
+	n, err = io.Copy(out, in)
+	if err != nil {
+		return
+	}
+
+	err = out.Sync()
+	if err != nil {
+		return
+	}
+
+	si, err := os.Stat(src)
+	if err != nil {
+		return
+	}
+	err = os.Chmod(dst, si.Mode())
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func CopyDir(src string, dst string) (err error) {
+	src = CleanPath(src, false)
+	dst = CleanPath(dst, false)
+	if src == dst {
+		return
+	}
+
+	si, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if !si.IsDir() {
+		return fmt.Errorf("source is not a directory")
+	}
+
+	_, err = os.Stat(dst)
+	if err != nil && !os.IsNotExist(err) {
+		return
+	}
+	if err == nil {
+		return fmt.Errorf("destination already exists")
+	}
+
+	err = os.MkdirAll(dst, si.Mode())
+	if err != nil {
+		return
+	}
+
+	entries, err := ioutil.ReadDir(src)
+	if err != nil {
+		return
+	}
+
+	for _, entry := range entries {
+		srcPath := path.Join(src, entry.Name())
+		dstPath := path.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			err = CopyDir(srcPath, dstPath)
+			if err != nil {
+				return
+			}
+		} else {
+			// Skip symlinks.
+			if entry.Mode()&os.ModeSymlink != 0 {
+				continue
+			}
+
+			_, err = CopyFile(srcPath, dstPath)
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	return
 }
 
 func HashString(hasher, input interface{}) string {
@@ -211,17 +289,20 @@ func FileExt(filename string) (ext string) {
 	return
 }
 
-func ToLines(s string) (lines []string) {
+func ParseLines(s string, keepEmptyLine bool) (lines []string) {
 	for i, j, l := 0, 0, len(s); i < l; i++ {
 		switch s[i] {
 		case '\r', '\n':
-			if i == j {
-				lines = append(lines, "")
-			} else if i > j {
+			if i > j {
 				lines = append(lines, s[j:i])
+			} else if i == j && keepEmptyLine {
+				lines = append(lines, "")
 			}
 			j = i + 1
 			if s[i] == '\r' && i+1 < l && s[i+1] == '\n' {
+				if i == l-2 && keepEmptyLine {
+					lines = append(lines, "")
+				}
 				i++
 				j++
 			}
@@ -238,11 +319,10 @@ func ToNumber(v interface{}) (f float64, ok bool) {
 	ok = true
 	switch i := v.(type) {
 	case string:
-		i64, err := strconv.ParseInt(i, 10, 64)
+		var err error
+		f, err = strconv.ParseFloat(i, 64)
 		if err != nil {
 			ok = false
-		} else {
-			f = float64(i64)
 		}
 	case int:
 		f = float64(i)
@@ -321,6 +401,9 @@ func CleanPath(path string, toLower bool) string {
 			newpath[n] = '.'
 			n++
 		default:
+			if toLower && c >= 'A' && c <= 'Z' {
+				c += 32
+			}
 			newpath[n] = c
 			n++
 		}
@@ -359,7 +442,7 @@ func LongToIpv4(ipLong uint32) string {
 	return ip.String()
 }
 
-func GetLocalIp() (ip string, err error) {
+func GetLocalIps() (ips []string, err error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return
@@ -368,13 +451,12 @@ func GetLocalIp() (ip string, err error) {
 	for _, addr := range addrs {
 		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				ip = ipnet.IP.String()
-				break
+				ips = append(ips, ipnet.IP.String())
 			}
 		}
 	}
 
-	if len(ip) == 0 {
+	if len(ips) == 0 {
 		err = errors.New("not found")
 	}
 	return
