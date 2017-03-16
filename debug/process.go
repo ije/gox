@@ -142,7 +142,7 @@ func (process *Process) Start() (err error) {
 		if err != nil || len(output) == 0 {
 			return fmt.Errorf("find child process failed: %v", err)
 		}
-		for _, ps := range utils.ToLines(string(output)) {
+		for _, ps := range utils.ParseLines(string(output), false) {
 			if pid, err := strconv.Atoi(ps); err == nil && pid > cmd.Process.Pid {
 				process.Process, err = os.FindProcess(pid)
 				if err != nil {
