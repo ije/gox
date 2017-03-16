@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func Form(url string, method string, params map[string]string, files map[string]string) (resp *http.Response, err error) {
+func Form(url string, method string, header map[string]string, params map[string]string, files map[string]string) (resp *http.Response, err error) {
 	var buf *bytes.Buffer
 	var contentType string
 	var contentSize int
@@ -89,8 +89,12 @@ func Form(url string, method string, params map[string]string, files map[string]
 	if err != nil {
 		return
 	}
+
 	if len(contentType) > 0 {
 		req.Header.Set("Content-Type", contentType)
+	}
+	for key, value := range header {
+		req.Header.Set(key, value)
 	}
 	if contentSize > 0 {
 		req.ContentLength = int64(contentSize)
