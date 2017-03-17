@@ -180,7 +180,7 @@ func Run() {
 
 			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" -k whoami`, string(pw))).Output()
 			if err != nil || strings.TrimSpace(string(output)) != "root" {
-				readlineEx.Stderr().Write([]byte("Invalid root password!"))
+				fmt.Println("exit: invalid root password")
 				return
 			}
 
@@ -216,7 +216,7 @@ func Run() {
 		if err == readline.ErrInterrupt {
 			if len(line) == 0 {
 				for _, process := range processes {
-					Ok.Printf("Stopping %s...", process.Name)
+					Info.Printf("Stopping %s...", process.Name)
 					if err := process.Stop(); err != nil {
 						Warn.Printf("Stop process %s failed: %v", process.Name, err)
 					}
