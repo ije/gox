@@ -148,26 +148,46 @@ func Run() {
 		return
 	})
 
-	needSuPassword := false
+	var err error
+	readlineEx, err = readline.NewEx(&readline.Config{
+		Prompt:            "x$ ",
+		HistoryFile:       path.Join(tempDir, "gox.debug/readline_history"),
+		InterruptPrompt:   "^C",
+		EOFPrompt:         "exit",
+		HistorySearchFold: true,
+		FuncFilterInputRune: func(r rune) (rune, bool) {
+			if r == readline.CharCtrlZ {
+				return r, false
+			}
+			return r, true
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer readlineEx.Close()
+
+	Ok.Pipe = readlineEx.Stdout()
+	Info.Pipe = readlineEx.Stderr()
+	Warn.Pipe = readlineEx.Stderr()
+
 	for _, process := range processes {
 		if process.Sudo {
-			needSuPassword = true
-			break
-		}
-	}
-
-	if needSuPassword {
-		cl := term.NewCMDLine(nil)
-		cl.AddStep("Please enter the SU Password:", func(input string) interface{} {
-			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" -k whoami`, input)).Output()
-			if err != nil || strings.TrimSpace(string(output)) != "root" {
-				return false
+			pw, err := readlineEx.ReadPassword("please enter the root password: ")
+			if err != nil {
+				panic(err)
 			}
 
-			suPassword = input
-			return true
-		})
-		cl.Scan()
+			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" -k whoami`, string(pw))).Output()
+			if err != nil || strings.TrimSpace(string(output)) != "root" {
+				readlineEx.Stderr().Write([]byte("Invalid root password!"))
+				return
+			}
+
+			suPassword = string(pw)
+			fmt.Println(suPassword)
+			break
+		}
 	}
 
 	for _, process := range processes {
@@ -192,33 +212,24 @@ func Run() {
 		}
 	}
 
-	var err error
-	readlineEx, err = readline.NewEx(&readline.Config{
-		Prompt:      "x$ ",
-		HistoryFile: path.Join(tempDir, "gox.debug/readline_history"),
-	})
-	if err != nil {
-		panic(err)
-	}
-	defer readlineEx.Close()
-
-	Ok.Pipe = readlineEx.Stdout()
-	Warn.Pipe = readlineEx.Stderr()
-
-	utils.CatchExit(func() {
-		for _, process := range processes {
-			Info.Printf("Stopping %s...", process.Name)
-			if err := process.Stop(); err != nil {
-				Warn.Printf("Stop process %s failed: %v", process.Name, err)
-			}
-		}
-	})
-
 	for {
 		line, err := readlineEx.Readline()
-		if err != nil {
+		if err == readline.ErrInterrupt {
+			if len(line) == 0 {
+				for _, process := range processes {
+					Ok.Printf("Stopping %s...", process.Name)
+					if err := process.Stop(); err != nil {
+						Warn.Printf("Stop process %s failed: %v", process.Name, err)
+					}
+				}
+				break
+			} else {
+				continue
+			}
+		} else if err == io.EOF {
 			break
 		}
+
 		ls := strings.Split(line, " ")
 		cmd, args := ls[0], ls[1:]
 		if handler, ok := commands[cmd]; ok {
