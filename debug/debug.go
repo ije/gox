@@ -185,7 +185,6 @@ func Run() {
 			}
 
 			suPassword = string(pw)
-			fmt.Println(suPassword)
 			break
 		}
 	}
