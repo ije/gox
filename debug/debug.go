@@ -115,7 +115,7 @@ func Run() {
 
 	AddCommand("rebuild", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
-			if (len(args) == 0 || utils.Contains(args, process.Name)) && len(process.GoCode) > 0 {
+			if len(args) == 0 || utils.Contains(args, process.Name) && (len(process.GoCode) > 0 || len(process.GoFile) > 0 || len(process.GoPkg) > 0) {
 				Info.Printf("Stopping %s...", process.Name)
 				err := process.Stop()
 				if err != nil {
@@ -204,6 +204,15 @@ func Run() {
 
 	Ok.Pipe = readlineEx.Stdout()
 	Warn.Pipe = readlineEx.Stderr()
+
+	utils.CatchExit(func() {
+		for _, process := range processes {
+			Info.Printf("Stopping %s...", process.Name)
+			if err := process.Stop(); err != nil {
+				Warn.Printf("Stop process %s failed: %v", process.Name, err)
+			}
+		}
+	})
 
 	for {
 		line, err := readlineEx.Readline()
