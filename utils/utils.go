@@ -42,7 +42,7 @@ func CatchExit(callback func()) {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
 
 		for {
-			fmt.Println("exit signal catched:", <-c)
+			fmt.Println("^C")
 			for _, callback := range exitCallbacks {
 				callback()
 			}
