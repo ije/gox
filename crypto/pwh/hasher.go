@@ -6,6 +6,7 @@ import (
 	"crypto/sha512"
 	"math/rand"
 	"sync"
+	"time"
 )
 
 const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -40,7 +41,8 @@ func (pwh *PWHasher) Hash(word, salt string) string {
 	pwh.lock.RLock()
 	defer pwh.lock.RUnlock()
 
-	return string(pwh.hash(rand.Int()%pwh.complexity, word, salt))
+	seed := rand.New(rand.NewSource(time.Now().UTC().UnixNano())).Int63n(int64(pwh.complexity))
+	return string(pwh.hash(seed, word, salt))
 }
 
 func (pwh *PWHasher) Match(word, salt, hash string) bool {
@@ -48,7 +50,7 @@ func (pwh *PWHasher) Match(word, salt, hash string) bool {
 	defer pwh.lock.RUnlock()
 
 	for i := 0; i < pwh.complexity; i++ {
-		if bytes.Equal([]byte(hash), pwh.hash(i, word, salt)) {
+		if bytes.Equal([]byte(hash), pwh.hash(int64(i), word, salt)) {
 			return true
 		}
 	}
@@ -72,7 +74,7 @@ func (pwh *PWHasher) MatchX(word, salt, hash string, routines int) bool {
 				if matched == routines {
 					return
 				}
-				if bytes.Equal([]byte(hash), pwh.hash(s, word, salt)) {
+				if bytes.Equal([]byte(hash), pwh.hash(int64(s), word, salt)) {
 					matchc <- true
 					return
 				}
@@ -90,9 +92,9 @@ func (pwh *PWHasher) MatchX(word, salt, hash string, routines int) bool {
 	}
 }
 
-func (pwh *PWHasher) hash(r int, word, salt string) []byte {
+func (pwh *PWHasher) hash(seed int64, word, salt string) []byte {
 	codeTable := make([]byte, 64)
-	for i, p := 0, rand.New(rand.NewSource(int64(r))).Perm(64); i < 64; i++ {
+	for i, p := 0, rand.New(rand.NewSource(seed)).Perm(64); i < 64; i++ {
 		codeTable[i] = pwTable[p[i]]
 	}
 	hasher := hmac.New(sha512.New, pwh.publicSalt)

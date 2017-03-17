@@ -1,6 +1,6 @@
 package pwh
 
-var globalPWHasher *PWHasher
+var globalPWHasher = New("gox", 1024)
 
 func Config(publicSalt string, complexity int) {
 	globalPWHasher.Config(publicSalt, complexity)
@@ -16,8 +16,4 @@ func Match(word, salt, hash string) bool {
 
 func MatchX(word, salt, hash string, routines int) bool {
 	return globalPWHasher.MatchX(word, salt, hash, routines)
-}
-
-func init() {
-	globalPWHasher = New("gox", 1024)
 }
