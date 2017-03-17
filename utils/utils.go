@@ -42,7 +42,7 @@ func CatchExit(callback func()) {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
 
 		for {
-			fmt.Println("^C")
+			<-c
 			for _, callback := range exitCallbacks {
 				callback()
 			}
@@ -147,7 +147,7 @@ func CopyDir(src string, dst string) (err error) {
 		return err
 	}
 	if !si.IsDir() {
-		return fmt.Errorf("source is not a directory")
+		return errors.New("source is not a directory")
 	}
 
 	_, err = os.Stat(dst)
@@ -155,7 +155,7 @@ func CopyDir(src string, dst string) (err error) {
 		return
 	}
 	if err == nil {
-		return fmt.Errorf("destination already exists")
+		return errors.New("destination already exists")
 	}
 
 	err = os.MkdirAll(dst, si.Mode())
