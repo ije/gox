@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/binary"
 	"encoding/gob"
@@ -234,11 +235,26 @@ func GetHttpJSON(url string, v interface{}) (err error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		err = errors.New(resp.Status)
+		err = errors.New("http: " + resp.Status)
 		return
 	}
 
 	err = json.NewDecoder(resp.Body).Decode(&v)
+	return
+}
+
+func DecodeGobBytes(data []byte, v interface{}) (err error) {
+	return gob.NewDecoder(bytes.NewReader(data)).Decode(v)
+}
+
+func EncodeGobBytes(v interface{}) (data []byte, err error) {
+	var buf = bytes.NewBuffer(nil)
+	err = gob.NewEncoder(buf).Encode(v)
+	if err != nil {
+		return
+	}
+
+	data = buf.Bytes()
 	return
 }
 
