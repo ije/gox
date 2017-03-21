@@ -258,6 +258,16 @@ func EncodeGobBytes(v interface{}) (data []byte, err error) {
 	return
 }
 
+func MustEncodeGobBytes(v interface{}) []byte {
+	var buf = bytes.NewBuffer(nil)
+	err := gob.NewEncoder(buf).Encode(v)
+	if err != nil {
+		panic("gob: " + err.Error())
+	}
+
+	return buf.Bytes()
+}
+
 func UnmarshalGobFile(filename string, v interface{}) (err error) {
 	f, err := os.Open(filename)
 	if err != nil {
