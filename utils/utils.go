@@ -259,6 +259,10 @@ func EncodeGobBytes(v interface{}) (data []byte, err error) {
 }
 
 func MustEncodeGobBytes(v interface{}) []byte {
+	if v == nil {
+		return nil
+	}
+
 	var buf = bytes.NewBuffer(nil)
 	err := gob.NewEncoder(buf).Encode(v)
 	if err != nil {
