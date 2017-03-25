@@ -2,35 +2,41 @@ package tunnel
 
 import (
 	"net"
+	"sync"
 	"time"
 
 	"github.com/ije/gox/net/aestcp"
+	"github.com/ije/gox/utils"
 )
 
 type Server struct {
-	Port     uint16
-	AESKey   string
-	services map[string]*Service
+	Port    uint16
+	AESKey  string
+	lock    sync.RWMutex
+	tunnels map[string]*Tunnel
 }
 
-func (s *Server) AddService(name string, port uint16, maxClientConnections int) error {
-	if s.services == nil {
-		s.services = map[string]*Service{}
+func (s *Server) AddTunnel(name string, port uint16, maxClientConnections int) error {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if s.tunnels == nil {
+		s.tunnels = map[string]*Tunnel{}
 	}
 
 	if maxClientConnections <= 0 {
 		maxClientConnections = 1
 	}
 
-	service := &Service{
+	tunnel := &Tunnel{
 		Name:        name,
 		Port:        port,
 		connQueue:   make(chan struct{}, maxClientConnections),
 		clientConns: make(chan net.Conn, maxClientConnections),
 	}
 
-	s.services[name] = service
-	return service.Serve()
+	s.tunnels[name] = tunnel
+	return tunnel.Serve()
 }
 
 func (s *Server) Serve() (err error) {
@@ -42,13 +48,18 @@ func (s *Server) Serve() (err error) {
 	return listen(l, s.handleConn)
 }
 
-func (s *Server) handleConn(conn net.Conn) {
-	if len(s.services) == 0 {
-		conn.Close()
-		return
-	}
+func (s *Server) getTunnel(name string) (tunnel *Tunnel, ok bool) {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 
-	serviceName := make(chan string, 1)
+	if len(s.tunnels) > 0 {
+		tunnel, ok = s.tunnels[name]
+	}
+	return
+}
+
+func (s *Server) handleConn(conn net.Conn) {
+	tunnelName := make(chan string, 1)
 	ec := make(chan error, 1)
 
 	go func() {
@@ -58,12 +69,40 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
+		if flag == "register" {
+			var client Client
+			err := utils.DecodeGobBytes(data, &client)
+			if err == nil {
+				if t, ok := s.getTunnel(client.TunnelName); ok {
+					if t.Port == client.TunnelPort {
+						err = sendMessage(conn, "registered", nil)
+					} else {
+						err = sendMessage(conn, "error", []byte(strf("tunnel has be registered with port %d", t.Port)))
+					}
+				} else {
+					err = s.AddTunnel(client.TunnelName, client.TunnelPort, client.Connections)
+					if err != nil {
+						err = sendMessage(conn, "error", []byte(err.Error()))
+					} else {
+						err = sendMessage(conn, "registered", nil)
+					}
+				}
+			}
+
+			if err != nil {
+				ec <- err
+			} else {
+				ec <- errf("registered")
+			}
+			return
+		}
+
 		if flag != "hello" {
 			ec <- errf("invalid handshake message")
 			return
 		}
 
-		serviceName <- string(data)
+		tunnelName <- string(data)
 		ec <- nil
 	}()
 
@@ -79,7 +118,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	service, ok := s.services[<-serviceName]
+	tunnel, ok := s.getTunnel(<-tunnelName)
 	if !ok {
 		conn.Close()
 		return
@@ -100,14 +139,14 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 
 		select {
-		case <-service.connQueue:
+		case <-tunnel.connQueue:
 			_, err := conn.Write([]byte{1})
 			if err != nil {
-				service.clientConns <- nil
+				tunnel.clientConns <- nil
 				conn.Close()
 			} else {
-				service.clientConns <- conn
-				log.Debugf("service(%s) client connection activated", service.Name)
+				tunnel.clientConns <- conn
+				log.Debugf("tunnel(%s) client connection activated", tunnel.Name)
 			}
 			return
 		case <-time.After(time.Second):
