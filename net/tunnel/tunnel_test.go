@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	serverPort   = 8087
-	tunnelPort   = 8080
-	httpPort     = 8088
-	aesKey       = "hello"
-	conncectines = 16
+	httpPort        = 8088
+	poxyHttpPort    = 8080
+	tunnelPort      = 8087
+	aesKey          = "hello"
+	maxConncectines = 16
 )
 
 func init() {
@@ -30,11 +30,17 @@ func init() {
 
 	go func() {
 		serv := &Server{
-			Port:   serverPort,
-			AESKey: aesKey,
+			Port:     tunnelPort,
+			Password: aesKey,
 		}
 
-		err := serv.Serve()
+		err := serv.AddTunnel("http", poxyHttpPort, maxConncectines)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+
+		err = serv.Serve()
 		if err != nil {
 			log.Error(err)
 		}
@@ -42,12 +48,11 @@ func init() {
 
 	go func() {
 		client := &Client{
-			Server:      fmt.Sprintf("127.0.0.1:%d", serverPort),
-			AESKey:      aesKey,
-			TunnelName:  "http",
-			TunnelPort:  tunnelPort,
-			LocalPort:   httpPort,
-			Connections: conncectines,
+			Server:      fmt.Sprintf("127.0.0.1:%d", tunnelPort),
+			Password:    aesKey,
+			Tunnel:      "http",
+			ForwardPort: httpPort,
+			Connections: maxConncectines,
 		}
 
 		client.Run()
@@ -56,10 +61,10 @@ func init() {
 
 func Test(t *testing.T) {
 	time.Sleep(time.Second / 10)
-
 	for i := 0; i < 1000; i++ {
+		time.Sleep(time.Millisecond)
 		go func() {
-			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", tunnelPort))
+			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -69,6 +74,5 @@ func Test(t *testing.T) {
 				t.Fatal(string(ret))
 			}
 		}()
-		time.Sleep(time.Millisecond)
 	}
 }

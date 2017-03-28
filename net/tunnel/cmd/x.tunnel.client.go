@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/ije/gox/config"
 	"github.com/ije/gox/log"
@@ -12,7 +13,7 @@ import (
 
 func main() {
 	cfile := flag.String("c", "/etc/x.tunnel/client.conf", "x.tunnel client runtime configuration file")
-	debug := flag.Bool("d", false, "print mode message")
+	debug := flag.Bool("d", false, "debug mode")
 	flag.Parse()
 
 	cfg, err := config.New(*cfile)
@@ -27,38 +28,39 @@ func main() {
 	}
 	tunnel.SetLogger(logger)
 
-	tunnelServer := cfg.String("server", "")
-	tunnelServerPassword := cfg.String("password", "")
+	ts := cfg.String("server", "")
+	tsPassword := cfg.String("password", "")
 
-	var clients []*tunnel.Client
-	for key, section := range cfg.ExtendedSections() {
-		tunnelPort := section.Int("tunnel-port", 0)
-		localPort := section.Int("local-port", 0)
-		if tunnelPort > 0 && tunnelPort < 1<<16 && localPort > 0 && localPort < 1<<16 && strings.HasPrefix(key, "tunnel:") {
-			client := &tunnel.Client{
-				Server:      tunnelServer,
-				AESKey:      tunnelServerPassword,
-				TunnelName:  strings.TrimPrefix(key, "tunnel:"),
-				TunnelPort:  uint16(tunnelPort),
-				LocalPort:   uint16(localPort),
-				Connections: section.Int("connections", 1),
-			}
-			clients = append(clients, client)
-			logger.Debugf("tunnel '%s' added", client.TunnelName)
+	var clients int
+	for name, section := range cfg.ExtendedSections() {
+		port := section.Int("forward-port", 0)
+		if port > 0 && port < 1<<16 && strings.HasPrefix(name, "tunnel:") {
+			name = strings.TrimPrefix(name, "tunnel:")
+
+			go func(server string, password string, name string, port uint16) {
+				for {
+					tc := &tunnel.Client{
+						Server:      server,
+						Password:    password,
+						Tunnel:      name,
+						ForwardPort: port,
+						Connections: section.Int("connections", 1),
+					}
+					tc.Run()
+
+					time.Sleep(time.Second)
+				}
+			}(ts, tsPassword, name, uint16(port))
+
+			logger.Infof("tunnel %s added", name)
+			clients++
 		}
 	}
 
-	cl := len(clients)
-	if cl == 0 {
-		logger.Infof("no x.tunnel client config")
-		return
-	}
-
-	for i, client := range clients {
-		if i == cl-1 {
-			client.Run()
-		} else {
-			go client.Run()
+	if clients > 0 {
+		logger.Infof("x.tunnel client started")
+		for {
+			time.Sleep(time.Hour)
 		}
 	}
 }

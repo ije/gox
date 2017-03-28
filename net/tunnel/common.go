@@ -28,7 +28,11 @@ func SetLogLevel(level string) {
 
 func dial(network string, address string, aes string) (conn net.Conn, err error) {
 	for i := 0; i < 10; i++ {
-		conn, err = aestcp.Dial(network, address, []byte(aes))
+		if len(aes) > 0 {
+			conn, err = aestcp.Dial(network, address, []byte(aes))
+		} else {
+			conn, err = net.Dial(network, address)
+		}
 		if err == nil {
 			return
 		}

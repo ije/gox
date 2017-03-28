@@ -3,82 +3,33 @@ package tunnel
 import (
 	"net"
 	"time"
-
-	"github.com/ije/gox/utils"
 )
 
 type Client struct {
 	Server      string
-	AESKey      string
-	TunnelName  string
-	TunnelPort  uint16
-	LocalPort   uint16
+	Password    string
+	Tunnel      string
+	ForwardPort uint16
 	Connections int
-	registered  bool
 }
 
-func (client *Client) Run() (err error) {
-	err = client.register()
-	if err != nil {
-		return
-	}
-
+func (client *Client) Run() {
 	for i := 0; i < client.Connections-1; i++ {
-		go client.link()
+		go client.dial()
 	}
-	client.link()
-	return
+	client.dial()
 }
 
-func (client *Client) register() (err error) {
-	if client.registered {
-		return
-	}
-
-	conn, err := dial("tcp", client.Server, client.AESKey)
-	if err != nil {
-		log.Warnf("tunnel(%s): dial remote: %v", client.TunnelName, err)
-		return
-	}
-	defer conn.Close()
-
-	err = sendMessage(conn, "register", []byte(utils.MustEncodeGobBytes(client)))
-	if err != nil {
-		log.Warnf("tunnel(%s): %v", client.TunnelName, err)
-		return
-	}
-
-	flag, data, err := parseMessage(conn)
-	if err != nil {
-		log.Warnf("tunnel(%s): %v", client.TunnelName, err)
-		return
-	}
-
-	if flag == "error" {
-		err = errf(string(data))
-	} else if flag != "registered" {
-		err = errf("invalid flag")
-	}
-
-	if err != nil {
-		log.Warnf("tunnel(%s): register tunnel: %v", client.TunnelName, err)
-		return
-	}
-
-	client.registered = true
-	return
-}
-
-func (client *Client) link() {
+func (client *Client) dial() {
 	for {
-		conn, err := dial("tcp", client.Server, client.AESKey)
+		conn, err := dial("tcp", client.Server, client.Password)
 		if err != nil {
-			log.Warnf("tunnel(%s): dial remote: %v", client.TunnelName, err)
+			log.Warnf("tunnel(%s): dial remote: %v", client.Tunnel, err)
 			time.Sleep(time.Second)
 			continue
 		}
 
-		err = sendMessage(conn, "hello", []byte(client.TunnelName))
+		err = sendMessage(conn, "hello", []byte(client.Tunnel))
 		if err != nil {
 			conn.Close()
 			continue
@@ -98,7 +49,7 @@ func (client *Client) link() {
 func (client *Client) heartBeat(conn net.Conn) {
 	for {
 		ec := make(chan error, 1)
-		ok := make(chan byte, 1)
+		msg := make(chan byte, 1)
 
 		go func() {
 			_, err := conn.Write([]byte{'!'})
@@ -115,7 +66,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 			}
 
 			ec <- nil
-			ok <- buf[0]
+			msg <- buf[0]
 		}()
 
 		select {
@@ -125,26 +76,25 @@ func (client *Client) heartBeat(conn net.Conn) {
 				return
 			}
 		case <-time.After(3 * time.Second):
-			// heartbeat timeout
+			msg <- 0
 			conn.Close()
 			return
 		}
 
-		// start forward
-		if <-ok == 1 {
-			go client.forward(conn)
+		if <-msg == 1 {
+			go client.proxy(conn)
 			return
 		}
 	}
 }
 
-func (client *Client) forward(conn net.Conn) {
-	localConn, err := dial("tcp", strf(":%d", client.LocalPort), "")
+func (client *Client) proxy(conn net.Conn) {
+	proxyConn, err := dial("tcp", strf(":%d", client.ForwardPort), "")
 	if err != nil {
-		log.Warnf("tunnel(%s): dial local: %v", client.TunnelName, err)
+		log.Warnf("tunnel(%s): dial local failed: %v", client.Tunnel, err)
 		conn.Close()
 		return
 	}
 
-	proxy(conn, localConn)
+	proxy(conn, proxyConn)
 }

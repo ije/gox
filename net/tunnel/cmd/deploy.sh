@@ -24,6 +24,9 @@ if [ "$ok" == "yes" ]; then
 	supervisor="yes"
 fi
 
+echo "--- cleaning..."
+rm -rf $GOPATH/pkg
+
 export GOOS=linux
 export GOARCH=amd64
 
@@ -38,9 +41,7 @@ fi
 
 echo "--- restart x.tunnel.$target..."
 ssh -p $hostSSHPort root@$host << EOF
-	if [ "$supervisor" == "no" ]; then
-		supervisorctl stop x.tunnel.$target
-	fi
+	supervisorctl stop x.tunnel.$target
 	mv -f /usr/local/bin/_x.tunnel.$target /usr/local/bin/x.tunnel.$target
 	chmod +x /usr/local/bin/x.tunnel.$target
 	if [ "$supervisor" == "yes" ]; then
