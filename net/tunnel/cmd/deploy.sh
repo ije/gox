@@ -24,9 +24,6 @@ if [ "$ok" == "yes" ]; then
 	supervisor="yes"
 fi
 
-echo "--- cleaning..."
-rm -rf $GOPATH/pkg
-
 export GOOS=linux
 export GOARCH=amd64
 
