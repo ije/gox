@@ -1,5 +1,11 @@
 package debug
 
+import (
+	"encoding/json"
+	"fmt"
+	"go/build"
+)
+
 const HTTP_PROXY_SERVER_SRC = `
 package main
 
@@ -122,3 +128,20 @@ func init() {
 	}
 }
 `
+
+func UseHttpProxy(proxyRules map[string]string) (err error) {
+	if len(proxyRules) == 0 {
+		return
+	}
+
+	rules, err := json.Marshal(proxyRules)
+	if err != nil {
+		return
+	}
+
+	return AddProcess(&Process{
+		Sudo:   build.Default.GOOS == "darwin",
+		Name:   "http-proxy",
+		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rules)),
+	})
+}

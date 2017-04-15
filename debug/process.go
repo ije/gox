@@ -18,9 +18,9 @@ import (
 type Process struct {
 	Sudo             bool
 	Name             string
-	Status           string
 	Path             string
 	Args             []string
+	BuildArgs        []string
 	GoCode           string
 	GoFile           string
 	GoPkg            string
@@ -30,6 +30,8 @@ type Process struct {
 	BeforeBuild      func(*Process) error
 	TermLinePrefix   string
 	TermColorManager func(b []byte) term.Color
+	status           string
+	startTime        time.Time
 	watchingFiles    map[string]time.Time
 	*os.Process
 }
@@ -48,17 +50,20 @@ func (process *Process) ProcessName() (processName string) {
 }
 
 func (process *Process) Build() (err error) {
-	if process.Status == "running" {
+	if process.status == "running" {
 		process.Stop()
 	}
 
-	process.Status = "building"
+	process.status = "building"
 	defer func() {
-		process.Status = "stop"
+		process.status = "stop"
 	}()
 
 	if len(process.GoCode) > 0 || len(process.GoFile) > 0 || len(process.GoPkg) > 0 {
 		exePath := path.Join(tempDir, "gox.debug", process.ProcessName())
+		if build.Default.GOOS == "windows" {
+			exePath += ".exe"
+		}
 
 		var goFile string
 		if len(process.GoCode) > 0 {
@@ -92,10 +97,12 @@ func (process *Process) Build() (err error) {
 			}
 		}
 
-		if build.Default.GOOS == "windows" {
-			exePath += ".exe"
+		execArgs := []string{"build"}
+		if len(process.BuildArgs) > 0 {
+			execArgs = append(execArgs, process.BuildArgs...)
 		}
-		output, err := exec.Command("go", "build", "-o", exePath, goFile).CombinedOutput()
+		execArgs = append(execArgs, "-o", exePath, goFile)
+		output, err := exec.Command("go", execArgs...).CombinedOutput()
 		if err != nil || len(output) > 0 {
 			return fmt.Errorf("build process '%s' failed: %v: %s", process.Name, err, string(output))
 		}
@@ -126,14 +133,16 @@ func (process *Process) Start() (err error) {
 
 	runErr := make(chan error)
 	go func() {
-		process.Status = "running"
+		process.status = "running"
 		runErr <- cmd.Run()
-		process.Status = "stop"
+		process.status = "stop"
 	}()
 
 	select {
 	case err = <-runErr:
-		return
+		if err != nil {
+			return
+		}
 	case <-time.After(time.Second):
 	}
 
@@ -143,22 +152,36 @@ func (process *Process) Start() (err error) {
 			return fmt.Errorf("find child process failed: %v", err)
 		}
 		for _, ps := range utils.ParseLines(string(output), false) {
-			if pid, err := strconv.Atoi(ps); err == nil && pid > cmd.Process.Pid {
+			if pid, err := strconv.Atoi(ps); err == nil {
 				process.Process, err = os.FindProcess(pid)
 				if err != nil {
 					return fmt.Errorf("find child process failed: %v", err)
 				}
+
+				go func(pid int) {
+					process.status = "running"
+					for {
+						time.Sleep(time.Second / 10)
+						if _, err := os.FindProcess(pid); err != nil {
+							break
+						}
+					}
+					process.status = "stop"
+				}(pid)
+
 				break
 			}
 		}
 	} else {
 		process.Process = cmd.Process
 	}
+
+	process.startTime = time.Now().Add(-time.Second)
 	return
 }
 
 func (process *Process) Stop() (err error) {
-	if process.Status == "running" && process.Process != nil {
+	if process.status == "running" && process.Process != nil {
 		if process.Sudo && build.Default.GOOS != "windows" {
 			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" kill %d`, suPassword, process.Pid)).CombinedOutput()
 			if err == nil && len(output) > 0 {
@@ -169,7 +192,7 @@ func (process *Process) Stop() (err error) {
 		}
 		if err == nil {
 			process.Process = nil
-			process.Status = "stop"
+			process.status = "stop"
 		}
 	}
 	return
@@ -271,7 +294,7 @@ func AddProcess(process *Process) error {
 		return fmt.Errorf("missing process path")
 	}
 
-	process.Status = "stop"
+	process.status = "stop"
 	processes = append(processes, process)
 	return nil
 }

@@ -1,14 +1,13 @@
 package debug
 
 import (
-	"encoding/json"
 	"fmt"
-	"go/build"
 	"io"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/chzyer/readline"
 	"github.com/ije/gox/term"
@@ -148,6 +147,18 @@ func Run() {
 		return
 	})
 
+	AddCommand("status", func(args ...string) (ret string, err error) {
+		now := time.Now()
+		for _, process := range processes {
+			if process.Process != nil {
+				fmt.Fprintf(readlineEx.Stderr(), "%-30s %-10s pid %d, uptime %v\n", process.Name, strings.ToUpper(process.status), process.Pid, now.Sub(process.startTime))
+			} else {
+				fmt.Fprintf(readlineEx.Stderr(), "%-30s %-10s", process.Name, strings.ToUpper(process.status))
+			}
+		}
+		return
+	})
+
 	var err error
 	readlineEx, err = readline.NewEx(&readline.Config{
 		Prompt:            "x$ ",
@@ -171,8 +182,16 @@ func Run() {
 	Info.Pipe = readlineEx.Stderr()
 	Warn.Pipe = readlineEx.Stderr()
 
+	var needSuPassword bool
 	for _, process := range processes {
 		if process.Sudo {
+			needSuPassword = true
+			break
+		}
+	}
+	if needSuPassword {
+		var password string
+		for i := 0; i < 3; i++ {
 			pw, err := readlineEx.ReadPassword("please enter the root password: ")
 			if err != nil {
 				panic(err)
@@ -180,13 +199,19 @@ func Run() {
 
 			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" -k whoami`, string(pw))).Output()
 			if err != nil || strings.TrimSpace(string(output)) != "root" {
-				fmt.Println("exit: invalid root password")
-				return
+				fmt.Println("invalid root password")
+				continue
 			}
 
-			suPassword = string(pw)
+			password = string(pw)
 			break
 		}
+
+		if len(password) == 0 {
+			return
+		}
+
+		suPassword = password
 	}
 
 	for _, process := range processes {
@@ -195,8 +220,6 @@ func Run() {
 			Warn.Printf("watch process '%s' failed: %v", process.Name, err)
 			continue
 		}
-
-		Ok.Printf("The process %s has been watched", process.Name)
 
 		err = process.Build()
 		if err != nil {
@@ -209,6 +232,8 @@ func Run() {
 			Warn.Printf("Start process '%s' failed: %v", process.Name, err)
 			continue
 		}
+
+		Ok.Printf("The process %s has been watched", process.Name)
 	}
 
 	for {
@@ -229,7 +254,7 @@ func Run() {
 			break
 		}
 
-		ls := strings.Split(line, " ")
+		ls := strings.Split(strings.TrimSpace(line), " ")
 		cmd, args := ls[0], ls[1:]
 		if handler, ok := commands[cmd]; ok {
 			if ret, err := handler(args...); err != nil {
@@ -255,23 +280,6 @@ func AddCommand(names string, handler func(args ...string) (ret string, err erro
 			commands[name] = handler
 		}
 	}
-}
-
-func UseHttpProxy(proxyRules map[string]string) (err error) {
-	if len(proxyRules) == 0 {
-		return
-	}
-
-	rules, err := json.Marshal(proxyRules)
-	if err != nil {
-		return
-	}
-
-	return AddProcess(&Process{
-		Sudo:   build.Default.GOOS == "darwin",
-		Name:   "http-proxy",
-		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rules)),
-	})
 }
 
 func init() {
