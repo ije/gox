@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	exitWaiting   bool
+	sigCatching   bool
 	exitCallbacks []func()
 )
 
@@ -32,22 +32,20 @@ func CatchExit(callback func()) {
 	}
 	exitCallbacks = append(exitCallbacks, callback)
 
-	if exitWaiting {
+	if sigCatching {
 		return
 	}
-	exitWaiting = true
+	sigCatching = true
 
 	go func() {
 		c := make(chan os.Signal, 1)
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
 
-		for {
-			<-c
-			for _, callback := range exitCallbacks {
-				callback()
-			}
-			os.Exit(1)
+		<-c
+		for _, callback := range exitCallbacks {
+			callback()
 		}
+		os.Exit(1)
 	}()
 }
 
