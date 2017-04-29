@@ -23,20 +23,10 @@ func (session *Session) Bool(key string) (value bool) {
 	if v, ok := session.Values[key]; ok {
 		if b, ok := v.(bool); ok {
 			value = b
-		} else if f64, ok := utils.ToNumber(v); ok && f64 == 1 {
+		} else if f64, ok := utils.ToNumber(v); ok && f64 != 0 {
 			value = true
-		} else if s, ok := v.(string); ok && strings.ToLower(s) == "true" || s == "1" {
+		} else if s, ok := v.(string); ok && strings.ToLower(s) != "false" && s != "0" {
 			value = true
-		}
-	}
-	return
-}
-
-func (session *Session) Int(key string) (value int) {
-	if v, ok := session.Values[key]; ok {
-		f64, ok := utils.ToNumber(v)
-		if ok {
-			value = int(f64)
 		}
 	}
 	return
@@ -51,6 +41,17 @@ func (session *Session) String(key string) (value string) {
 		}
 	}
 	return
+}
+
+func (session *Session) Number(key string) (value float64) {
+	if v, ok := session.Values[key]; ok {
+		value, ok = utils.ToNumber(v)
+	}
+	return
+}
+
+func (session *Session) Int(key string) (value int) {
+	return int(session.Number(key))
 }
 
 func (session *Session) Set(key string, value interface{}) {
