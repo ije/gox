@@ -48,6 +48,10 @@ func New(url string) (*Logger, error) {
 }
 
 func (l *Logger) parseURL(url string) (err error) {
+	if len(url) == 0 {
+		return
+	}
+
 	i := strings.IndexByte(url, ':')
 	if i == -1 {
 		return fmt.Errorf("Incorrect URL '%s'", url)
