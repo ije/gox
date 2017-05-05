@@ -49,6 +49,7 @@ func ParseBytes(s string) (int64, error) {
 	return 0, strconv.ErrSyntax
 }
 
+// todo: add parse like '1d12h6m3s'
 func ParseDuration(s string) (time.Duration, error) {
 	if sl := len(s); sl > 0 {
 		t := time.Second
@@ -84,13 +85,16 @@ func ParseDuration(s string) (time.Duration, error) {
 		if sl == 0 {
 			return 0, strconv.ErrSyntax
 		}
-		i, err := strconv.ParseInt(s[:sl], 10, 64)
+
+		f, err := strconv.ParseFloat(s[:sl], 64)
 		if err != nil {
 			return 0, strconv.ErrSyntax
 		}
-		t *= time.Duration(i)
+
+		t = time.Duration(float64(t) * f)
 		return t, nil
 	}
+
 	return 0, strconv.ErrSyntax
 }
 
