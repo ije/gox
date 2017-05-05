@@ -1,23 +1,30 @@
 package valid
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/ije/gox/utils"
 )
 
 var (
-	v09     = &Validator{{'0', '9'}}
-	vaz     = &Validator{{'a', 'z'}}
-	vazAZ   = &Validator{{'a', 'z'}, {'A', 'Z'}}
-	v09AZ   = &Validator{{'0', '9'}, {'A', 'Z'}}
-	vHex    = &Validator{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}
-	vDomain = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}
-	vSlug   = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}
+	vReg_09   = &Validator{{'0', '9'}}
+	vReg_az   = &Validator{{'a', 'z'}}
+	vReg_09AZ = &Validator{{'0', '9'}, {'A', 'Z'}}
+	vReg_w    = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}}
+	vHex      = &Validator{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}
+	vDomain   = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}
+	vSlug     = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}
 )
 
 func IsNumber(s string, a ...int) bool {
-	return v09.Is(s, a...)
+	for i, p := range strings.Split(s, ".") {
+		if i > 1 || !vReg_09.Is(p) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func IsHexString(s string, a ...int) bool {
@@ -26,12 +33,12 @@ func IsHexString(s string, a ...int) bool {
 
 func IsIETFLangTag(s string) bool {
 	l, c := utils.SplitByFirstByte(s, '-')
-	if !vaz.Is(l, 2) {
+	if !vReg_az.Is(l, 2) {
 		return false
 	}
 
 	if len(c) > 0 {
-		return v09AZ.Is(c)
+		return vReg_09AZ.Is(c)
 	}
 
 	return true
@@ -43,7 +50,10 @@ func IsIP(s string) bool {
 
 func IsIPv4(s string) bool {
 	for i, p := range strings.Split(s, ".") {
-		if i > 3 || !v09.Is(p, 1, 3) || p[0] > '2' {
+		if i > 3 || !vReg_09.Is(p, 1, 3) {
+			return false
+		}
+		if i, _ := strconv.Atoi(p); i > 255 {
 			return false
 		}
 	}
@@ -61,7 +71,7 @@ func IsDomain(s string) bool {
 	}
 
 	dn, dt := utils.SplitByLastByte(s, '.')
-	return vDomain.Is(dn) && vazAZ.Is(dt)
+	return vDomain.Is(dn) && vReg_w.Is(dt)
 }
 
 func IsSlug(s string, a ...int) bool {
