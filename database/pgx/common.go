@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-func ParseWhere(where map[string]interface{}, filter func(expressions []string, values []interface{}) ([]string, []interface{}), columnFilter ...string) (whereSql string, values []interface{}) {
+type Where map[string]interface{}
+
+func ParseWhere(where Where, filter func(expressions []string, values []interface{}) ([]string, []interface{}), columnFilter ...string) (whereSql string, values []interface{}) {
 	if where == nil || len(where) == 0 {
 		return
 	}
@@ -138,14 +140,6 @@ func Expression(column string, values int) string {
 	return fmt.Sprintf(`"%s" IN (%s)`, column, QMS(values))
 }
 
-func QMS(l int) string {
-	qs := make([]string, l)
-	for i, _ := range qs {
-		qs[i] = "?"
-	}
-	return strings.Join(qs, ",")
-}
-
 func SQLFormat(format string, a ...interface{}) string {
 	var i int
 
@@ -153,4 +147,12 @@ func SQLFormat(format string, a ...interface{}) string {
 		i++
 		return fmt.Sprintf("$%d", i)
 	})
+}
+
+func QMS(l int) string {
+	qs := make([]string, l)
+	for i, _ := range qs {
+		qs[i] = "?"
+	}
+	return strings.Join(qs, ",")
 }

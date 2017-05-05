@@ -17,7 +17,7 @@ type DBUpdateTask struct {
 	*Schema
 }
 
-func (task *DBUpdateTask) AddTask(column string, value interface{}) {
+func (task *DBUpdateTask) Update(column string, value interface{}) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -33,11 +33,11 @@ func (task *DBUpdateTask) AddTask(column string, value interface{}) {
 		task.delayTimer.Stop()
 	}
 	task.delayTimer = time.AfterFunc(task.UpdateDelay, func() {
-		task.Update()
+		task.Exec()
 	})
 }
 
-func (task *DBUpdateTask) Update() (err error) {
+func (task *DBUpdateTask) Exec() (err error) {
 	task.lock.Lock()
 	defer task.lock.Unlock()
 
@@ -53,7 +53,7 @@ func (task *DBUpdateTask) Update() (err error) {
 	}
 
 	whereSql, whereValues := ParseWhere(task.Where, nil)
-	_, err = task.Exec(SQLFormat(`UPDATE "%s"."%s" SET %s %s`, task.String(), task.Table, strings.Join(sets, ","), whereSql), append(values, whereValues...)...)
+	_, err = task.ConnPool.Exec(SQLFormat(`UPDATE "%s"."%s" SET %s %s`, task.String(), task.Table, strings.Join(sets, ","), whereSql), append(values, whereValues...)...)
 	if err == nil {
 		task.changes = nil
 	}
