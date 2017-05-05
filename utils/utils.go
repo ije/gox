@@ -21,32 +21,20 @@ import (
 	"syscall"
 )
 
-var (
-	sigCatching   bool
-	exitCallbacks []func()
-)
-
-func CatchExit(callback func()) {
-	if callback == nil {
-		return
-	}
-	exitCallbacks = append(exitCallbacks, callback)
-
-	if sigCatching {
-		return
-	}
-	sigCatching = true
-
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT)
-
-		<-c
-		for _, callback := range exitCallbacks {
-			callback()
+func CatchExit(callback func(os.Signal) bool, extraSignals ...os.Signal) {
+	c := make(chan os.Signal, 1)
+	signals := append([]os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT}, extraSignals...)
+	signal.Notify(c, signals...)
+	sig := <-c
+	if callback != nil {
+		if callback(sig) {
+			os.Exit(1)
+		} else {
+			CatchExit(callback)
 		}
+	} else {
 		os.Exit(1)
-	}()
+	}
 }
 
 func Contains(items interface{}, item interface{}) (ok bool) {
@@ -55,15 +43,17 @@ func Contains(items interface{}, item interface{}) (ok bool) {
 		if len(a) == 0 {
 			return
 		}
+
 		sep, yes := item.(string)
 		ok = yes && strings.Index(a, sep) > -1
 		return
+
 	case []string:
 		if len(a) == 0 {
 			return
 		}
-		s, yes := item.(string)
-		if yes {
+
+		if s, yes := item.(string); yes {
 			for _, c := range a {
 				if c == s {
 					ok = true
@@ -72,19 +62,7 @@ func Contains(items interface{}, item interface{}) (ok bool) {
 			}
 		}
 		return
-	case []int:
-		if len(a) == 0 {
-			return
-		}
-		i, yes := item.(int)
-		if yes {
-			for _, c := range a {
-				if c == i {
-					return true
-				}
-			}
-		}
-		return
+
 	default:
 		return
 	}
@@ -191,29 +169,49 @@ func CopyDir(src string, dst string) (err error) {
 	return
 }
 
-func HashString(hasher, input interface{}) string {
-	h, ok := hasher.(hash.Hash)
-	if !ok {
-		h = md5.New()
+func HashString(input interface{}, hasher hash.Hash) string {
+	if hasher == nil {
+		hasher = md5.New()
 	}
 	switch v := input.(type) {
-	case []byte:
-		h.Write(v)
 	case string:
-		h.Write([]byte(v))
+		hasher.Write([]byte(v))
+	case []byte:
+		hasher.Write(v)
 	case io.Reader:
-		io.Copy(h, v)
+		io.Copy(hasher, v)
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	return hex.EncodeToString(hasher.Sum(nil))
 }
 
 func UnmarshalJSONFile(filename string, v interface{}) (err error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return
+	var r io.Reader
+	if strings.HasPrefix(filename, "http://") || strings.HasPrefix(filename, "https://") {
+		var resp *http.Response
+		resp, err = http.Get(filename)
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			err = errors.New("http: " + resp.Status)
+			return
+		}
+
+		r = resp.Body
+	} else {
+		var file *os.File
+		file, err = os.Open(filename)
+		if err != nil {
+			return
+		}
+		defer file.Close()
+
+		r = file
 	}
-	defer f.Close()
-	return json.NewDecoder(f).Decode(v)
+
+	return json.NewDecoder(r).Decode(v)
 }
 
 func MarshalJSONFile(filename string, v interface{}) (err error) {
@@ -225,27 +223,11 @@ func MarshalJSONFile(filename string, v interface{}) (err error) {
 	return json.NewEncoder(f).Encode(v)
 }
 
-func GetHttpJSON(url string, v interface{}) (err error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		err = errors.New("http: " + resp.Status)
-		return
-	}
-
-	err = json.NewDecoder(resp.Body).Decode(&v)
-	return
-}
-
-func DecodeGobBytes(data []byte, v interface{}) (err error) {
+func DecodeGob(data []byte, v interface{}) (err error) {
 	return gob.NewDecoder(bytes.NewReader(data)).Decode(v)
 }
 
-func EncodeGobBytes(v interface{}) (data []byte, err error) {
+func EncodeGob(v interface{}) (data []byte, err error) {
 	var buf = bytes.NewBuffer(nil)
 	err = gob.NewEncoder(buf).Encode(v)
 	if err != nil {
@@ -256,7 +238,7 @@ func EncodeGobBytes(v interface{}) (data []byte, err error) {
 	return
 }
 
-func MustEncodeGobBytes(v interface{}) []byte {
+func MustEncodeGob(v interface{}) []byte {
 	if v == nil {
 		return nil
 	}
@@ -469,7 +451,7 @@ func LongToIpv4(ipLong uint32) string {
 	return ip.String()
 }
 
-func GetLocalIps() (ips []string, err error) {
+func GetLocalIPs() (ips []string, err error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		return

@@ -7,7 +7,7 @@ import (
 )
 
 func TestParseLines(t *testing.T) {
-	t.Log(strings.Join(ParseLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n", true), "|"))
+	t.Log(strings.Join(ParseLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n", true), "\\n"))
 }
 
 func TestPathClean(t *testing.T) {
@@ -37,6 +37,6 @@ func TestPathClean(t *testing.T) {
 	}
 }
 
-func TestGetLocalIps(t *testing.T) {
-	t.Log(GetLocalIps())
+func TestGetLocalIPs(t *testing.T) {
+	t.Log(GetLocalIPs())
 }
