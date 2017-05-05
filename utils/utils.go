@@ -21,7 +21,7 @@ import (
 	"syscall"
 )
 
-func CatchExit(callback func(os.Signal) bool, extraSignals ...os.Signal) {
+func WaitExit(callback func(os.Signal) bool, extraSignals ...os.Signal) {
 	c := make(chan os.Signal, 1)
 	signals := append([]os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP, syscall.SIGQUIT}, extraSignals...)
 	signal.Notify(c, signals...)
@@ -30,7 +30,7 @@ func CatchExit(callback func(os.Signal) bool, extraSignals ...os.Signal) {
 		if callback(sig) {
 			os.Exit(1)
 		} else {
-			CatchExit(callback)
+			WaitExit(callback)
 		}
 	} else {
 		os.Exit(1)
