@@ -27,6 +27,18 @@ type Commit struct {
 	Description string
 }
 
+func Version() (versionStr string, err error) {
+	cmd := exec.Command("git", "version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		err = fmt.Errorf("%v: %s", err, string(output))
+		return
+	}
+
+	versionStr = string(output)
+	return
+}
+
 func Init(dir string, message string) (err error) {
 	cmd := exec.Command("git", "init")
 	cmd.Dir = dir
@@ -73,7 +85,7 @@ func InitUser(name string, email string) (err error) {
 	return
 }
 
-func GetLatestCommit(dir string) (commit *Commit, err error) {
+func LatestCommit(dir string) (commit *Commit, err error) {
 	cmd := exec.Command(
 		"git",
 		"log",
@@ -91,7 +103,7 @@ func GetLatestCommit(dir string) (commit *Commit, err error) {
 	return
 }
 
-func GetLatestCommits(dir string, limit int) (commits []Commit, err error) {
+func LatestCommits(dir string, limit int) (commits []Commit, err error) {
 	args := []string{
 		"log",
 		"--pretty=format:%H\a\a\a%an\a\a\a%ae\a\a\a%at\a\a\a%s\a\a\a%b\a\b\a",

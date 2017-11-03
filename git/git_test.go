@@ -5,9 +5,12 @@ import (
 )
 
 func TestGitCommit(t *testing.T) {
-	commit, err := GetLatestCommit("../")
+	ver, err := Version()
+	t.Log(ver, err)
+
+	commit, err := LatestCommit("../")
 	t.Log(commit, err)
 
-	commits, err := GetLatestCommits("../", 0)
+	commits, err := LatestCommits("../", 0)
 	t.Log(commits, err)
 }
