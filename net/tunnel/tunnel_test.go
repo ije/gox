@@ -13,7 +13,7 @@ const (
 	poxyHttpPort    = 8080
 	tunnelPort      = 8087
 	aesKey          = "hello"
-	maxConncectines = 16
+	maxConncectines = 32
 )
 
 func init() {
@@ -60,7 +60,7 @@ func init() {
 }
 
 func Test(t *testing.T) {
-	time.Sleep(time.Second / 10)
+	time.Sleep(time.Second)
 	for i := 0; i < 1000; i++ {
 		time.Sleep(time.Millisecond)
 		go func() {

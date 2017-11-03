@@ -11,39 +11,64 @@ type Client struct {
 	Tunnel      string
 	ForwardPort uint16
 	Connections int
+	connQueue   chan struct{}
 }
 
 func (client *Client) Run() {
-	for i := 0; i < client.Connections-1; i++ {
+	connections := client.Connections
+	if connections < 1 {
+		connections = 1
+	}
+	client.connQueue = make(chan struct{}, connections)
+
+	for {
+		client.connQueue <- struct{}{}
 		go client.dial()
 	}
-	client.dial()
 }
 
 func (client *Client) dial() {
-	for {
-		conn, err := dial("tcp", client.Server, client.Password)
-		if err != nil {
-			log.Warnf("tunnel(%s): dial remote: %v", client.Tunnel, err)
-			time.Sleep(time.Second)
-			continue
-		}
+	conn, err := dial("tcp", client.Server, client.Password)
+	if err != nil {
+		log.Warnf("tunnel(%s): dial remote: %v", client.Tunnel, err)
+		<-client.connQueue
+		return
+	}
 
+	ec := make(chan error, 1)
+
+	go func() {
 		err = sendMessage(conn, "hello", []byte(client.Tunnel))
 		if err != nil {
-			conn.Close()
-			continue
+			ec <- err
+			return
 		}
 
 		buf := make([]byte, 1)
 		_, err = conn.Read(buf)
 		if err != nil || buf[0] != 1 {
-			conn.Close()
-			continue
+			ec <- err
+			return
 		}
 
-		client.heartBeat(conn)
+		ec <- nil
+	}()
+
+	select {
+	case err := <-ec:
+		if err != nil {
+			<-client.connQueue
+			conn.Close()
+			return
+		}
+	case <-time.After(3 * time.Second):
+		close(ec)
+		<-client.connQueue
+		conn.Close()
+		return
 	}
+
+	go client.heartBeat(conn)
 }
 
 func (client *Client) heartBeat(conn net.Conn) {
@@ -54,6 +79,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 		go func() {
 			_, err := conn.Write([]byte{'!'})
 			if err != nil {
+				close(msg)
 				ec <- err
 				return
 			}
@@ -61,6 +87,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 			buf := make([]byte, 1)
 			_, err = conn.Read(buf)
 			if err != nil {
+				close(msg)
 				ec <- err
 				return
 			}
@@ -72,16 +99,20 @@ func (client *Client) heartBeat(conn net.Conn) {
 		select {
 		case err := <-ec:
 			if err != nil {
+				<-client.connQueue
 				conn.Close()
 				return
 			}
 		case <-time.After(3 * time.Second):
-			msg <- 0
+			close(ec)
+			close(msg)
+			<-client.connQueue
 			conn.Close()
 			return
 		}
 
 		if <-msg == 1 {
+			<-client.connQueue
 			go client.proxy(conn)
 			return
 		}

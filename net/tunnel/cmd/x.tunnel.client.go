@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"strings"
-	"time"
 
 	"github.com/ije/gox/config"
 	"github.com/ije/gox/log"
 	"github.com/ije/gox/net/tunnel"
+	"github.com/ije/gox/utils"
 )
 
 func main() {
@@ -37,20 +38,14 @@ func main() {
 		if port > 0 && port < 1<<16 && strings.HasPrefix(name, "tunnel:") {
 			name = strings.TrimPrefix(name, "tunnel:")
 
-			go func(server string, password string, name string, port uint16) {
-				for {
-					tc := &tunnel.Client{
-						Server:      server,
-						Password:    password,
-						Tunnel:      name,
-						ForwardPort: port,
-						Connections: section.Int("connections", 1),
-					}
-					tc.Run()
-
-					time.Sleep(time.Second)
-				}
-			}(ts, tsPassword, name, uint16(port))
+			tc := &tunnel.Client{
+				Server:      ts,
+				Password:    tsPassword,
+				Tunnel:      name,
+				ForwardPort: uint16(port),
+				Connections: section.Int("connections", 1),
+			}
+			go tc.Run()
 
 			logger.Infof("tunnel %s added", name)
 			clients++
@@ -59,8 +54,8 @@ func main() {
 
 	if clients > 0 {
 		logger.Infof("x.tunnel client started")
-		for {
-			time.Sleep(time.Hour)
-		}
+		utils.WaitExit(func(sig os.Signal) bool {
+			return true
+		})
 	}
 }

@@ -67,7 +67,6 @@ func (s *Server) handleConn(conn net.Conn) {
 		ec <- nil
 	}()
 
-	// connection will be closed when can not get the valid handshake message in 3 seconds
 	select {
 	case err := <-ec:
 		if err != nil {
@@ -75,7 +74,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 	case <-time.After(3 * time.Second):
-		conn.Close()
+		conn.Close() // connection will be closed when can not get the valid handshake message in 3 seconds
 		return
 	}
 
