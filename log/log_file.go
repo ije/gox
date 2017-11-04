@@ -82,7 +82,7 @@ func (fwd *fileLoggerDriver) Open(addr string, args map[string]string) (io.Write
 		}
 		maxBytes = int(i)
 	}
-	return getFW(utils.CleanPath(addr, true), maxBytes)
+	return getFW(utils.CleanPath(addr), maxBytes)
 }
 
 func init() {

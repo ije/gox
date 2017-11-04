@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"path"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -10,29 +10,83 @@ func TestParseLines(t *testing.T) {
 	t.Log(strings.Join(ParseLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n", true), "\\n"))
 }
 
+var cleanTests = []struct {
+	path, result string
+}{
+	// Already clean
+	{"/", "/"},
+	{"/abc", "/abc"},
+	{"/a/b/c", "/a/b/c"},
+	{"/abc/", "/abc/"},
+	{"/a/b/c/", "/a/b/c/"},
+
+	// missing root
+	{"", "/"},
+	{"abc", "/abc"},
+	{"abc/def", "/abc/def"},
+	{"a/b/c", "/a/b/c"},
+
+	// Remove doubled slash
+	{"//", "/"},
+	{"/abc//", "/abc/"},
+	{"/abc/def//", "/abc/def/"},
+	{"/a/b/c//", "/a/b/c/"},
+	{"/abc//def//ghi", "/abc/def/ghi"},
+	{"//abc", "/abc"},
+	{"///abc", "/abc"},
+	{"//abc//", "/abc/"},
+
+	// Remove . elements
+	{".", "/"},
+	{"./", "/"},
+	{"/abc/./def", "/abc/def"},
+	{"/./abc/def", "/abc/def"},
+	{"/abc/.", "/abc/"},
+
+	// Remove .. elements
+	{"..", "/"},
+	{"../", "/"},
+	{"../../", "/"},
+	{"../..", "/"},
+	{"../../abc", "/abc"},
+	{"/abc/def/ghi/../jkl", "/abc/def/jkl"},
+	{"/abc/def/../ghi/../jkl", "/abc/jkl"},
+	{"/abc/def/..", "/abc"},
+	{"/abc/def/../..", "/"},
+	{"/abc/def/../../..", "/"},
+	{"/abc/def/../../..", "/"},
+	{"/abc/def/../../../ghi/jkl/../../../mno", "/mno"},
+
+	// Combinations
+	{"abc/./../def", "/def"},
+	{"abc//./../def", "/def"},
+	{"abc/../../././../def", "/def"},
+}
+
 func TestPathClean(t *testing.T) {
-	for _, p := range []string{
-		"",
-		".",
-		"a.",
-		"/",
-		"./",
-		"/.",
-		"./.",
-		"a/c",
-		"a//c",
-		"a/c/.",
-		"a/c/b/..",
-		"/../a/c",
-		"/../a/b/../././/c",
-		"/../a/../abc/123///ccc/../b/../././/c",
-		"  /a/c/b/  ",
-		"E:\\One\\Design\\Photos\\DSC_123.JPG",
-	} {
-		cp := CleanPath(p, true)
-		cp2 := path.Clean(strings.Replace(strings.ToLower(strings.TrimSpace(p)), "\\", "/", -1))
-		if cp != cp2 {
-			t.Fatalf("%s -> %s (%v), should be %s", p, cp, cp == cp2, cp2)
+	for _, test := range cleanTests {
+		if s := CleanPath(test.path); s != test.result {
+			t.Errorf("CleanPath(%q) = %q, want %q", test.path, s, test.result)
+		}
+		if s := CleanPath(test.result); s != test.result {
+			t.Errorf("CleanPath(%q) = %q, want %q", test.result, s, test.result)
+		}
+	}
+}
+
+func TestPathCleanMallocs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping malloc count in short mode")
+	}
+	if runtime.GOMAXPROCS(0) > 1 {
+		t.Log("skipping AllocsPerRun checks; GOMAXPROCS>1")
+		return
+	}
+
+	for _, test := range cleanTests {
+		allocs := testing.AllocsPerRun(100, func() { CleanPath(test.result) })
+		if allocs > 0 {
+			t.Errorf("CleanPath(%q): %v allocs, want zero", test.result, allocs)
 		}
 	}
 }

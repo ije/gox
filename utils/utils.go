@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -34,37 +35,6 @@ func WaitExit(callback func(os.Signal) bool, extraSignals ...os.Signal) {
 		}
 	} else {
 		os.Exit(1)
-	}
-}
-
-func Contains(items interface{}, item interface{}) (ok bool) {
-	switch a := items.(type) {
-	case string:
-		if len(a) == 0 {
-			return
-		}
-
-		sep, yes := item.(string)
-		ok = yes && strings.Index(a, sep) > -1
-		return
-
-	case []string:
-		if len(a) == 0 {
-			return
-		}
-
-		if s, yes := item.(string); yes {
-			for _, c := range a {
-				if c == s {
-					ok = true
-					return
-				}
-			}
-		}
-		return
-
-	default:
-		return
 	}
 }
 
@@ -112,8 +82,8 @@ func CopyFile(src string, dst string) (n int64, err error) {
 }
 
 func CopyDir(src string, dst string) (err error) {
-	src = CleanPath(src, false)
-	dst = CleanPath(dst, false)
+	src = CleanPath(src)
+	dst = CleanPath(dst)
 	if src == dst {
 		return
 	}
@@ -184,7 +154,7 @@ func HashString(input interface{}, hasher hash.Hash) string {
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
-func UnmarshalJSONFile(filename string, v interface{}) (err error) {
+func ParseJSONFile(filename string, v interface{}) (err error) {
 	var r io.Reader
 	if strings.HasPrefix(filename, "http://") || strings.HasPrefix(filename, "https://") {
 		var resp *http.Response
@@ -194,8 +164,9 @@ func UnmarshalJSONFile(filename string, v interface{}) (err error) {
 		}
 		defer resp.Body.Close()
 
-		if resp.StatusCode != 200 {
-			err = errors.New("http: " + resp.Status)
+		if resp.StatusCode >= 400 {
+			ret, _ := ioutil.ReadAll(resp.Body)
+			err = fmt.Errorf("http(%d): %s"+resp.Status, string(ret))
 			return
 		}
 
@@ -214,13 +185,27 @@ func UnmarshalJSONFile(filename string, v interface{}) (err error) {
 	return json.NewDecoder(r).Decode(v)
 }
 
-func MarshalJSONFile(filename string, v interface{}) (err error) {
+type JSONIndent struct {
+	indent string
+	prefix string
+}
+
+var SpaceJSONIndent = &JSONIndent{" ", ""}
+var TabJSONIndent = &JSONIndent{"\t", ""}
+
+func SaveJSONFile(filename string, v interface{}, indent *JSONIndent) (err error) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(v)
+	je := json.NewEncoder(f)
+
+	if indent != nil {
+		je.SetIndent(indent.prefix, indent.indent)
+	}
+
+	return je.Encode(v)
 }
 
 func DecodeGob(data []byte, v interface{}) (err error) {
@@ -252,22 +237,22 @@ func MustEncodeGob(v interface{}) []byte {
 	return buf.Bytes()
 }
 
-func UnmarshalGobFile(filename string, v interface{}) (err error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	return gob.NewDecoder(f).Decode(v)
-}
-
-func MarshalGobFile(filename string, v interface{}) (err error) {
+func ParseGobFile(filename string, v interface{}) (err error) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return
 	}
 	defer f.Close()
 	return gob.NewEncoder(f).Encode(v)
+}
+
+func SaveGobFile(filename string, v interface{}) (err error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	return gob.NewDecoder(f).Decode(v)
 }
 
 func SplitByFirstByte(s string, c byte) (string, string) {
@@ -365,74 +350,121 @@ func ToNumber(v interface{}) (f float64, ok bool) {
 
 // PathClean has the same function with path.Clean(strings.Replace(strings.TrimSpace(s), "\\", "/", -1)),
 // but it's faster!
-func CleanPath(path string, toLower bool) string {
-	pl := len(path)
-	if pl == 0 {
-		return "."
+// CleanPath is the URL version of path.Clean, it returns a canonical URL path
+// for p, eliminating . and .. elements.
+//
+// The following rules are applied iteratively until no further processing can
+// be done:
+//	1. Replace multiple slashes with a single slash.
+//	2. Eliminate each . path name element (the current directory).
+//	3. Eliminate each inner .. path name element (the parent directory)
+//	   along with the non-.. element that precedes it.
+//	4. Eliminate .. elements that begin a rooted path:
+//	   that is, replace "/.." by "/" at the beginning of a path.
+//
+// If the result of this process is an empty string, "/" is returned
+func CleanPath(p string) string {
+	// Turn empty string into "/"
+	if p == "" {
+		return "/"
 	}
-	var n int
-	var c byte
-	var root bool
-	var newpath = make([]byte, pl)
-	for i := 0; i < pl; i++ {
-		switch c = path[i]; c {
-		case ' ':
-			if n == 0 {
-				continue
-			}
-			newpath[n] = ' '
-			n++
-		case '/', '\\':
-			if n > 0 {
-				if newpath[n-1] == '/' {
-					continue
-				} else if newpath[n-1] == '.' && n > 1 && newpath[n-2] == '/' {
-					n--
-					continue
-				}
-			}
-			if n == 0 {
-				root = true
-			}
-			newpath[n] = '/'
-			n++
-		case '.':
-			if n > 1 && newpath[n-1] == '.' && newpath[n-2] == '/' {
-				if n = n - 2; n > 0 {
-					for n = n - 1; n > 0; n-- {
-						if newpath[n] == '/' {
-							break
-						}
+
+	n := len(p)
+	var buf []byte
+
+	// Invariants:
+	//      reading from path; r is index of next byte to process.
+	//      writing to buf; w is index of next byte to write.
+
+	// path must start with '/'
+	r := 1
+	w := 1
+
+	if p[0] != '/' {
+		r = 0
+		buf = make([]byte, n+1)
+		buf[0] = '/'
+	}
+
+	trailing := n > 2 && p[n-1] == '/'
+
+	// A bit more clunky without a 'lazybuf' like the path package, but the loop
+	// gets completely inlined (bufApp). So in contrast to the path package this
+	// loop has no expensive function calls (except 1x make)
+
+	for r < n {
+		switch {
+		case p[r] == '/':
+			// empty path element, trailing slash is added after the end
+			r++
+
+		case p[r] == '.' && r+1 == n:
+			trailing = true
+			r++
+
+		case p[r] == '.' && p[r+1] == '/':
+			// . element
+			r++
+
+		case p[r] == '.' && p[r+1] == '.' && (r+2 == n || p[r+2] == '/'):
+			// .. element: remove to last /
+			r += 2
+
+			if w > 1 {
+				// can backtrack
+				w--
+
+				if buf == nil {
+					for w > 1 && p[w] != '/' {
+						w--
+					}
+				} else {
+					for w > 1 && buf[w] != '/' {
+						w--
 					}
 				}
-				continue
 			}
-			newpath[n] = '.'
-			n++
+
 		default:
-			if toLower && c >= 'A' && c <= 'Z' {
-				c += 32
+			// real path element.
+			// add slash if needed
+			if w > 1 {
+				bufApp(&buf, p, w, '/')
+				w++
 			}
-			newpath[n] = c
-			n++
+
+			// copy element
+			for r < n && p[r] != '/' {
+				bufApp(&buf, p, w, p[r])
+				w++
+				r++
+			}
 		}
 	}
-	// trim right spaces
-	if n > 0 && newpath[n-1] == ' ' {
-		for n > 0 && newpath[n-1] == ' ' {
-			n--
+
+	// re-append trailing slash
+	if trailing && w > 1 {
+		bufApp(&buf, p, w, '/')
+		w++
+	}
+
+	if buf == nil {
+		return p[:w]
+	}
+	return string(buf[:w])
+}
+
+// internal helper to lazily create a buffer if necessary
+func bufApp(buf *[]byte, s string, w int, c byte) {
+	if *buf == nil {
+		if s[w] == c {
+			return
 		}
+
+		*buf = make([]byte, len(s))
+		copy(*buf, s[:w])
 	}
-	if n > 1 && newpath[n-1] == '.' && newpath[n-2] == '/' {
-		n--
-	}
-	if n > 0 && newpath[n-1] == '/' && (!root || n > 1) {
-		n--
-	}
-	if n == 0 {
-		return "."
-	}
-	return string(newpath[:n])
+	(*buf)[w] = c
 }
 
 func Ipv4ToLong(ipStr string) uint32 {
