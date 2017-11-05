@@ -11,7 +11,6 @@ import (
 
 	"github.com/chzyer/readline"
 	"github.com/ije/gox/term"
-	"github.com/ije/gox/utils"
 )
 
 var (
@@ -96,7 +95,7 @@ func Run() {
 
 	AddCommand("restart", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
-			if len(args) == 0 || utils.Contains(args, process.Name) {
+			if len(args) == 0 || contains(args, process.Name) {
 				Info.Printf("Stopping %s...", process.Name)
 				if err := process.Stop(); err != nil {
 					Warn.Printf("Stop process %s failed: %v", process.Name, err)
@@ -114,7 +113,7 @@ func Run() {
 
 	AddCommand("rebuild", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
-			if len(args) == 0 || utils.Contains(args, process.Name) && (len(process.GoCode) > 0 || len(process.GoFile) > 0 || len(process.GoPkg) > 0) {
+			if len(args) == 0 || contains(args, process.Name) && (len(process.GoCode) > 0 || len(process.GoFile) > 0 || len(process.GoPkg) > 0) {
 				Info.Printf("Stopping %s...", process.Name)
 				err := process.Stop()
 				if err != nil {
@@ -280,6 +279,18 @@ func AddCommand(names string, handler func(args ...string) (ret string, err erro
 			commands[name] = handler
 		}
 	}
+}
+
+func contains(a []string, s string) bool {
+	if len(a) > 0 {
+		for _, v := range a {
+			if v == s {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func init() {
