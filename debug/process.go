@@ -9,6 +9,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ije/gox/term"
@@ -183,12 +184,12 @@ func (process *Process) Start() (err error) {
 func (process *Process) Stop() (err error) {
 	if process.status == "running" && process.Process != nil {
 		if process.Sudo && build.Default.GOOS != "windows" {
-			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" kill %d`, suPassword, process.Pid)).CombinedOutput()
+			output, err := exec.Command("/bin/bash", "-c", fmt.Sprintf(`echo "%s" | sudo -S -p "" kill -15 %d`, suPassword, process.Pid)).CombinedOutput()
 			if err == nil && len(output) > 0 {
 				err = fmt.Errorf("stop process '%s' failed: %s", process.Name, string(output))
 			}
 		} else {
-			err = process.Kill()
+			err = process.Signal(syscall.SIGTERM)
 		}
 		if err == nil {
 			process.Process = nil
