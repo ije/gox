@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ije/gox/term"
+	"github.com/ije/gox/os/term"
 	"github.com/ije/gox/utils"
 )
 
@@ -129,8 +129,8 @@ func (process *Process) Start() (err error) {
 		termLinePrefix = fmt.Sprintf("[%s] ", process.Name)
 	}
 
-	cmd.Stderr = &stderr{process.TermColorManager, &term.ColorTerm{LinePrefix: termLinePrefix}}
-	cmd.Stdout = &stdout{process.TermColorManager, &term.ColorTerm{LinePrefix: termLinePrefix}}
+	cmd.Stderr = &stderr{process.TermColorManager, &ColorTerm{LinePrefix: termLinePrefix}}
+	cmd.Stdout = &stdout{process.TermColorManager, &ColorTerm{LinePrefix: termLinePrefix}}
 
 	runErr := make(chan error)
 	go func() {

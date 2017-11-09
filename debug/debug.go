@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/chzyer/readline"
-	"github.com/ije/gox/term"
+	"github.com/ije/gox/os/term"
 )
 
 var (
@@ -22,15 +22,15 @@ var (
 )
 
 var (
-	Info = &term.ColorTerm{
+	Info = &ColorTerm{
 		LinePrefix: "[debug] ",
 		Color:      term.COLOR_GRAY,
 	}
-	Ok = &term.ColorTerm{
+	Ok = &ColorTerm{
 		LinePrefix: "[debug] ",
 		Color:      term.COLOR_GREEN,
 	}
-	Warn = &term.ColorTerm{
+	Warn = &ColorTerm{
 		LinePrefix: "[debug] ",
 		Color:      term.COLOR_RED,
 	}
@@ -38,7 +38,7 @@ var (
 
 type stdout struct {
 	colorManager func(b []byte) term.Color
-	*term.ColorTerm
+	*ColorTerm
 }
 
 func (std *stdout) Write(p []byte) (n int, err error) {
@@ -64,7 +64,7 @@ func (std *stdout) Write(p []byte) (n int, err error) {
 
 type stderr struct {
 	colorManager func(b []byte) term.Color
-	*term.ColorTerm
+	*ColorTerm
 }
 
 func (std *stderr) Write(p []byte) (n int, err error) {

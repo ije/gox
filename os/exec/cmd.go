@@ -1,4 +1,4 @@
-package term
+package exec
 
 import (
 	"bytes"
@@ -12,22 +12,22 @@ type Command struct {
 	stdinPipe  io.WriteCloser
 	stdoutPipe io.ReadCloser
 	stderrPipe io.ReadCloser
-	stdError   error
+	pipeError  error
 	inputError error
 	*exec.Cmd
 }
 
 func CMD(name string, args ...string) (cmd *Command) {
 	cmd = &Command{Cmd: exec.Command(name, args...)}
-	cmd.stdinPipe, cmd.stdError = cmd.Cmd.StdinPipe()
-	if cmd.stdError != nil {
+	cmd.stdinPipe, cmd.pipeError = cmd.Cmd.StdinPipe()
+	if cmd.pipeError != nil {
 		return
 	}
-	cmd.stdoutPipe, cmd.stdError = cmd.Cmd.StdoutPipe()
-	if cmd.stdError != nil {
+	cmd.stdoutPipe, cmd.pipeError = cmd.Cmd.StdoutPipe()
+	if cmd.pipeError != nil {
 		return
 	}
-	cmd.stderrPipe, cmd.stdError = cmd.Cmd.StderrPipe()
+	cmd.stderrPipe, cmd.pipeError = cmd.Cmd.StderrPipe()
 	return
 }
 
@@ -37,7 +37,7 @@ func (cmd *Command) CD(dir string) *Command {
 }
 
 func (cmd *Command) Input(v interface{}) *Command {
-	if cmd.stdError != nil {
+	if cmd.pipeError != nil {
 		return cmd
 	}
 
@@ -61,15 +61,15 @@ func (cmd *Command) Input(v interface{}) *Command {
 	return cmd
 }
 
-func (cmd *Command) Output(wr io.Writer, ignoreStderr bool) (err error) {
+func (cmd *Command) Output(wr io.Writer) (err error) {
 	defer func() {
 		if cmd.started {
 			cmd.Wait()
 		}
 	}()
 
-	if cmd.stdError != nil {
-		err = cmd.stdError
+	if cmd.pipeError != nil {
+		err = cmd.pipeError
 		return
 	}
 
@@ -88,24 +88,27 @@ func (cmd *Command) Output(wr io.Writer, ignoreStderr bool) (err error) {
 
 	cmd.stdinPipe.Close()
 
-	if !ignoreStderr {
-		buf := bytes.NewBuffer(nil)
-		_, err = io.Copy(buf, cmd.stderrPipe)
-		cmd.stderrPipe.Close()
-		if err == nil && buf.Len() > 0 {
-			err = errors.New(buf.String())
-		}
-		if err != nil {
-			return
-		}
-	} else {
-		cmd.stderrPipe.Close()
-	}
+	waitChan := make(chan struct{}, 1)
 
-	if wr != nil {
+	errBuf := bytes.NewBuffer(nil)
+	go func() {
+		_, err = io.Copy(errBuf, cmd.stderrPipe)
+		cmd.stderrPipe.Close()
+		waitChan <- struct{}{}
+	}()
+	go func() {
 		_, err = io.Copy(wr, cmd.stdoutPipe)
-	}
-	cmd.stdoutPipe.Close()
+		cmd.stdoutPipe.Close()
+		waitChan <- struct{}{}
+	}()
 
+	<-waitChan
+	if err != nil {
+		return
+	}
+
+	if errBuf.Len() > 0 {
+		err = errors.New(errBuf.String())
+	}
 	return
 }

@@ -1,4 +1,4 @@
-package term
+package debug
 
 import (
 	"fmt"
@@ -6,13 +6,14 @@ import (
 	"os"
 	"sync"
 
+	"github.com/ije/gox/os/term"
 	"github.com/ije/gox/utils"
 )
 
 type ColorTerm struct {
 	lock       sync.Mutex
 	LinePrefix string
-	Color      Color
+	Color      term.Color
 	Pipe       io.Writer
 }
 
@@ -28,7 +29,7 @@ func (term *ColorTerm) Printf(format string, args ...interface{}) (n int, err er
 	return term.PrintTo(term.Pipe, fmt.Sprintf(format, args...))
 }
 
-func (term *ColorTerm) ColorPrint(color Color, args ...interface{}) (n int, err error) {
+func (term *ColorTerm) ColorPrint(color term.Color, args ...interface{}) (n int, err error) {
 	msg := fmt.Sprintln(args...)
 	if l := len(msg); l > 0 {
 		msg = msg[:l-1]
@@ -36,7 +37,7 @@ func (term *ColorTerm) ColorPrint(color Color, args ...interface{}) (n int, err 
 	return term.ColorPrintTo(term.Pipe, color, msg)
 }
 
-func (term *ColorTerm) ColorPrintf(color Color, format string, args ...interface{}) (n int, err error) {
+func (term *ColorTerm) ColorPrintf(color term.Color, format string, args ...interface{}) (n int, err error) {
 	return term.ColorPrintTo(term.Pipe, color, fmt.Sprintf(format, args...))
 }
 
@@ -64,7 +65,7 @@ func (term *ColorTerm) PrintTo(pipe io.Writer, s string) (n int, err error) {
 	return
 }
 
-func (term *ColorTerm) ColorPrintTo(pipe io.Writer, color Color, s string) (n int, err error) {
+func (term *ColorTerm) ColorPrintTo(pipe io.Writer, color term.Color, s string) (n int, err error) {
 	if pipe == nil {
 		pipe = os.Stderr
 	}

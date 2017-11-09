@@ -1,5 +1,7 @@
 package term
 
+type Color uint
+
 const (
 	COLOR_NORMAL Color = 0
 	COLOR_RED    Color = 31
@@ -10,5 +12,3 @@ const (
 	COLOR_CYAN   Color = 36
 	COLOR_GRAY   Color = 37
 )
-
-type Color uint
