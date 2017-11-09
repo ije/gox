@@ -10,35 +10,33 @@ type Client struct {
 	Password    string
 	Tunnel      string
 	ForwardPort uint16
-	Connections int
-	connQueue   chan struct{}
 }
 
 func (client *Client) Run() {
-	connections := client.Connections
-	if connections < 1 {
-		connections = 1
-	}
-	client.connQueue = make(chan struct{}, connections)
-
 	for {
-		client.connQueue <- struct{}{}
-		go client.dial()
+		client.dial(false)
 	}
 }
 
-func (client *Client) dial() {
-	conn, err := dial("tcp", client.Server, client.Password)
-	if err != nil {
-		log.Warnf("tunnel(%s): dial remote: %v", client.Tunnel, err)
-		<-client.connQueue
-		return
-	}
+func (client *Client) dial(proxy bool) {
+	var conn net.Conn
+	var err error
 
 	ec := make(chan error, 1)
 
 	go func() {
-		err = sendMessage(conn, "hello", []byte(client.Tunnel))
+		conn, err = dial("tcp", client.Server, client.Password)
+		if err != nil {
+			log.Warnf("tunnel(%s): dial remote: %v", client.Tunnel, err)
+			ec <- err
+			return
+		}
+
+		msg := "hello"
+		if proxy {
+			msg = "proxy"
+		}
+		err = sendMessage(conn, msg, []byte(client.Tunnel))
 		if err != nil {
 			ec <- err
 			return
@@ -57,21 +55,25 @@ func (client *Client) dial() {
 	select {
 	case err := <-ec:
 		if err != nil {
-			<-client.connQueue
-			conn.Close()
+			if conn != nil {
+				conn.Close()
+			}
 			return
 		}
 	case <-time.After(3 * time.Second):
 		close(ec)
-		<-client.connQueue
-		conn.Close()
+		if conn != nil {
+			conn.Close()
+		}
 		return
 	}
 
-	go client.heartBeat(conn)
-}
+	if proxy {
+		client.proxy(conn)
+		return
+	}
 
-func (client *Client) heartBeat(conn net.Conn) {
+	// heartBeat
 	for {
 		ec := make(chan error, 1)
 		msg := make(chan byte, 1)
@@ -99,21 +101,18 @@ func (client *Client) heartBeat(conn net.Conn) {
 		select {
 		case err := <-ec:
 			if err != nil {
-				<-client.connQueue
 				conn.Close()
 				return
 			}
 		case <-time.After(3 * time.Second):
 			close(ec)
 			close(msg)
-			<-client.connQueue
 			conn.Close()
 			return
 		}
 
 		if <-msg == 1 {
-			<-client.connQueue
-			go client.proxy(conn)
+			go client.dial(true)
 			return
 		}
 	}

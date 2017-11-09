@@ -50,6 +50,7 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	tunnelName := make(chan string, 1)
 	ec := make(chan error, 1)
+	proxy := false
 
 	go func() {
 		flag, data, err := parseMessage(conn)
@@ -58,11 +59,12 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
-		if flag != "hello" {
+		if flag != "hello" && flag != "proxy" {
 			ec <- errf("invalid handshake message")
 			return
 		}
 
+		proxy = flag == "proxy"
 		tunnelName <- string(data)
 		ec <- nil
 	}()
@@ -90,6 +92,12 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
+	if proxy {
+		tunnel.clientConns <- conn
+		log.Debugf("tunnel(%s) client connection activated", tunnel.Name)
+		return
+	}
+
 	for {
 		buf := make([]byte, 1)
 		_, err = conn.Read(buf)
@@ -102,11 +110,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		case <-tunnel.connQueue:
 			_, err := conn.Write([]byte{1})
 			if err != nil {
-				tunnel.clientConns <- nil
 				conn.Close()
-			} else {
-				tunnel.clientConns <- conn
-				log.Debugf("tunnel(%s) client connection activated", tunnel.Name)
 			}
 			return
 		case <-time.After(time.Second):

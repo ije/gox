@@ -26,21 +26,6 @@ func SetLogLevel(level string) {
 	log.SetLevelByName(level)
 }
 
-func dial(network string, address string, aes string) (conn net.Conn, err error) {
-	for i := 0; i < 3; i++ {
-		if len(aes) > 0 {
-			conn, err = aestcp.Dial(network, address, []byte(aes))
-		} else {
-			conn, err = net.Dial(network, address)
-		}
-		if err == nil {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	return
-}
-
 func listen(l net.Listener, connHandler func(net.Conn)) error {
 	defer l.Close()
 
@@ -66,6 +51,21 @@ func listen(l net.Listener, connHandler func(net.Conn)) error {
 		tempDelay = 0
 		go connHandler(conn)
 	}
+}
+
+func dial(network string, address string, aes string) (conn net.Conn, err error) {
+	for i := 0; i < 3; i++ {
+		if len(aes) > 0 {
+			conn, err = aestcp.Dial(network, address, []byte(aes))
+		} else {
+			conn, err = net.Dial(network, address)
+		}
+		if err == nil {
+			return
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return
 }
 
 func proxy(conn net.Conn, proxyConn net.Conn) {

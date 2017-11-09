@@ -52,7 +52,6 @@ func init() {
 			Password:    aesKey,
 			Tunnel:      "http",
 			ForwardPort: httpPort,
-			Connections: maxConncectines,
 		}
 
 		client.Run()

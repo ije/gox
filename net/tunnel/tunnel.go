@@ -31,7 +31,9 @@ func (t *Tunnel) Serve() (err error) {
 }
 
 func (t *Tunnel) handleConn(conn net.Conn) {
-	t.connQueue <- struct{}{}
+	if len(t.connQueue) < cap(t.connQueue) {
+		t.connQueue <- struct{}{}
+	}
 
 	var clientConn net.Conn
 	select {

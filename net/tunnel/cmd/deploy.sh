@@ -39,13 +39,15 @@ if [ "$port" != "" ]; then
 fi
 
 supervisor="no"
-read -p "install the supervisor config script('yes' or 'no', default is 'no')? " ok
+read -p "install/update the supervisor config script('yes' or 'no', default is 'no')? " ok
 if [ "$ok" == "yes" ]; then
 	supervisor="yes"
 fi
 
 echo "--- compiling the x.tunnel.$target (${goos}_$goarch)..."
 go build x.tunnel.$target.go
+
+# exit
 
 echo "--- uploading..."
 scp -P $hostSSHPort x.tunnel.$target $loginUser@$host:/usr/local/bin/_x.tunnel.$target

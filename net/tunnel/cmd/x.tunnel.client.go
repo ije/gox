@@ -43,7 +43,6 @@ func main() {
 				Password:    tsPassword,
 				Tunnel:      name,
 				ForwardPort: uint16(port),
-				Connections: section.Int("connections", 1),
 			}
 			go tc.Run()
 
