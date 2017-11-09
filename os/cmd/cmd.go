@@ -17,7 +17,7 @@ type Command struct {
 	*exec.Cmd
 }
 
-func CMD(name string, args ...string) (cmd *Command) {
+func New(name string, args ...string) (cmd *Command) {
 	cmd = &Command{Cmd: exec.Command(name, args...)}
 	cmd.stdinPipe, cmd.pipeError = cmd.Cmd.StdinPipe()
 	if cmd.pipeError != nil {
