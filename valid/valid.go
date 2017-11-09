@@ -17,7 +17,7 @@ var (
 	vSlug     = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}
 )
 
-func IsNumber(s string, a ...int) bool {
+func IsNumber(s string) bool {
 	for i, p := range strings.Split(s, ".") {
 		if i > 1 || !vReg_09.Is(p) {
 			return false
@@ -27,13 +27,13 @@ func IsNumber(s string, a ...int) bool {
 	return true
 }
 
-func IsHexString(s string, a ...int) bool {
-	return vHex.Is(s, a...)
+func IsHexString(s string) bool {
+	return vHex.Is(s)
 }
 
 func IsIETFLangTag(s string) bool {
 	l, c := utils.SplitByFirstByte(s, '-')
-	if !vReg_az.Is(l, 2) {
+	if !vReg_az.Is(l) && len(l) != 2 {
 		return false
 	}
 
@@ -50,7 +50,7 @@ func IsIP(s string) bool {
 
 func IsIPv4(s string) bool {
 	for i, p := range strings.Split(s, ".") {
-		if i > 3 || !vReg_09.Is(p, 1, 3) {
+		if i > 3 || !vReg_09.Is(p) || len(p) > 3 {
 			return false
 		}
 		if i, _ := strconv.Atoi(p); i > 255 {
@@ -74,7 +74,7 @@ func IsDomain(s string) bool {
 	return vDomain.Is(dn) && vReg_w.Is(dt)
 }
 
-func IsSlug(s string, a ...int) bool {
+func IsSlug(s string) bool {
 	l := len(s)
 	if l == 0 {
 		return false
@@ -87,7 +87,7 @@ func IsSlug(s string, a ...int) bool {
 		}
 	}
 
-	return vSlug.Is(s, a...)
+	return vSlug.Is(s)
 }
 
 func IsEmail(s string) bool {

@@ -38,6 +38,16 @@ func WaitExit(callback func(os.Signal) bool, extraSignals ...os.Signal) {
 	}
 }
 
+func ContainsString(items []string, item string) bool {
+	for _, s := range items {
+		if item == s {
+			return true
+		}
+	}
+
+	return false
+}
+
 func CopyFile(src string, dst string) (n int64, err error) {
 	if src == dst {
 		return
