@@ -8,33 +8,33 @@ import (
 )
 
 type Server struct {
-	Port     uint16
-	Password string
-	tunnels  map[string]*Tunnel
+	Port    uint16
+	Secret  string
+	tunnels map[string]*Tunnel
 }
 
 func (s *Server) AddTunnel(name string, port uint16, maxClientConnections int) error {
-	if s.tunnels == nil {
-		s.tunnels = map[string]*Tunnel{}
-	}
-
 	if maxClientConnections <= 0 {
 		maxClientConnections = 1
 	}
 
 	tunnel := &Tunnel{
-		Name:        name,
-		Port:        port,
-		connQueue:   make(chan struct{}, maxClientConnections),
-		clientConns: make(chan net.Conn, maxClientConnections),
+		Name:      name,
+		Port:      port,
+		connQueue: make(chan net.Conn, maxClientConnections),
+		connPool:  make(chan net.Conn, maxClientConnections),
 	}
 
+	if s.tunnels == nil {
+		s.tunnels = map[string]*Tunnel{}
+	}
 	s.tunnels[name] = tunnel
+
 	return tunnel.Serve()
 }
 
 func (s *Server) Serve() (err error) {
-	l, err := aestcp.Listen("tcp", strf(":%d", s.Port), []byte(s.Password))
+	l, err := aestcp.Listen("tcp", strf(":%d", s.Port), []byte(s.Secret))
 	if err != nil {
 		return
 	}
@@ -48,11 +48,11 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	tunnelName := make(chan string, 1)
+	fc := make(chan string, 1)
+	tc := make(chan string, 1)
 	ec := make(chan error, 1)
-	proxy := false
 
-	go func() {
+	go func(fc chan string, tc chan string, ec chan error) {
 		flag, data, err := parseMessage(conn)
 		if err != nil {
 			ec <- err
@@ -64,10 +64,10 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
-		proxy = flag == "proxy"
-		tunnelName <- string(data)
+		fc <- flag
+		tc <- string(data)
 		ec <- nil
-	}()
+	}(fc, tc, ec)
 
 	select {
 	case err := <-ec:
@@ -80,7 +80,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	tunnel, ok := s.tunnels[<-tunnelName]
+	tunnel, ok := s.tunnels[<-tc]
 	if !ok {
 		conn.Close()
 		return
@@ -92,33 +92,35 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	if proxy {
-		tunnel.clientConns <- conn
-		log.Debugf("tunnel(%s) client connection activated", tunnel.Name)
+	if <-fc == "proxy" {
+		select {
+		case tc := <-tunnel.connPool:
+			proxy(tc, conn)
+		case <-time.After(6 * time.Second):
+			conn.Close()
+		}
 		return
 	}
 
 	for {
-		buf := make([]byte, 1)
-		_, err = conn.Read(buf)
-		if err != nil || buf[0] != '!' {
-			conn.Close()
-			return
-		}
-
 		select {
-		case <-tunnel.connQueue:
-			_, err := conn.Write([]byte{1})
-			if err != nil {
-				conn.Close()
-			}
-			return
-		case <-time.After(time.Second):
-			_, err := conn.Write([]byte{0})
+		case tc := <-tunnel.connQueue:
+			_, err := conn.Write([]byte{2})
 			if err != nil {
 				conn.Close()
 				return
 			}
+			if tc != nil {
+				tunnel.connPool <- tc
+				log.Debugf("tunnel(%s) connection activated", tunnel.Name)
+			}
+		case <-time.After(time.Second):
+			_, err := conn.Write([]byte{1})
+			if err != nil {
+				conn.Close()
+				return
+			}
+			log.Debugf("tunnel %s hearbeat", tunnel.Name)
 		}
 	}
 }

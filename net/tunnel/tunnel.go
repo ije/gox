@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"time"
 )
 
 var XTunnelHead = []byte("X-TUNNEL")
 
 type Tunnel struct {
-	Name        string
-	Port        uint16
-	connQueue   chan struct{}
-	clientConns chan net.Conn
+	Name      string
+	Port      uint16
+	connQueue chan net.Conn
+	connPool  chan net.Conn
 }
 
 func (t *Tunnel) Serve() (err error) {
@@ -25,30 +24,10 @@ func (t *Tunnel) Serve() (err error) {
 	}
 
 	go listen(l, func(conn net.Conn) {
-		t.handleConn(conn)
+		t.connQueue <- conn
 	})
+
 	return
-}
-
-func (t *Tunnel) handleConn(conn net.Conn) {
-	if len(t.connQueue) < cap(t.connQueue) {
-		t.connQueue <- struct{}{}
-	}
-
-	var clientConn net.Conn
-	select {
-	case clientConn = <-t.clientConns:
-		if clientConn == nil {
-			conn.Close()
-			return
-		}
-	case <-time.After(6 * time.Second):
-		<-t.connQueue
-		conn.Close()
-		return
-	}
-
-	proxy(conn, clientConn)
 }
 
 func sendMessage(conn net.Conn, flag string, data []byte) (err error) {

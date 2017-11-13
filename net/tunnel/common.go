@@ -68,23 +68,27 @@ func dial(network string, address string, aes string) (conn net.Conn, err error)
 	return
 }
 
-func proxy(conn net.Conn, proxyConn net.Conn) {
-	defer conn.Close()
-	defer proxyConn.Close()
+func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
+	if conn1 == nil || conn2 == nil {
+		return errf("invalid arguments")
+	}
 
-	closeChan := make(chan struct{}, 1)
+	ec := make(chan error, 1)
 
-	go func(conn net.Conn, proxyConn net.Conn, cc chan struct{}) {
-		io.Copy(proxyConn, conn)
-		cc <- struct{}{}
-	}(proxyConn, conn, closeChan)
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn1, conn2)
+		ec <- err
+	}(conn1, conn2, ec)
 
-	go func(conn net.Conn, proxyConn net.Conn, cc chan struct{}) {
-		io.Copy(conn, proxyConn)
-		cc <- struct{}{}
-	}(proxyConn, conn, closeChan)
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn2, conn1)
+		ec <- err
+	}(conn1, conn2, ec)
 
-	<-closeChan
+	err = <-ec
+	conn1.Close()
+	conn2.Close()
+	return
 }
 
 func errf(format string, a ...interface{}) error {

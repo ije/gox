@@ -28,8 +28,8 @@ func main() {
 	tunnel.SetLogger(logger)
 
 	ts := tunnel.Server{
-		Port:     uint16(cfg.Int("port", 333)),
-		Password: cfg.String("password", ""),
+		Port:   uint16(cfg.Int("port", 333)),
+		Secret: cfg.String("password", ""),
 	}
 
 	for name, section := range cfg.ExtendedSections() {

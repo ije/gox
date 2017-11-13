@@ -2,7 +2,7 @@
 
 read -p "please enter the deploy target('client' or 'server'): " target
 if [ "$target" != "client" ] && [ "$target" != "server" ]; then
-	echo "invalid the target ($target)..."
+	echo "invalid the target '$target'..."
 	exit
 fi
 
@@ -46,7 +46,9 @@ fi
 
 echo "--- compiling the x.tunnel.$target (${goos}_$goarch)..."
 go build x.tunnel.$target.go
-
+if [ "$EXCODE" != "0" ]; then 
+	exit
+fi
 # exit
 
 echo "--- uploading..."

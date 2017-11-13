@@ -6,10 +6,10 @@ import (
 )
 
 type Client struct {
-	Server      string
-	Password    string
-	Tunnel      string
-	ForwardPort uint16
+	Server       string
+	ServerSecret string
+	TunnelName   string
+	ForwardPort  uint16
 }
 
 func (client *Client) Run() {
@@ -19,52 +19,9 @@ func (client *Client) Run() {
 }
 
 func (client *Client) dial(proxy bool) {
-	var conn net.Conn
-	var err error
-
-	ec := make(chan error, 1)
-
-	go func() {
-		conn, err = dial("tcp", client.Server, client.Password)
-		if err != nil {
-			log.Warnf("tunnel(%s): dial remote: %v", client.Tunnel, err)
-			ec <- err
-			return
-		}
-
-		msg := "hello"
-		if proxy {
-			msg = "proxy"
-		}
-		err = sendMessage(conn, msg, []byte(client.Tunnel))
-		if err != nil {
-			ec <- err
-			return
-		}
-
-		buf := make([]byte, 1)
-		_, err = conn.Read(buf)
-		if err != nil || buf[0] != 1 {
-			ec <- err
-			return
-		}
-
-		ec <- nil
-	}()
-
-	select {
-	case err := <-ec:
-		if err != nil {
-			if conn != nil {
-				conn.Close()
-			}
-			return
-		}
-	case <-time.After(3 * time.Second):
-		close(ec)
-		if conn != nil {
-			conn.Close()
-		}
+	conn, err := client.handshake(proxy, 6*time.Second)
+	if err != nil {
+		log.Warn("handshake:", err)
 		return
 	}
 
@@ -73,30 +30,25 @@ func (client *Client) dial(proxy bool) {
 		return
 	}
 
-	// heartBeat
+	client.heartBeat(conn)
+}
+
+func (client *Client) heartBeat(conn net.Conn) {
 	for {
+		mc := make(chan byte, 1)
 		ec := make(chan error, 1)
-		msg := make(chan byte, 1)
 
-		go func() {
-			_, err := conn.Write([]byte{'!'})
-			if err != nil {
-				close(msg)
-				ec <- err
-				return
-			}
-
+		go func(mc chan byte, ec chan error) {
 			buf := make([]byte, 1)
-			_, err = conn.Read(buf)
+			_, err := conn.Read(buf)
 			if err != nil {
-				close(msg)
 				ec <- err
 				return
 			}
 
+			mc <- buf[0]
 			ec <- nil
-			msg <- buf[0]
-		}()
+		}(mc, ec)
 
 		select {
 		case err := <-ec:
@@ -105,23 +57,67 @@ func (client *Client) dial(proxy bool) {
 				return
 			}
 		case <-time.After(3 * time.Second):
-			close(ec)
-			close(msg)
 			conn.Close()
 			return
 		}
 
-		if <-msg == 1 {
+		if msg := <-mc; msg == 2 {
 			go client.dial(true)
+		} else if msg != 1 {
+			conn.Close()
 			return
 		}
 	}
 }
 
+func (client *Client) handshake(proxy bool, timeout time.Duration) (conn net.Conn, err error) {
+	cc := make(chan net.Conn, 1)
+	ec := make(chan error, 1)
+
+	go func(cc chan net.Conn, ec chan error) {
+		c, e := dial("tcp", client.Server, client.ServerSecret)
+		if e != nil {
+			ec <- e
+			return
+		}
+
+		msg := "hello"
+		if proxy {
+			msg = "proxy"
+		}
+		e = sendMessage(c, msg, []byte(client.TunnelName))
+		if e != nil {
+			ec <- e
+			return
+		}
+
+		buf := make([]byte, 1)
+		_, e = c.Read(buf)
+		if e != nil || buf[0] != 1 {
+			ec <- e
+			return
+		}
+
+		cc <- c
+		ec <- nil
+	}(cc, ec)
+
+	select {
+	case err = <-ec:
+		if err == nil {
+			conn = <-cc
+		}
+	case <-time.After(timeout):
+		err = errf("time out")
+	}
+
+	return
+}
+
 func (client *Client) proxy(conn net.Conn) {
 	proxyConn, err := dial("tcp", strf(":%d", client.ForwardPort), "")
 	if err != nil {
-		log.Warnf("tunnel(%s): dial local failed: %v", client.Tunnel, err)
+		log.Warnf("tunnel(%s): dial local failed: %v", client.TunnelName, err)
 		conn.Close()
 		return
 	}

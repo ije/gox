@@ -39,10 +39,10 @@ func main() {
 			name = strings.TrimPrefix(name, "tunnel:")
 
 			tc := &tunnel.Client{
-				Server:      ts,
-				Password:    tsPassword,
-				Tunnel:      name,
-				ForwardPort: uint16(port),
+				Server:       ts,
+				ServerSecret: tsPassword,
+				TunnelName:   name,
+				ForwardPort:  uint16(port),
 			}
 			go tc.Run()
 
