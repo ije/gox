@@ -70,7 +70,7 @@ func dial(network string, address string, aes string) (conn net.Conn, err error)
 
 func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
 	if conn1 == nil || conn2 == nil {
-		return errf("invalid arguments")
+		return errf("invalid connections")
 	}
 
 	ec := make(chan error, 1)
@@ -86,8 +86,49 @@ func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
 	}(conn1, conn2, ec)
 
 	err = <-ec
-	conn1.Close()
-	conn2.Close()
+	go conn1.Close()
+	go conn2.Close()
+	return
+}
+
+// exchange 1 byte data with timeout
+func exchangeByte(conn net.Conn, b byte, timeout time.Duration) (ret byte, err error) {
+	ec := make(chan error, 1)
+	bc := make(chan byte, 1)
+	go func(conn net.Conn, bc chan byte, ec chan error) {
+		_, err := conn.Write([]byte{b})
+		if err != nil {
+			ec <- err
+			return
+		}
+
+		buf := make([]byte, 1)
+		_, err = conn.Read(buf)
+		if err != nil {
+			ec <- err
+			return
+		}
+
+		bc <- buf[0]
+		ec <- nil
+	}(conn, bc, ec)
+
+	if timeout <= 0 {
+		err = <-ec
+		if err == nil {
+			ret = <-bc
+		}
+		return
+	}
+
+	select {
+	case err = <-ec:
+		if err == nil {
+			ret = <-bc
+		}
+	case <-time.After(timeout):
+		err = errf("timeout")
+	}
 	return
 }
 

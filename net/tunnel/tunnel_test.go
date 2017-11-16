@@ -22,7 +22,7 @@ func init() {
 	s := &http.Server{
 		Addr: fmt.Sprintf(":%d", httpPort),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Hello World"))
+			w.Write([]byte("Hello World!"))
 		}),
 	}
 	s.SetKeepAlivesEnabled(false)
@@ -59,18 +59,17 @@ func init() {
 }
 
 func Test(t *testing.T) {
-	go func() {
-		for i := 0; i < 1000; i++ {
-			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			ret, _ := ioutil.ReadAll(r.Body)
-			if string(ret) != "Hello World" {
-				t.Fatal(string(ret))
-			}
+	time.Sleep(time.Second)
+	for i := 0; i < 1000; i++ {
+		r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
+		if err != nil {
+			t.Fatal(err)
 		}
-	}()
-	time.Sleep(10 * time.Second)
+
+		ret, _ := ioutil.ReadAll(r.Body)
+		if string(ret) != "Hello World!" {
+			t.Fatal(string(ret))
+		}
+	}
+	time.Sleep(3 * time.Second)
 }

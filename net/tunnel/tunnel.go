@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 )
 
 var XTunnelHead = []byte("X-TUNNEL")
@@ -15,6 +16,8 @@ type Tunnel struct {
 	Port      uint16
 	connQueue chan net.Conn
 	connPool  chan net.Conn
+	online    bool
+	olTimer   *time.Timer
 }
 
 func (t *Tunnel) Serve() (err error) {
@@ -24,10 +27,29 @@ func (t *Tunnel) Serve() (err error) {
 	}
 
 	go listen(l, func(conn net.Conn) {
+		log.Debugf("tunnel(%s, online:%v) new connection ", t.Name, t.online)
+
+		if !t.online {
+			conn.Close()
+			return
+		}
+
 		t.connQueue <- conn
 	})
 
 	return
+}
+
+func (t *Tunnel) activate() {
+	t.online = true
+
+	if t.olTimer == nil {
+		t.olTimer = time.AfterFunc(3*time.Second, func() {
+			t.online = false
+		})
+	} else {
+		t.olTimer.Reset(3 * time.Second)
+	}
 }
 
 func sendMessage(conn net.Conn, flag string, data []byte) (err error) {

@@ -52,7 +52,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	tc := make(chan string, 1)
 	ec := make(chan error, 1)
 
-	go func(fc chan string, tc chan string, ec chan error) {
+	go func(conn net.Conn, fc chan string, tc chan string, ec chan error) {
 		flag, data, err := parseMessage(conn)
 		if err != nil {
 			ec <- err
@@ -64,10 +64,16 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
+		_, err = conn.Write([]byte{1})
+		if err != nil {
+			ec <- err
+			return
+		}
+
 		fc <- flag
 		tc <- string(data)
 		ec <- nil
-	}(fc, tc, ec)
+	}(conn, fc, tc, ec)
 
 	select {
 	case err := <-ec:
@@ -76,7 +82,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 	case <-time.After(3 * time.Second):
-		conn.Close() // connection will be closed when can not get the valid handshake message in 3 seconds
+		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 3 seconds
 		return
 	}
 
@@ -86,16 +92,12 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	_, err := conn.Write([]byte{1})
-	if err != nil {
-		conn.Close()
-		return
-	}
+	tunnel.activate()
 
 	if <-fc == "proxy" {
 		select {
-		case tc := <-tunnel.connPool:
-			proxy(tc, conn)
+		case c := <-tunnel.connPool:
+			proxy(conn, c)
 		case <-time.After(6 * time.Second):
 			conn.Close()
 		}
@@ -104,23 +106,32 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	for {
 		select {
-		case tc := <-tunnel.connQueue:
-			_, err := conn.Write([]byte{2})
+		case c := <-tunnel.connQueue:
+			ret, err := exchangeByte(conn, 2, 3*time.Second)
 			if err != nil {
 				conn.Close()
 				return
 			}
-			if tc != nil {
-				tunnel.connPool <- tc
+
+			if ret == 1 {
+				tunnel.activate()
+				tunnel.connPool <- c
 				log.Debugf("tunnel(%s) connection activated", tunnel.Name)
+			} else {
+				c.Close()
 			}
+
 		case <-time.After(time.Second):
-			_, err := conn.Write([]byte{1})
+			ret, err := exchangeByte(conn, 1, 3*time.Second)
 			if err != nil {
 				conn.Close()
 				return
 			}
-			log.Debugf("tunnel %s hearbeat", tunnel.Name)
+
+			if ret == 1 {
+				tunnel.activate()
+				log.Debugf("tunnel(%s) activated(heartbeat)", tunnel.Name)
+			}
 		}
 	}
 }
