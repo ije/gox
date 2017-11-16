@@ -20,9 +20,17 @@ if [ "$arch" != "" ]; then
 fi
 export GOARCH=$goarch
 
+echo "--- compiling the x.tunnel.$target (${goos}_$goarch)..."
+go build x.tunnel.$target.go
+if [ "$?" != "0" ]; then 
+	exit
+fi
+# exit
+
 read -p "please enter hostname or ip: " host
-if [ "$host" == "" ]; then
+if [ "$host" = "" ]; then
 	echo "missing the host..."
+	rm x.tunnel.$target
 	exit
 fi
 
@@ -40,33 +48,35 @@ fi
 
 supervisor="no"
 read -p "install/update the supervisor config script('yes' or 'no', default is 'no')? " ok
-if [ "$ok" == "yes" ]; then
+if [ "$ok" = "yes" ]; then
 	supervisor="yes"
 fi
 
-echo "--- compiling the x.tunnel.$target (${goos}_$goarch)..."
-go build x.tunnel.$target.go
-if [ "$EXCODE" != "0" ]; then 
+echo "--- uploading..."
+scp -P $hostSSHPort install.sh $loginUser@$host:/tmp/x.tunnel.install.sh
+if [ "$?" != "0" ]; then
+	rm x.tunnel.$target
 	exit
 fi
-# exit
 
-echo "--- uploading..."
-scp -P $hostSSHPort x.tunnel.$target $loginUser@$host:/usr/local/bin/_x.tunnel.$target
-if [ "$supervisor" == "yes" ]; then
+if [ "$supervisor" = "yes" ]; then
 	scp -P $hostSSHPort x.tunnel.$target.supervisor.conf $loginUser@$host:/etc/supervisor/conf.d/x.tunnel.$target.conf
+	if [ "$?" != "0" ]; then
+		rm x.tunnel.$target
+		exit
+	fi
+fi
+
+scp -P $hostSSHPort x.tunnel.$target $loginUser@$host:/tmp/x.tunnel.$target
+if [ "$?" != "0" ]; then
+	rm x.tunnel.$target
+	exit
 fi
 
 echo "--- restart x.tunnel.$target..."
 ssh -p $hostSSHPort $loginUser@$host << EOF
-	supervisorctl stop x-tunnel-$target
-	mv -f /usr/local/bin/_x.tunnel.$target /usr/local/bin/x.tunnel.$target
-	chmod +x /usr/local/bin/x.tunnel.$target
-	if [ "$supervisor" == "yes" ]; then
-		supervisorctl reload
-	else
-		supervisorctl start x-tunnel-$target
-	fi
+	echo "restart x.tunnel.$target ..."
+	nohup sh /tmp/x.tunnel.install.sh $target $supervisor >/dev/null 2>&1 &
 EOF
 
 rm x.tunnel.$target

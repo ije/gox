@@ -1,16 +1,20 @@
 package tunnel
 
 import (
+	"encoding/json"
 	"net"
+	"net/http"
 	"time"
 
 	"github.com/ije/gox/net/aestcp"
+	"github.com/ije/gox/utils"
 )
 
 type Server struct {
-	Port    uint16
-	Secret  string
-	tunnels map[string]*Tunnel
+	Port     uint16
+	HTTPPort uint16
+	Secret   string
+	tunnels  map[string]*Tunnel
 }
 
 func (s *Server) AddTunnel(name string, port uint16, maxClientConnections int) error {
@@ -34,6 +38,15 @@ func (s *Server) AddTunnel(name string, port uint16, maxClientConnections int) e
 }
 
 func (s *Server) Serve() (err error) {
+	go func() {
+		if s.HTTPPort > 0 {
+			http.ListenAndServe(strf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				json.NewEncoder(w).Encode(s.tunnels)
+				w.Header().Set("Content-Type", "application/json")
+			}))
+		}
+	}()
+
 	l, err := aestcp.Listen("tcp", strf(":%d", s.Port), []byte(s.Secret))
 	if err != nil {
 		return
@@ -92,8 +105,6 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	tunnel.activate()
-
 	if <-fc == "proxy" {
 		select {
 		case c := <-tunnel.connPool:
@@ -103,6 +114,15 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		return
 	}
+
+	// only on birdge connection can be keep-alive
+	if len(tunnel.CurrentClient) > 0 {
+		conn.Close()
+		return
+	}
+
+	tunnel.activate()
+	tunnel.CurrentClient, _ = utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
 
 	for {
 		select {
@@ -134,4 +154,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 		}
 	}
+
+	tunnel.Online = false
+	tunnel.CurrentClient = ""
 }
