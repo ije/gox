@@ -12,13 +12,13 @@ import (
 var XTunnelHead = []byte("X-TUNNEL")
 
 type Tunnel struct {
-	Name          string
-	Port          uint16
-	Online        bool
-	CurrentClient string
-	olTimer       *time.Timer
-	connQueue     chan net.Conn
-	connPool      chan net.Conn
+	Name      string `json:"name"`
+	Port      uint16 `json:"port"`
+	Online    bool   `json:"online"`
+	Client    string `json:"client,omitempty"`
+	olTimer   *time.Timer
+	connQueue chan net.Conn
+	connPool  chan net.Conn
 }
 
 func (t *Tunnel) Serve() (err error) {
@@ -41,16 +41,18 @@ func (t *Tunnel) Serve() (err error) {
 	return
 }
 
-func (t *Tunnel) activate() {
-	t.Online = true
-
+func (t *Tunnel) activate(remoteAddr string) {
 	if t.olTimer != nil {
 		t.olTimer.Stop()
 	}
 	t.olTimer = time.AfterFunc(3*time.Second, func() {
 		t.olTimer = nil
 		t.Online = false
+		t.Client = ""
 	})
+
+	t.Online = true
+	t.Client = remoteAddr
 }
 
 func sendMessage(conn net.Conn, flag string, data []byte) (err error) {

@@ -99,6 +99,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
+	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
+
 	tunnel, ok := s.tunnels[<-tc]
 	if !ok {
 		conn.Close()
@@ -106,6 +108,11 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 
 	if <-fc == "proxy" {
+		if len(tunnel.Client) == 0 || tunnel.Client != remoteAddr {
+			conn.Close()
+			return
+		}
+
 		select {
 		case c := <-tunnel.connPool:
 			proxy(conn, c)
@@ -116,13 +123,12 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 
 	// only on birdge connection can be keep-alive
-	if len(tunnel.CurrentClient) > 0 {
+	if len(tunnel.Client) > 0 {
 		conn.Close()
 		return
 	}
 
-	tunnel.activate()
-	tunnel.CurrentClient, _ = utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
+	tunnel.activate(remoteAddr)
 
 	for {
 		select {
@@ -134,7 +140,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 
 			if ret == 1 {
-				tunnel.activate()
+				tunnel.activate(remoteAddr)
 				tunnel.connPool <- c
 				log.Debugf("tunnel(%s) connection activated", tunnel.Name)
 			} else {
@@ -149,12 +155,12 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 
 			if ret == 1 {
-				tunnel.activate()
+				tunnel.activate(remoteAddr)
 				log.Debugf("tunnel(%s) activated(heartbeat)", tunnel.Name)
 			}
 		}
 	}
 
 	tunnel.Online = false
-	tunnel.CurrentClient = ""
+	tunnel.Client = ""
 }
