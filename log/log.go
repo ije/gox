@@ -28,6 +28,8 @@ import (
 	"github.com/ije/gox/strconv"
 )
 
+var ErrorArgumentFormat = fmt.Errorf("invalid argument format")
+
 type Logger struct {
 	lock          sync.Mutex
 	level         Level
@@ -120,8 +122,8 @@ func (l *Logger) SetPrefix(prefix string) {
 	l.prefix = strings.TrimSpace(prefix)
 }
 
-func (l *Logger) SetBuffer(maxMemory int) {
-	if maxMemory < 1024 {
+func (l *Logger) SetBuffer(cap int) {
+	if cap < 1024 {
 		return
 	}
 
@@ -129,12 +131,12 @@ func (l *Logger) SetBuffer(maxMemory int) {
 	defer l.lock.Unlock()
 
 	if l.buffer == nil {
-		l.bufcap = maxMemory
-		l.buffer = make([]byte, maxMemory)
-	} else if maxMemory > l.bufcap {
-		buffer := make([]byte, maxMemory)
+		l.bufcap = cap
+		l.buffer = make([]byte, cap)
+	} else if cap > l.bufcap {
+		buffer := make([]byte, cap)
 		copy(buffer, l.buffer)
-		l.bufcap = maxMemory
+		l.bufcap = cap
 		l.buffer = buffer
 	}
 }
@@ -173,24 +175,6 @@ func (l *Logger) OnWriteError(callback func(data []byte, err error)) {
 	defer l.lock.Unlock()
 
 	l.errorListener = callback
-}
-
-func (l *Logger) FlushBuffer() (n int, err error) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	if l.output == nil {
-		return
-	}
-
-	if l.buflen > 0 {
-		n, err = l.output.Write(l.buffer[:l.buflen])
-		if err != nil {
-			return
-		}
-		l.buflen = 0
-	}
-	return
 }
 
 func (l *Logger) Print(v ...interface{}) {
@@ -313,7 +297,7 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	}
 
 	if !l.quite {
-		if level <= L_INFO {
+		if level < L_ERROR {
 			os.Stdout.Write(buf)
 		} else {
 			os.Stderr.Write(buf)
@@ -348,32 +332,58 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 	}()
 
 	if l.bufcap > 0 {
-		if l.buflen+n > l.bufcap { // Flush
-			if l.buflen > 0 {
-				n, err = l.output.Write(l.buffer[:l.buflen])
-				if err != nil {
-					return
-				}
-				l.buflen = 0
-			}
-		}
-
-		if n >= l.bufcap {
+		if n > l.bufcap/2 {
 			n, err = l.output.Write(p)
 			return
 		}
 
-		l.buflen += copy(l.buffer[l.buflen:], p)
-
-		if l.flushTimer != nil {
-			l.flushTimer.Stop()
+		// Flush buffer
+		if l.buflen > 0 && l.buflen+n > l.bufcap {
+			_, err = l.output.Write(l.buffer[:l.buflen])
+			if err != nil {
+				return
+			}
+			l.buflen = 0
 		}
-		l.flushTimer = time.AfterFunc(5*time.Minute, func() {
-			l.FlushBuffer()
-		})
+
+		l.buflen += copy(l.buffer[l.buflen:], p)
+		l.flushTime()
 	} else {
 		n, err = l.output.Write(p)
 	}
 
 	return
+}
+
+func (l *Logger) FlushBuffer() (n int, err error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	if l.buflen == 0 || l.output == nil {
+		n = l.buflen
+		l.buflen = 0
+		return
+	}
+
+	_, err = l.output.Write(l.buffer[:l.buflen])
+	if err != nil {
+		return
+	}
+
+	n = l.buflen
+	l.buflen = 0
+	return
+}
+
+func (l *Logger) flushTime() {
+	if l.flushTimer != nil {
+		l.flushTimer.Stop()
+	}
+	l.flushTimer = time.AfterFunc(5*time.Minute, func() {
+		l.flushTimer = nil
+		_, err := l.FlushBuffer()
+		if err != nil {
+			l.flushTime()
+		}
+	})
 }
