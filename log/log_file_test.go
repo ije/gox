@@ -5,7 +5,7 @@ import (
 )
 
 func TestFileLogger(t *testing.T) {
-	log, err := New("file:/tmp/test.log?maxBytes=2kb&prefix=[hello]")
+	log, err := New("file:/tmp/test.log?maxBytes=2kb&fileDateFormat=2006-01-02")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -4,58 +4,61 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/ije/gox/strconv"
 	"github.com/ije/gox/utils"
 )
 
-var fws = map[string]*fileWriter{}
-
 type fileWriter struct {
-	filePath     string
-	maxFileBytes int64
-	writedBytes  int64
+	filePath       string
+	fileDateFormat string
+	maxFileBytes   int64
+	writedBytes    int64
 }
 
-func (fw *fileWriter) Write(p []byte) (n int, err error) {
-	if fw.maxFileBytes > 0 && fw.writedBytes > fw.maxFileBytes {
-		if err = os.Rename(fw.filePath, fixFilePath(fw.filePath, 0)); err != nil {
+func (w *fileWriter) Write(p []byte) (n int, err error) {
+	if w.maxFileBytes > 0 && w.writedBytes > w.maxFileBytes {
+		if err = os.Rename(w.filePath, appendFileIndex(w.fixedFilePath(), 0)); err != nil {
 			return
 		}
-		fw.writedBytes = 0
+		w.writedBytes = 0
 	}
-	file, err := os.OpenFile(fw.filePath, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	file, err := os.OpenFile(w.fixedFilePath(), os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 	n, err = file.Write(p)
-	fw.writedBytes += int64(n)
+	w.writedBytes += int64(n)
 	return
 }
 
-func fixFilePath(filePath string, i int) (path string) {
-	path, ext := utils.SplitByLastByte(filePath, '.')
+func (w *fileWriter) fixedFilePath() (path string) {
+	if len(w.fileDateFormat) > 0 {
+		name, ext := utils.SplitByLastByte(w.filePath, '.')
+		return name + "-" + time.Now().Format(w.fileDateFormat) + "." + ext
+	} else {
+		return w.filePath
+	}
+}
+
+func appendFileIndex(path string, i int) string {
+	name, ext := utils.SplitByLastByte(path, '.')
 	if i > 0 {
-		path, _ = utils.SplitByLastByte(path, '.')
-		path += "_" + strconv.Itoa(i)
+		name, _ = utils.SplitByLastByte(name, '_')
+		name += "_" + strconv.Itoa(i)
 	}
-	path += "." + ext
+
+	path = name + "." + ext
 	if _, err := os.Lstat(path); err == nil || os.IsExist(err) {
-		return fixFilePath(path, i+1)
+		return appendFileIndex(path, i+1)
 	}
-	return
+
+	return path
 }
 
-func getFW(filePath string, maxFileBytes int64) (fw *fileWriter, err error) {
-	fw, ok := fws[filePath]
-	if ok {
-		if maxFileBytes > 0 {
-			fw.maxFileBytes = maxFileBytes
-		}
-		return
-	}
-
+func newWriter(filePath string, fileDateFormat string, maxFileBytes int64) (w *fileWriter, err error) {
 	dir := path.Dir(filePath)
 	if dir != "" && dir != "." {
 		if err = os.MkdirAll(dir, 0755); err != nil {
@@ -63,17 +66,16 @@ func getFW(filePath string, maxFileBytes int64) (fw *fileWriter, err error) {
 		}
 	}
 
-	fw = &fileWriter{filePath: filePath, maxFileBytes: maxFileBytes}
-	if fi, err := os.Lstat(filePath); err == nil {
-		fw.writedBytes = fi.Size()
+	w = &fileWriter{filePath: filePath, fileDateFormat: fileDateFormat, maxFileBytes: maxFileBytes}
+	if fi, err := os.Lstat(w.fixedFilePath()); err == nil {
+		w.writedBytes = fi.Size()
 	}
-	fws[filePath] = fw
 	return
 }
 
 type fileLoggerDriver struct{}
 
-func (fwd *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer, error) {
+func (d *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer, error) {
 	var maxFileBytes int64
 
 	val, ok := args["maxFileBytes"]
@@ -88,7 +90,7 @@ func (fwd *fileLoggerDriver) Open(addr string, args map[string]string) (io.Write
 		maxFileBytes = i
 	}
 
-	return getFW(utils.CleanPath(addr), maxFileBytes)
+	return newWriter(utils.CleanPath(addr), args["fileDateFormat"], maxFileBytes)
 }
 
 func init() {
