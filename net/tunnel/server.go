@@ -56,11 +56,6 @@ func (s *Server) Serve() (err error) {
 }
 
 func (s *Server) handleConn(conn net.Conn) {
-	if len(s.tunnels) == 0 {
-		conn.Close()
-		return
-	}
-
 	fc := make(chan string, 1)
 	tc := make(chan string, 1)
 	ec := make(chan error, 1)
@@ -99,13 +94,13 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
-
 	tunnel, ok := s.tunnels[<-tc]
 	if !ok {
 		conn.Close()
 		return
 	}
+
+	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
 
 	if <-fc == "proxy" {
 		if len(tunnel.Client) == 0 || tunnel.Client != remoteAddr {
@@ -129,7 +124,12 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 
 	tunnel.activate(remoteAddr)
+	defer func() {
+		tunnel.Online = false
+		tunnel.Client = ""
+	}()
 
+	conn.SetDeadline(time.Time{})
 	for {
 		select {
 		case c := <-tunnel.connQueue:
@@ -160,7 +160,4 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 		}
 	}
-
-	tunnel.Online = false
-	tunnel.Client = ""
 }

@@ -195,15 +195,11 @@ func ParseJSONFile(filename string, v interface{}) (err error) {
 	return json.NewDecoder(r).Decode(v)
 }
 
-type JSONIndent struct {
-	indent string
-	prefix string
+func SaveJSONFile(filename string, v interface{}) (err error) {
+	return SaveJSONFileWithIndent(filename, v, "", "")
 }
 
-var SpaceJSONIndent = &JSONIndent{" ", ""}
-var TabJSONIndent = &JSONIndent{"\t", ""}
-
-func SaveJSONFile(filename string, v interface{}, indent *JSONIndent) (err error) {
+func SaveJSONFileWithIndent(filename string, v interface{}, prefix string, indent string) (err error) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return
@@ -211,8 +207,8 @@ func SaveJSONFile(filename string, v interface{}, indent *JSONIndent) (err error
 	defer f.Close()
 	je := json.NewEncoder(f)
 
-	if indent != nil {
-		je.SetIndent(indent.prefix, indent.indent)
+	if len(indent) > 0 || len(prefix) > 0 {
+		je.SetIndent(prefix, indent)
 	}
 
 	return je.Encode(v)

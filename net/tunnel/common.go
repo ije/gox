@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"time"
 
 	logger "github.com/ije/gox/log"
@@ -29,26 +30,17 @@ func SetLogLevel(level string) {
 func listen(l net.Listener, connHandler func(net.Conn)) error {
 	defer l.Close()
 
-	var tempDelay time.Duration
 	for {
-		conn, e := l.Accept()
-		if e != nil {
-			if ne, ok := e.(net.Error); ok && ne.Temporary() {
-				if tempDelay == 0 {
-					tempDelay = 5 * time.Millisecond
-				} else {
-					tempDelay *= 2
-				}
-				if tempDelay > time.Second {
-					tempDelay = time.Second
-				}
-				time.Sleep(tempDelay)
-				log.Warnf("net: Accept error: %v; retrying in %v", e, tempDelay)
-				continue
-			}
-			return e
+		conn, err := l.Accept()
+		if err != nil && strings.Contains(err.Error(), "use of closed network connection") {
+			return err
 		}
-		tempDelay = 0
+		if tcpConn, ok := conn.(*net.TCPConn); ok {
+			err := tcpConn.SetKeepAlive(true)
+			if err != nil {
+				return err
+			}
+		}
 		go connHandler(conn)
 	}
 }
@@ -63,7 +55,7 @@ func dial(network string, address string, aes string) (conn net.Conn, err error)
 		if err == nil {
 			return
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(time.Second / 2)
 	}
 	return
 }
