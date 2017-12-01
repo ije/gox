@@ -257,7 +257,7 @@ func Run() {
 		cmd, args := ls[0], ls[1:]
 		if handler, ok := commands[cmd]; ok {
 			if ret, err := handler(args...); err != nil {
-				Warn.Printf("%s: v", cmd, err)
+				Warn.Printf("%s: %v", cmd, err)
 			} else if len(ret) > 0 {
 				Ok.Print(ret)
 			}
