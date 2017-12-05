@@ -11,6 +11,8 @@ import (
 	"github.com/ije/gox/net/aestcp"
 )
 
+var errTimeout = errf("timeout")
+
 var log = &logger.Logger{}
 
 func init() {
@@ -53,6 +55,9 @@ func dial(network string, address string, aes string) (conn net.Conn, err error)
 			conn, err = net.Dial(network, address)
 		}
 		if err == nil {
+			if tcpConn, ok := conn.(*net.TCPConn); ok {
+				err = tcpConn.SetKeepAlive(true)
+			}
 			return
 		}
 		time.Sleep(time.Second / 2)
@@ -60,12 +65,13 @@ func dial(network string, address string, aes string) (conn net.Conn, err error)
 	return
 }
 
-func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
+func proxy(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
 	if conn1 == nil || conn2 == nil {
 		return errf("invalid connections")
 	}
 
 	ec := make(chan error, 1)
+	ec2 := make(chan error, 1)
 
 	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
 		_, err := io.Copy(conn1, conn2)
@@ -75,51 +81,57 @@ func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
 	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
 		_, err := io.Copy(conn2, conn1)
 		ec <- err
-	}(conn1, conn2, ec)
+	}(conn1, conn2, ec2)
 
-	err = <-ec
-	go conn1.Close()
-	go conn2.Close()
+	if timeout > 0 {
+		select {
+		case err = <-ec:
+		case err = <-ec2:
+		case <-time.After(timeout):
+			err = errf("time out")
+		}
+	} else {
+		select {
+		case err = <-ec:
+		case err = <-ec2:
+		}
+	}
+
+	conn1.Close()
+	conn2.Close()
 	return
 }
 
 // exchange 1 byte data with timeout
 func exchangeByte(conn net.Conn, b byte, timeout time.Duration) (ret byte, err error) {
-	ec := make(chan error, 1)
-	bc := make(chan byte, 1)
-	go func(conn net.Conn, bc chan byte, ec chan error) {
-		_, err := conn.Write([]byte{b})
+	err = dotimeout(func() (err error) {
+		_, err = conn.Write([]byte{b})
 		if err != nil {
-			ec <- err
 			return
 		}
 
 		buf := make([]byte, 1)
 		_, err = conn.Read(buf)
 		if err != nil {
-			ec <- err
 			return
 		}
 
-		bc <- buf[0]
-		ec <- nil
-	}(conn, bc, ec)
-
-	if timeout <= 0 {
-		err = <-ec
-		if err == nil {
-			ret = <-bc
-		}
+		ret = buf[0]
 		return
-	}
+	}, timeout)
+	return
+}
+
+func dotimeout(handle func() error, timeout time.Duration) (err error) {
+	var ec = make(chan error, 1)
+	go func(ec chan error) {
+		ec <- handle()
+	}(ec)
 
 	select {
 	case err = <-ec:
-		if err == nil {
-			ret = <-bc
-		}
 	case <-time.After(timeout):
-		err = errf("timeout")
+		err = errTimeout
 	}
 	return
 }

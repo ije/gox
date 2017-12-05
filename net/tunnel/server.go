@@ -17,16 +17,16 @@ type Server struct {
 	tunnels  map[string]*Tunnel
 }
 
-func (s *Server) AddTunnel(name string, port uint16, maxClientConnections int) error {
-	if maxClientConnections <= 0 {
-		maxClientConnections = 1
+func (s *Server) AddTunnel(name string, port uint16, maxConnections int) error {
+	if maxConnections <= 0 {
+		maxConnections = 1
 	}
 
 	tunnel := &Tunnel{
 		Name:      name,
 		Port:      port,
-		connQueue: make(chan net.Conn, maxClientConnections),
-		connPool:  make(chan net.Conn, maxClientConnections),
+		connQueue: make(chan net.Conn, maxConnections),
+		connPool:  make(chan net.Conn, maxConnections),
 	}
 
 	if s.tunnels == nil {
@@ -56,53 +56,41 @@ func (s *Server) Serve() (err error) {
 }
 
 func (s *Server) handleConn(conn net.Conn) {
-	fc := make(chan string, 1)
-	tc := make(chan string, 1)
-	ec := make(chan error, 1)
+	var flag string
+	var tunnelName string
 
-	go func(conn net.Conn, fc chan string, tc chan string, ec chan error) {
-		flag, data, err := parseMessage(conn)
+	if dotimeout(func() (err error) {
+		f, d, err := parseMessage(conn)
 		if err != nil {
-			ec <- err
 			return
 		}
 
-		if flag != "hello" && flag != "proxy" {
-			ec <- errf("invalid handshake message")
+		if f != "hello" && f != "proxy" {
+			err = errf("invalid handshake message")
 			return
 		}
 
 		_, err = conn.Write([]byte{1})
 		if err != nil {
-			ec <- err
 			return
 		}
 
-		fc <- flag
-		tc <- string(data)
-		ec <- nil
-	}(conn, fc, tc, ec)
-
-	select {
-	case err := <-ec:
-		if err != nil {
-			conn.Close()
-			return
-		}
-	case <-time.After(3 * time.Second):
+		flag = f
+		tunnelName = string(d)
+		return
+	}, 3*time.Second) != nil {
 		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 3 seconds
 		return
 	}
 
-	tunnel, ok := s.tunnels[<-tc]
+	tunnel, ok := s.tunnels[tunnelName]
 	if !ok {
 		conn.Close()
 		return
 	}
 
 	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
-
-	if <-fc == "proxy" {
+	if flag == "proxy" {
 		if len(tunnel.Client) == 0 || tunnel.Client != remoteAddr {
 			conn.Close()
 			return
@@ -110,7 +98,7 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		select {
 		case c := <-tunnel.connPool:
-			proxy(conn, c)
+			proxy(conn, c, 0)
 		case <-time.After(6 * time.Second):
 			conn.Close()
 		}

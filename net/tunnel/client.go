@@ -26,58 +26,33 @@ func (client *Client) Run() {
 
 func (client *Client) heartBeat(conn net.Conn) {
 	for {
-		mc := make(chan byte, 1)
-		ec := make(chan error, 1)
-
-		go func(conn net.Conn, mc chan byte, ec chan error) {
+		var msg byte
+		if dotimeout(func() (err error) {
 			buf := make([]byte, 1)
-			_, err := conn.Read(buf)
+			_, err = conn.Read(buf)
 			if err != nil {
-				ec <- err
 				return
 			}
 
-			mc <- buf[0]
-			ec <- nil
-		}(conn, mc, ec)
-
-		select {
-		case err := <-ec:
-			if err != nil {
-				conn.Close()
-				return
-			}
-		case <-time.After(3 * time.Second):
+			msg = buf[0]
+			return
+		}, 3*time.Second) != nil {
 			conn.Close()
 			return
 		}
 
-		msg := <-mc
+		if msg != 1 && msg != 2 {
+			conn.Close()
+			return
+		}
+
 		if msg == 2 {
 			client.dialAndProxy()
-		} else if msg != 1 {
-			conn.Close()
-			return
 		}
-
-		ec = make(chan error, 1)
-		go func(conn net.Conn, ec chan error) {
-			_, err := conn.Write([]byte{1})
-			if err != nil {
-				ec <- err
-				return
-			}
-
-			ec <- nil
-		}(conn, ec)
-
-		select {
-		case err := <-ec:
-			if err != nil {
-				conn.Close()
-				return
-			}
-		case <-time.After(3 * time.Second):
+		if dotimeout(func() (err error) {
+			_, err = conn.Write([]byte{1})
+			return
+		}, 3*time.Second) != nil {
 			conn.Close()
 			return
 		}
@@ -85,70 +60,46 @@ func (client *Client) heartBeat(conn net.Conn) {
 }
 
 func (client *Client) dialWithHandshake(handshakeMessage string, timeout time.Duration) (conn net.Conn, err error) {
-	cc := make(chan net.Conn, 1)
-	ec := make(chan error, 1)
-
-	go func(cc chan net.Conn, ec chan error, msg string) {
-		c, e := dial("tcp", client.Server, client.ServerSecret)
-		if e != nil {
-			ec <- e
+	err = dotimeout(func() (err error) {
+		c, err := dial("tcp", client.Server, client.ServerSecret)
+		if err != nil {
 			return
 		}
 
-		e = sendMessage(c, msg, []byte(client.TunnelName))
-		if e != nil {
-			ec <- e
+		err = sendMessage(c, handshakeMessage, []byte(client.TunnelName))
+		if err != nil {
 			return
 		}
 
 		buf := make([]byte, 1)
-		_, e = c.Read(buf)
-		if e != nil || buf[0] != 1 {
-			ec <- e
+		_, err = c.Read(buf)
+		if err != nil {
 			return
 		}
 
-		cc <- c
-		ec <- nil
-	}(cc, ec, handshakeMessage)
-
-	select {
-	case err = <-ec:
-		if err == nil {
-			conn = <-cc
+		if buf[0] != 1 {
+			err = errf("server error")
+			return
 		}
-	case <-time.After(timeout):
-		err = errf("time out")
-	}
 
+		conn = c
+		return
+	}, timeout)
 	return
 }
 
 func (client *Client) dialAndProxy() {
-	ec := make(chan error, 1)
-	cc := make(chan net.Conn, 1)
-	go func(cc chan net.Conn, ec chan error) {
+	var localConn net.Conn
+	if err := dotimeout(func() (err error) {
 		conn, err := dial("tcp", strf(":%d", client.ForwardPort), "")
 		if err != nil {
-			ec <- err
 			return
 		}
 
-		cc <- conn
-		ec <- nil
-	}(cc, ec)
-
-	var localConn net.Conn
-	select {
-	case err := <-ec:
-		if err != nil {
-			log.Warnf("proxy tunnel(%s): dial local failed: %v", client.TunnelName, err)
-			return
-		}
-
-		localConn = <-cc
-	case <-time.After(time.Second):
-		log.Warnf("proxy tunnel(%s): dial local timeout", client.TunnelName)
+		localConn = conn
+		return
+	}, time.Second); err != nil {
+		log.Warnf("proxy tunnel(%s): dial local failed: %v", client.TunnelName, err)
 		return
 	}
 
@@ -160,6 +111,6 @@ func (client *Client) dialAndProxy() {
 			return
 		}
 
-		proxy(serverConn, localConn)
+		proxy(serverConn, localConn, 0)
 	}(localConn)
 }
