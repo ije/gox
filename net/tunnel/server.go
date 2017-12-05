@@ -98,7 +98,7 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		select {
 		case c := <-tunnel.connPool:
-			proxy(conn, c, 0)
+			proxy(conn, c)
 		case <-time.After(6 * time.Second):
 			conn.Close()
 		}

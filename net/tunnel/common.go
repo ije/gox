@@ -65,36 +65,27 @@ func dial(network string, address string, aes string) (conn net.Conn, err error)
 	return
 }
 
-func proxy(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
+func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
 	if conn1 == nil || conn2 == nil {
 		return errf("invalid connections")
 	}
 
-	ec := make(chan error, 1)
+	ec1 := make(chan error, 1)
 	ec2 := make(chan error, 1)
 
 	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
 		_, err := io.Copy(conn1, conn2)
 		ec <- err
-	}(conn1, conn2, ec)
+	}(conn1, conn2, ec1)
 
 	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
 		_, err := io.Copy(conn2, conn1)
 		ec <- err
 	}(conn1, conn2, ec2)
 
-	if timeout > 0 {
-		select {
-		case err = <-ec:
-		case err = <-ec2:
-		case <-time.After(timeout):
-			err = errf("time out")
-		}
-	} else {
-		select {
-		case err = <-ec:
-		case err = <-ec2:
-		}
+	select {
+	case err = <-ec1:
+	case err = <-ec2:
 	}
 
 	conn1.Close()

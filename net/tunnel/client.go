@@ -111,6 +111,6 @@ func (client *Client) dialAndProxy() {
 			return
 		}
 
-		proxy(serverConn, localConn, 0)
+		proxy(serverConn, localConn)
 	}(localConn)
 }
