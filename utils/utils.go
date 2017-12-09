@@ -248,15 +248,17 @@ func ParseGobFile(filename string, v interface{}) (err error) {
 	if err != nil {
 		return
 	}
+
 	defer f.Close()
 	return gob.NewEncoder(f).Encode(v)
 }
 
 func SaveGobFile(filename string, v interface{}) (err error) {
-	f, err := os.Open(filename)
+	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return
 	}
+
 	defer f.Close()
 	return gob.NewDecoder(f).Decode(v)
 }

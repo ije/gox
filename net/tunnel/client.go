@@ -26,7 +26,7 @@ func (client *Client) Run() {
 
 func (client *Client) heartBeat(conn net.Conn) {
 	for {
-		var msg byte
+		var beatMessage byte
 		if dotimeout(func() (err error) {
 			buf := make([]byte, 1)
 			_, err = conn.Read(buf)
@@ -34,23 +34,27 @@ func (client *Client) heartBeat(conn net.Conn) {
 				return
 			}
 
-			msg = buf[0]
+			beatMessage = buf[0]
 			return
-		}, 3*time.Second) != nil {
+		}, 15*time.Second) != nil {
 			conn.Close()
 			return
 		}
 
-		if msg != 1 && msg != 2 {
+		if beatMessage != 1 && beatMessage != 2 {
 			conn.Close()
 			return
 		}
 
-		if msg == 2 {
-			client.dialAndProxy()
+		var retMessage byte = 1
+		if beatMessage == 2 {
+			if client.dialAndProxy() != nil {
+				retMessage = 0
+			}
 		}
+
 		if dotimeout(func() (err error) {
-			_, err = conn.Write([]byte{1})
+			_, err = conn.Write([]byte{retMessage})
 			return
 		}, 3*time.Second) != nil {
 			conn.Close()
@@ -88,9 +92,11 @@ func (client *Client) dialWithHandshake(handshakeMessage string, timeout time.Du
 	return
 }
 
-func (client *Client) dialAndProxy() {
+func (client *Client) dialAndProxy() (err error) {
 	var localConn net.Conn
-	if err := dotimeout(func() (err error) {
+	var serverConn net.Conn
+
+	err = dotimeout(func() (err error) {
 		conn, err := dial("tcp", strf(":%d", client.ForwardPort), "")
 		if err != nil {
 			return
@@ -98,19 +104,19 @@ func (client *Client) dialAndProxy() {
 
 		localConn = conn
 		return
-	}, time.Second); err != nil {
+	}, time.Second)
+	if err != nil {
 		log.Warnf("proxy tunnel(%s): dial local failed: %v", client.TunnelName, err)
 		return
 	}
 
-	go func(localConn net.Conn) {
-		serverConn, err := client.dialWithHandshake("proxy", 3*time.Second)
-		if err != nil {
-			log.Warnf("proxy tunnel(%s): dial server failed: %v", client.TunnelName, err)
-			localConn.Close()
-			return
-		}
+	serverConn, err = client.dialWithHandshake("proxy", 6*time.Second)
+	if err != nil {
+		localConn.Close()
+		log.Warnf("proxy tunnel(%s): dial server failed: %v", client.TunnelName, err)
+		return
+	}
 
-		proxy(serverConn, localConn)
-	}(localConn)
+	go proxy(serverConn, localConn)
+	return
 }

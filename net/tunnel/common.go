@@ -40,6 +40,7 @@ func listen(l net.Listener, connHandler func(net.Conn)) error {
 		if tcpConn, ok := conn.(*net.TCPConn); ok {
 			err := tcpConn.SetKeepAlive(true)
 			if err != nil {
+				log.Debug(err)
 				return err
 			}
 		}

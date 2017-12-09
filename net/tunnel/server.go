@@ -78,8 +78,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		flag = f
 		tunnelName = string(d)
 		return
-	}, 3*time.Second) != nil {
-		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 3 seconds
+	}, 6*time.Second) != nil {
+		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 6 seconds
 		return
 	}
 
@@ -90,6 +90,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 
 	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
+
 	if flag == "proxy" {
 		if len(tunnel.Client) == 0 || tunnel.Client != remoteAddr {
 			conn.Close()
@@ -121,7 +122,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	for {
 		select {
 		case c := <-tunnel.connQueue:
-			ret, err := exchangeByte(conn, 2, 3*time.Second)
+			ret, err := exchangeByte(conn, 2, 12*time.Second)
 			if err != nil {
 				conn.Close()
 				return
@@ -136,7 +137,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 
 		case <-time.After(time.Second):
-			ret, err := exchangeByte(conn, 1, 3*time.Second)
+			ret, err := exchangeByte(conn, 1, 6*time.Second)
 			if err != nil {
 				conn.Close()
 				return
