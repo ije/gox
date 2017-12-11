@@ -244,13 +244,13 @@ func MustEncodeGob(v interface{}) []byte {
 }
 
 func ParseGobFile(filename string, v interface{}) (err error) {
-	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	f, err := os.Open(filename)
 	if err != nil {
 		return
 	}
 
 	defer f.Close()
-	return gob.NewEncoder(f).Encode(v)
+	return gob.NewDecoder(f).Decode(v)
 }
 
 func SaveGobFile(filename string, v interface{}) (err error) {
@@ -260,7 +260,7 @@ func SaveGobFile(filename string, v interface{}) (err error) {
 	}
 
 	defer f.Close()
-	return gob.NewDecoder(f).Decode(v)
+	return gob.NewEncoder(f).Encode(v)
 }
 
 func SplitByFirstByte(s string, c byte) (string, string) {
