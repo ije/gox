@@ -12,7 +12,6 @@ const (
 	httpPort        = 8088
 	poxyHttpPort    = 8080
 	tunnelPort      = 8087
-	aesKey          = "xhka6uhfu2yvi7as"
 	maxConncectines = 32
 )
 
@@ -30,8 +29,7 @@ func init() {
 
 	go func() {
 		serv := &Server{
-			Port:   tunnelPort,
-			Secret: aesKey,
+			Port: tunnelPort,
 		}
 
 		err := serv.AddTunnel("http-test", poxyHttpPort, maxConncectines)
@@ -48,10 +46,9 @@ func init() {
 
 	go func() {
 		client := &Client{
-			Server:       fmt.Sprintf("127.0.0.1:%d", tunnelPort),
-			ServerSecret: aesKey,
-			TunnelName:   "http-test",
-			ForwardPort:  httpPort,
+			Server:      fmt.Sprintf("127.0.0.1:%d", tunnelPort),
+			TunnelName:  "http-test",
+			ForwardPort: httpPort,
 		}
 
 		client.Run()

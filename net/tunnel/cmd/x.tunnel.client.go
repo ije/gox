@@ -30,7 +30,6 @@ func main() {
 	tunnel.SetLogger(logger)
 
 	ts := cfg.String("server", "")
-	tsPassword := cfg.String("password", "")
 
 	var clients int
 	for name, section := range cfg.ExtendedSections() {
@@ -39,10 +38,9 @@ func main() {
 			name = strings.TrimPrefix(name, "tunnel:")
 
 			tc := &tunnel.Client{
-				Server:       ts,
-				ServerSecret: tsPassword,
-				TunnelName:   name,
-				ForwardPort:  uint16(port),
+				Server:      ts,
+				TunnelName:  name,
+				ForwardPort: uint16(port),
 			}
 			go tc.Run()
 

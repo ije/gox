@@ -6,10 +6,9 @@ import (
 )
 
 type Client struct {
-	Server       string
-	ServerSecret string
-	TunnelName   string
-	ForwardPort  uint16
+	Server      string
+	TunnelName  string
+	ForwardPort uint16
 }
 
 func (client *Client) Run() {
@@ -65,7 +64,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 
 func (client *Client) dialWithHandshake(handshakeMessage string, timeout time.Duration) (conn net.Conn, err error) {
 	err = dotimeout(func() (err error) {
-		c, err := dial("tcp", client.Server, client.ServerSecret)
+		c, err := dial("tcp", client.Server)
 		if err != nil {
 			return
 		}
@@ -97,7 +96,7 @@ func (client *Client) dialAndProxy() (err error) {
 	var serverConn net.Conn
 
 	err = dotimeout(func() (err error) {
-		conn, err := dial("tcp", strf(":%d", client.ForwardPort), "")
+		conn, err := dial("tcp", strf(":%d", client.ForwardPort))
 		if err != nil {
 			return
 		}

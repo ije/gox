@@ -30,7 +30,6 @@ func main() {
 	ts := tunnel.Server{
 		Port:     uint16(cfg.Int("port", 333)),
 		HTTPPort: uint16(cfg.Int("http-port", 8080)),
-		Secret:   cfg.String("password", ""),
 	}
 
 	for name, section := range cfg.ExtendedSections() {

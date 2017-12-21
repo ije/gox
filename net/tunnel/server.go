@@ -6,14 +6,12 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ije/gox/net/aestcp"
 	"github.com/ije/gox/utils"
 )
 
 type Server struct {
 	Port     uint16
 	HTTPPort uint16
-	Secret   string
 	tunnels  map[string]*Tunnel
 }
 
@@ -47,7 +45,7 @@ func (s *Server) Serve() (err error) {
 		}
 	}()
 
-	l, err := aestcp.Listen("tcp", strf(":%d", s.Port), []byte(s.Secret))
+	l, err := net.Listen("tcp", strf(":%d", s.Port))
 	if err != nil {
 		return
 	}
@@ -89,10 +87,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
-
 	if flag == "proxy" {
-		if len(tunnel.Client) == 0 || tunnel.Client != remoteAddr {
+		if len(tunnel.Client) == 0 {
 			conn.Close()
 			return
 		}
@@ -112,6 +108,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
+	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
 	tunnel.activate(remoteAddr)
 	defer func() {
 		tunnel.Online = false
@@ -119,8 +116,13 @@ func (s *Server) handleConn(conn net.Conn) {
 	}()
 
 	conn.SetDeadline(time.Time{})
+	d := time.After(time.Hour)
 	for {
 		select {
+		case <-d: // close connection after one hour
+			conn.Close()
+			return
+
 		case c := <-tunnel.connQueue:
 			ret, err := exchangeByte(conn, 2, 12*time.Second)
 			if err != nil {

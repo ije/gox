@@ -8,7 +8,6 @@ import (
 	"time"
 
 	logger "github.com/ije/gox/log"
-	"github.com/ije/gox/net/aestcp"
 )
 
 var errTimeout = errf("timeout")
@@ -34,34 +33,30 @@ func listen(l net.Listener, connHandler func(net.Conn)) error {
 
 	for {
 		conn, err := l.Accept()
-		if err != nil && strings.Contains(err.Error(), "use of closed network connection") {
-			return err
-		}
-		if tcpConn, ok := conn.(*net.TCPConn); ok {
-			err := tcpConn.SetKeepAlive(true)
-			if err != nil {
-				log.Debug(err)
+		if err != nil {
+			if strings.Contains(err.Error(), "use of closed network connection") {
 				return err
 			}
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+
+		if tcpConn, ok := conn.(*net.TCPConn); ok {
+			tcpConn.SetKeepAlive(true)
 		}
 		go connHandler(conn)
 	}
 }
 
-func dial(network string, address string, aes string) (conn net.Conn, err error) {
+func dial(network string, address string) (conn net.Conn, err error) {
 	for i := 0; i < 3; i++ {
-		if len(aes) > 0 {
-			conn, err = aestcp.Dial(network, address, []byte(aes))
-		} else {
-			conn, err = net.Dial(network, address)
-		}
+		conn, err = net.Dial(network, address)
 		if err == nil {
 			if tcpConn, ok := conn.(*net.TCPConn); ok {
-				err = tcpConn.SetKeepAlive(true)
+				tcpConn.SetKeepAlive(true)
 			}
 			return
 		}
-		time.Sleep(time.Second / 2)
 	}
 	return
 }
