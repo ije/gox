@@ -36,12 +36,6 @@ func New(configFile string) (config *Config, err error) {
 		var file *os.File
 		file, err = os.Open(configFile)
 		if err != nil {
-			if os.IsNotExist(err) {
-				err = nil
-				config.defaultSection = Section{}
-				config.extendedSections = map[string]Section{}
-				return
-			}
 			config = nil
 			return
 		}
