@@ -30,10 +30,18 @@ if [ "$port" != "" ]; then
 	hostSSHPort="$port"
 fi
 
-supervisor="no"
+initSupervisor="no"
 read -p "install/update the supervisor config script('yes' or 'no', default is 'no')? " ok
 if [ "$ok" = "yes" ]; then
-	supervisor="yes"
+	initSupervisor="yes"
+fi
+
+supervisordconfDir="/etc/supervisor"
+if [ "$initSupervisor" = "yes" ]; then
+	read -p "please enter the supervisord.conf directory(default is '$supervisordconfDir')? " dir
+	if [ "$dir" != "" ]; then
+		supervisordconfDir="$dir"
+	fi
 fi
 
 echo "--- uploading..."
@@ -43,8 +51,8 @@ if [ "$?" != "0" ]; then
 	exit
 fi
 
-if [ "$supervisor" = "yes" ]; then
-	scp -P $hostSSHPort x.tunnel.$target.supervisor.conf $loginUser@$host:/etc/supervisor/conf.d/x.tunnel.$target.conf
+if [ "$initSupervisor" = "yes" ]; then
+	scp -P $hostSSHPort x.tunnel.$target.supervisor.conf $loginUser@$host:$supervisordconfDir/conf.d/x.tunnel.$target.conf
 	if [ "$?" != "0" ]; then
 		rm x.tunnel.$target
 		exit
@@ -60,7 +68,7 @@ fi
 echo "--- restart x.tunnel.$target..."
 ssh -p $hostSSHPort $loginUser@$host << EOF
 	echo "restart x.tunnel.$target ..."
-	nohup sh /tmp/x.tunnel.install.sh $target $supervisor >/dev/null 2>&1 &
+	nohup sh /tmp/x.tunnel.install.sh $target $initSupervisor >/dev/null 2>&1 &
 EOF
 
 rm x.tunnel.$target

@@ -10,9 +10,9 @@ import (
 )
 
 type Server struct {
-	Port     uint16
-	HTTPPort uint16
-	tunnels  map[string]*Tunnel
+	Port    uint16 // tunnel server port
+	SSPort  uint16 // status server port
+	tunnels map[string]*Tunnel
 }
 
 func (s *Server) AddTunnel(name string, port uint16, maxConnections int) error {
@@ -37,8 +37,8 @@ func (s *Server) AddTunnel(name string, port uint16, maxConnections int) error {
 
 func (s *Server) Serve() (err error) {
 	go func() {
-		if s.HTTPPort > 0 {
-			http.ListenAndServe(strf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.SSPort > 0 {
+			http.ListenAndServe(strf(":%d", s.SSPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(s.tunnels)
 				w.Header().Set("Content-Type", "application/json")
 			}))
@@ -102,7 +102,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	// only on birdge connection can be keep-alive
+	// only one tunnel client connection can be keep-alive
 	if len(tunnel.Client) > 0 {
 		conn.Close()
 		return
@@ -119,10 +119,6 @@ func (s *Server) handleConn(conn net.Conn) {
 	d := time.After(time.Hour)
 	for {
 		select {
-		case <-d: // close connection after one hour
-			conn.Close()
-			return
-
 		case c := <-tunnel.connQueue:
 			ret, err := exchangeByte(conn, 2, 12*time.Second)
 			if err != nil {
@@ -138,6 +134,12 @@ func (s *Server) handleConn(conn net.Conn) {
 				c.Close()
 			}
 
+		// close the client connection after one hour
+		case <-d:
+			conn.Close()
+			return
+
+		// heartbeat check
 		case <-time.After(time.Second):
 			ret, err := exchangeByte(conn, 1, 6*time.Second)
 			if err != nil {

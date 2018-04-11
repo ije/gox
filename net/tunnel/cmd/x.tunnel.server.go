@@ -28,8 +28,8 @@ func main() {
 	tunnel.SetLogger(logger)
 
 	ts := tunnel.Server{
-		Port:     uint16(cfg.Int("port", 333)),
-		HTTPPort: uint16(cfg.Int("http-port", 8080)),
+		Port:   uint16(cfg.Int("port", 333)),
+		SSPort: uint16(cfg.Int("status-server-port", 8080)),
 	}
 
 	for name, section := range cfg.ExtendedSections() {
