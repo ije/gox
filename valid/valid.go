@@ -8,23 +8,21 @@ import (
 )
 
 var (
-	vReg_09   = &Validator{{'0', '9'}}
-	vReg_az   = &Validator{{'a', 'z'}}
-	vReg_09AZ = &Validator{{'0', '9'}, {'A', 'Z'}}
-	vReg_w    = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}}
-	vHex      = &Validator{{'0', '9'}, {'a', 'f'}, {'A', 'F'}}
-	vDomain   = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}}
-	vSlug     = &Validator{{'0', '9'}, {'a', 'z'}, {'A', 'Z'}, {'.', 0}, {'-', 0}, {'_', 0}}
+	r09        = FromTo{'0', '9'}
+	raz        = FromTo{'a', 'z'}
+	rAZ        = FromTo{'A', 'Z'}
+	v09        = Validator{r09}
+	vaz        = Validator{raz}
+	v09AZ      = Validator{r09, rAZ}
+	v09azAZ    = Validator{r09, raz, rAZ}
+	vHex       = Validator{r09, FromTo{'a', 'f'}, FromTo{'A', 'F'}}
+	vSlug      = Validator{r09, raz, rAZ, Eq('-')}
+	vEmailName = Validator{r09, raz, rAZ, Eq('.'), Eq('-'), Eq('_')}
 )
 
 func IsNumber(s string) bool {
-	for i, p := range strings.Split(s, ".") {
-		if i > 1 || !vReg_09.Is(p) {
-			return false
-		}
-	}
-
-	return true
+	inter, floater := utils.SplitByLastByte(s, '.')
+	return v09.Is(inter) && (len(floater) == 0 || v09.Is(floater))
 }
 
 func IsHexString(s string) bool {
@@ -33,15 +31,7 @@ func IsHexString(s string) bool {
 
 func IsIETFLangTag(s string) bool {
 	l, c := utils.SplitByFirstByte(s, '-')
-	if !vReg_az.Is(l) && len(l) != 2 {
-		return false
-	}
-
-	if len(c) > 0 {
-		return vReg_09AZ.Is(c)
-	}
-
-	return true
+	return len(l) == 2 && vaz.Is(l) && (len(c) == 0 || v09AZ.Is(c))
 }
 
 func IsIP(s string) bool {
@@ -50,7 +40,7 @@ func IsIP(s string) bool {
 
 func IsIPv4(s string) bool {
 	for i, p := range strings.Split(s, ".") {
-		if i > 3 || !vReg_09.Is(p) || len(p) > 3 {
+		if i > 3 || !v09.Is(p) || len(p) > 3 {
 			return false
 		}
 		if i, _ := strconv.Atoi(p); i > 255 {
@@ -65,29 +55,17 @@ func IsIPv6(s string) bool {
 	return false
 }
 
-func IsDomain(s string) bool {
-	if len(s) < 4 {
-		return false
-	}
-
-	dn, dt := utils.SplitByLastByte(s, '.')
-	return vDomain.Is(dn) && vReg_w.Is(dt)
+func IsSlug(s string) bool {
+	return !hasPreSuffix(s, '-') && vSlug.Is(s)
 }
 
-func IsSlug(s string) bool {
-	l := len(s)
-	if l == 0 {
-		return false
-	}
-
-	for _, c := range []byte{s[0], s[l-1]} {
-		switch c {
-		case '.', '-':
+func IsDomain(s string) bool {
+	for _, p := range strings.Split(s, ".") {
+		if !IsSlug(p) {
 			return false
 		}
 	}
-
-	return vSlug.Is(s)
+	return true
 }
 
 func IsEmail(s string) bool {
@@ -96,21 +74,22 @@ func IsEmail(s string) bool {
 	}
 
 	name, domain := utils.SplitByLastByte(s, '@')
-	if !IsDomain(domain) {
+	return !hasPreSuffix(name, '.', '_', '_') && vEmailName.Is(name) && IsDomain(domain)
+}
+
+func hasPreSuffix(s string, cs ...byte) bool {
+	l := len(s)
+	if l == 0 {
 		return false
 	}
 
-	nl := len(name)
-	if nl == 0 {
-		return false
-	}
-
-	for _, c := range []byte{name[0], name[nl-1]} {
-		switch c {
-		case '.', '_', '-':
-			return false
+	for _, c := range []byte{s[0], s[l-1]} {
+		for _, _c := range cs {
+			if c == _c {
+				return true
+			}
 		}
 	}
 
-	return vSlug.Is(name)
+	return false
 }

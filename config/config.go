@@ -45,6 +45,9 @@ func New(configFile string) (config *Config, err error) {
 	return
 }
 
+var regSplitKV = regexp.MustCompile(`^([^ ]+)\s*[\=\s]\s*(.+)$`)
+var regSplitKVWithLongKey = regexp.MustCompile(`^"([^"]+)"\s*[\=\s]\s*(.+)$`)
+
 func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Section, err error) {
 	var n int
 	var c byte
@@ -52,8 +55,6 @@ func Parse(r io.Reader) (defaultSection Section, extendedSections map[string]Sec
 	var section Section
 	buf := make([]byte, 1)
 	line := bytes.NewBuffer(nil)
-	regSplitKV := regexp.MustCompile(`^([^ ]+)\s+(.+)$`)
-	regSplitKVWithLongKey := regexp.MustCompile(`^"([^"]+)"\s+(.+)$`)
 	parse := func(line []byte) {
 		line = bytes.TrimSpace(line)
 		if ll := len(line); ll > 0 {
@@ -169,10 +170,6 @@ func (config *Config) Set(key string, value interface{}) {
 }
 
 func (config *Config) Section(name string) (section Section) {
-	if len(name) == 0 {
-		section = config.defaultSection
-		return
-	}
 	section = config.extendedSections[name]
 	if section == nil {
 		section = Section{}

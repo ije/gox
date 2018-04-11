@@ -6,18 +6,11 @@ import (
 	"strings"
 )
 
-type CMDLine struct {
-	labelSetps map[string]*clStep
-	firstStep  *clStep
-	step       *clStep
-	callback   func()
-}
-
-func NewCMDLine(callback func()) *CMDLine {
-	return &CMDLine{
-		labelSetps: map[string]*clStep{},
-		callback:   callback,
-	}
+type CMDLineApp struct {
+	steps       map[string]*clStep
+	firstStep   *clStep
+	currentStep *clStep
+	callback    func()
 }
 
 type clStep struct {
@@ -26,7 +19,14 @@ type clStep struct {
 	next   *clStep
 }
 
-func (cl *CMDLine) AddStepWithLabel(label, tips string, verify func(input string) interface{}) *CMDLine {
+func NewCMDLineApp(callback func()) *CMDLineApp {
+	return &CMDLineApp{
+		steps:    map[string]*clStep{},
+		callback: callback,
+	}
+}
+
+func (cl *CMDLineApp) AddStepWithLabel(label, tips string, verify func(input string) interface{}) *CMDLineApp {
 	if len(tips) == 0 || verify == nil {
 		return cl
 	}
@@ -35,50 +35,50 @@ func (cl *CMDLine) AddStepWithLabel(label, tips string, verify func(input string
 	if cl.firstStep == nil {
 		cl.firstStep = step
 	}
-	if cl.step != nil {
-		cl.step.next = step
+	if cl.currentStep != nil {
+		cl.currentStep.next = step
 	}
-	cl.step = step
+	cl.currentStep = step
 
 	if len(label) > 0 {
-		if cl.labelSetps == nil {
-			cl.labelSetps = map[string]*clStep{}
+		if cl.steps == nil {
+			cl.steps = map[string]*clStep{}
 		}
-		if _, ok := cl.labelSetps[label]; !ok {
-			cl.labelSetps[label] = step
+		if _, ok := cl.steps[label]; !ok {
+			cl.steps[label] = step
 		}
 	}
 
 	return cl
 }
 
-func (cl *CMDLine) AddStep(tips string, verify func(input string) interface{}) *CMDLine {
+func (cl *CMDLineApp) AddStep(tips string, verify func(input string) interface{}) *CMDLineApp {
 	return cl.AddStepWithLabel("", tips, verify)
 }
 
-func (cl *CMDLine) GotoStep(s int) bool {
-	if s <= 0 || cl.firstStep == nil {
+func (cl *CMDLineApp) GotoStep(n int) bool {
+	if n <= 0 || cl.firstStep == nil {
 		return false
 	}
 
 	step := cl.firstStep
-	for i := 0; i < s; i++ {
+	for i := 0; i < n; i++ {
 		if step == nil {
 			return false
 		}
 		step = step.next
 	}
-	cl.step = step
+	cl.currentStep = step
 	return true
 }
 
-func (cl *CMDLine) Scan() {
+func (cl *CMDLineApp) Run() {
 	if cl.firstStep == nil {
 		return
 	}
 
-	cl.step = cl.firstStep
-	fmt.Print(cl.step.tips, " ")
+	cl.currentStep = cl.firstStep
+	fmt.Print(cl.currentStep.tips, " ")
 
 	var c byte
 	buf := bytes.NewBuffer(nil)
@@ -94,20 +94,20 @@ SCAN:
 		}
 
 		if c == '\n' {
-			vr := cl.step.verify(strings.TrimSpace(buf.String()))
+			vr := cl.currentStep.verify(strings.TrimSpace(buf.String()))
 			switch r := vr.(type) {
 			case bool:
 				if r {
-					if cl.step.next == nil {
+					if cl.currentStep.next == nil {
 						if cl.callback != nil {
 							cl.callback()
 						}
 						break SCAN
 					}
-					cl.step = cl.step.next
-					fmt.Print(cl.step.tips, " ")
+					cl.currentStep = cl.currentStep.next
+					fmt.Print(cl.currentStep.tips, " ")
 				} else {
-					fmt.Print(cl.step.tips, " ")
+					fmt.Print(cl.currentStep.tips, " ")
 				}
 
 			case int:
@@ -115,18 +115,18 @@ SCAN:
 					break SCAN
 				}
 
-				fmt.Print(cl.step.tips, " ")
+				fmt.Print(cl.currentStep.tips, " ")
 
 			case string:
 				if len(r) == 0 {
-					fmt.Print(cl.step.tips, " ")
+					fmt.Print(cl.currentStep.tips, " ")
 					break
 				}
 
-				if len(cl.labelSetps) > 0 {
-					if step, ok := cl.labelSetps[r]; ok {
-						cl.step = step
-						fmt.Print(cl.step.tips, " ")
+				if len(cl.steps) > 0 {
+					if step, ok := cl.steps[r]; ok {
+						cl.currentStep = step
+						fmt.Print(cl.currentStep.tips, " ")
 						break
 					}
 				}
@@ -134,7 +134,7 @@ SCAN:
 				fmt.Print(r, " ")
 
 			default:
-				fmt.Print(cl.step.tips, " ")
+				fmt.Print(cl.currentStep.tips, " ")
 			}
 
 			buf.Reset()

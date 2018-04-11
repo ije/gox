@@ -119,7 +119,7 @@ func (s *SMTP) SendMail(mail *Mail, from interface{}, to interface{}, oneToOne b
 	}
 
 	if !oneToOne {
-		err = smtp.SendMail(s.addr, s.auth, sender.Address, recipients.List(), mail.MakeBody(sender, recipients))
+		err = smtp.SendMail(s.addr, s.auth, sender.Address, recipients.List(), mail.Encode(sender, recipients))
 		if err != nil {
 			err = &SendError{Message: err.Error(), From: sender, To: recipients}
 		}
@@ -131,7 +131,7 @@ func (s *SMTP) SendMail(mail *Mail, from interface{}, to interface{}, oneToOne b
 	for _, recipient := range recipients {
 		wg.Add(1)
 		go func(to *netmail.Address) {
-			err = smtp.SendMail(s.addr, s.auth, sender.Address, []string{to.Address}, mail.MakeBody(sender, AddressList{to}))
+			err = smtp.SendMail(s.addr, s.auth, sender.Address, []string{to.Address}, mail.Encode(sender, AddressList{to}))
 			if err != nil {
 				errs.Errors = append(errs.Errors, &SendError{Message: err.Error(), From: sender, To: AddressList{to}})
 			}

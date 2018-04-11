@@ -1,36 +1,40 @@
 package valid
 
-type Range struct {
-	From byte
-	To   byte
+type Range interface {
+	In(c rune) bool
+}
+
+type Eq rune
+
+func (r Eq) In(c rune) bool {
+	return rune(r) == c
+}
+
+type FromTo [2]rune
+
+func (r FromTo) In(c rune) bool {
+	return c >= r[0] && c <= r[1]
 }
 
 type Validator []Range
 
 func (v Validator) Is(s string) bool {
-	l := len(s)
-	if l == 0 {
+	if len(s) == 0 {
 		return false
 	}
 
-	for l--; l >= 0; l-- {
-		if !v.inRanges(s[l]) {
+	for _, c := range s {
+		inrange := false
+		for _, r := range v {
+			if r.In(c) {
+				inrange = true
+				break
+			}
+		}
+		if !inrange {
 			return false
 		}
 	}
 
 	return true
-}
-
-func (v Validator) inRanges(c byte) bool {
-	for _, r := range v {
-		if r.To > 0 {
-			if c >= r.From && c <= r.To {
-				return true
-			}
-		} else if c == r.From {
-			return true
-		}
-	}
-	return false
 }
