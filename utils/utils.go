@@ -48,16 +48,6 @@ func WaitExit(callback func(os.Signal) bool, extraSignals ...os.Signal) {
 	}
 }
 
-func ContainsString(items []string, item string) bool {
-	for _, s := range items {
-		if item == s {
-			return true
-		}
-	}
-
-	return false
-}
-
 func CopyFile(src string, dst string) (n int64, err error) {
 	if src == dst {
 		return
@@ -209,7 +199,7 @@ func ParseBytes(s string) (int64, error) {
 	return 0, strconv.ErrSyntax
 }
 
-// todo: parse format '1d12h6m3s'
+// todo: parse format '1d6h30m20s'
 func ParseDuration(s string) (time.Duration, error) {
 	if sl := len(s); sl > 0 {
 		t := time.Second
@@ -450,8 +440,6 @@ func ToNumber(v interface{}) (f float64, ok bool) {
 	return
 }
 
-// PathClean has the same function with path.Clean(strings.Replace(strings.TrimSpace(s), "\\", "/", -1)),
-// but it's faster!
 // CleanPath is the URL version of path.Clean, it returns a canonical URL path
 // for p, eliminating . and .. elements.
 //
@@ -556,7 +544,6 @@ func CleanPath(p string) string {
 	return string(buf[:w])
 }
 
-// internal helper to lazily create a buffer if necessary
 func bufApp(buf *[]byte, s string, w int, c byte) {
 	if *buf == nil {
 		if s[w] == c {
