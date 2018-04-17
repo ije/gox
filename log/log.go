@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ije/gox/strconv"
+	"github.com/ije/gox/utils"
 )
 
 var ErrorArgumentFormat = fmt.Errorf("invalid argument format")
@@ -82,7 +82,7 @@ func (l *Logger) parseURL(url string) (err error) {
 			case "quite":
 				l.SetQuite(value == "1" || strings.ToLower(value) == "true")
 			case "buffer":
-				bytes, err := strconv.ParseBytes(value)
+				bytes, err := utils.ParseBytes(value)
 				if err == nil {
 					l.SetBuffer(int(bytes))
 				}

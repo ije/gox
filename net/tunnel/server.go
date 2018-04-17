@@ -116,7 +116,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	}()
 
 	conn.SetDeadline(time.Time{})
-	d := time.After(time.Hour)
+	d := time.After(2 * time.Hour)
 	for {
 		select {
 		case c := <-tunnel.connQueue:
@@ -134,7 +134,7 @@ func (s *Server) handleConn(conn net.Conn) {
 				c.Close()
 			}
 
-		// close the client connection after one hour
+		// close the client connection after 2 hours
 		case <-d:
 			conn.Close()
 			return

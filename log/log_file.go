@@ -4,9 +4,9 @@ import (
 	"io"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
-	"github.com/ije/gox/strconv"
 	"github.com/ije/gox/utils"
 )
 
@@ -83,7 +83,7 @@ func (d *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer,
 		val, ok = args["maxBytes"]
 	}
 	if ok && len(val) > 0 {
-		i, err := strconv.ParseBytes(val)
+		i, err := utils.ParseBytes(val)
 		if err != nil {
 			return nil, ErrorArgumentFormat
 		}
