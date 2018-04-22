@@ -27,7 +27,7 @@ func main() {
 	}
 	tunnel.SetLogger(logger)
 
-	ts := tunnel.Server{
+	ts := &tunnel.Server{
 		Port:   uint16(cfg.Int("port", 333)),
 		SSPort: uint16(cfg.Int("status-server-port", 8080)),
 	}
@@ -36,7 +36,7 @@ func main() {
 		port := section.Int("port", 0)
 		if port > 0 && port < 1<<16 && strings.HasPrefix(name, "tunnel:") {
 			name = strings.TrimPrefix(name, "tunnel:")
-			ts.AddTunnel(name, uint16(port), section.Int("maxConnections", 100))
+			ts.AddTunnel(name, uint16(port), section.Int("maxConnections", 100), section.Int("maxProxyLifetime", 0))
 			logger.Infof("tunnel(%s) with port(%d) added\n", name, port)
 		}
 	}

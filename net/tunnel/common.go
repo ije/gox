@@ -10,7 +10,7 @@ import (
 	logger "github.com/ije/gox/log"
 )
 
-var errTimeout = errf("timeout")
+var errTimeout = fmt.Errorf("timeout")
 
 var log = &logger.Logger{}
 
@@ -62,9 +62,9 @@ func dial(network string, address string) (conn net.Conn, err error) {
 	return
 }
 
-func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
+func proxy(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
 	if conn1 == nil || conn2 == nil {
-		return errf("invalid connections")
+		return fmt.Errorf("invalid connections")
 	}
 
 	ec1 := make(chan error, 1)
@@ -80,9 +80,18 @@ func proxy(conn1 net.Conn, conn2 net.Conn) (err error) {
 		ec <- err
 	}(conn1, conn2, ec2)
 
-	select {
-	case err = <-ec1:
-	case err = <-ec2:
+	if timeout > 0 {
+		select {
+		case err = <-ec1:
+		case err = <-ec2:
+		case <-time.After(timeout):
+			err = errTimeout
+		}
+	} else {
+		select {
+		case err = <-ec1:
+		case err = <-ec2:
+		}
 	}
 
 	conn1.Close()
@@ -122,12 +131,4 @@ func dotimeout(handle func() error, timeout time.Duration) (err error) {
 		err = errTimeout
 	}
 	return
-}
-
-func errf(format string, a ...interface{}) error {
-	return fmt.Errorf(format, a...)
-}
-
-func strf(format string, a ...interface{}) string {
-	return fmt.Sprintf(format, a...)
 }

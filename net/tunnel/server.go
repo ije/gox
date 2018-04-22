@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"time"
@@ -15,16 +16,18 @@ type Server struct {
 	tunnels map[string]*Tunnel
 }
 
-func (s *Server) AddTunnel(name string, port uint16, maxConnections int) error {
+func (s *Server) AddTunnel(name string, port uint16, maxConnections int, maxLifetime int) error {
 	if maxConnections <= 0 {
 		maxConnections = 1
 	}
 
 	tunnel := &Tunnel{
-		Name:      name,
-		Port:      port,
-		connQueue: make(chan net.Conn, maxConnections),
-		connPool:  make(chan net.Conn, maxConnections),
+		Name:             name,
+		Port:             port,
+		MaxConnections:   maxConnections,
+		MaxProxyLifetime: maxLifetime,
+		connQueue:        make(chan net.Conn, maxConnections),
+		connPool:         make(chan net.Conn, maxConnections),
 	}
 
 	if s.tunnels == nil {
@@ -38,14 +41,14 @@ func (s *Server) AddTunnel(name string, port uint16, maxConnections int) error {
 func (s *Server) Serve() (err error) {
 	go func() {
 		if s.SSPort > 0 {
-			http.ListenAndServe(strf(":%d", s.SSPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.ListenAndServe(fmt.Sprintf(":%d", s.SSPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				json.NewEncoder(w).Encode(s.tunnels)
 				w.Header().Set("Content-Type", "application/json")
 			}))
 		}
 	}()
 
-	l, err := net.Listen("tcp", strf(":%d", s.Port))
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
 		return
 	}
@@ -64,7 +67,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 
 		if f != "hello" && f != "proxy" {
-			err = errf("invalid handshake message")
+			err = fmt.Errorf("invalid handshake message")
 			return
 		}
 
@@ -76,8 +79,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		flag = f
 		tunnelName = string(d)
 		return
-	}, 6*time.Second) != nil {
-		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 6 seconds
+	}, 15*time.Second) != nil {
+		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 15 seconds
 		return
 	}
 
@@ -95,8 +98,8 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		select {
 		case c := <-tunnel.connPool:
-			proxy(conn, c)
-		case <-time.After(6 * time.Second):
+			proxy(conn, c, time.Duration(tunnel.MaxProxyLifetime)*time.Second)
+		case <-time.After(3 * time.Second):
 			conn.Close()
 		}
 		return
@@ -120,7 +123,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	for {
 		select {
 		case c := <-tunnel.connQueue:
-			ret, err := exchangeByte(conn, 2, 12*time.Second)
+			ret, err := exchangeByte(conn, 2, 3*time.Second)
 			if err != nil {
 				conn.Close()
 				return
@@ -129,19 +132,19 @@ func (s *Server) handleConn(conn net.Conn) {
 			if ret == 1 {
 				tunnel.activate(remoteAddr)
 				tunnel.connPool <- c
-				log.Debugf("tunnel(%s) connection activated", tunnel.Name)
+				log.Debugf("tunnel(%s) proxy connection activated", tunnel.Name)
 			} else {
 				c.Close()
 			}
 
-		// close the client connection after 2 hours
+		// close the heartbeat connection after 2 hours
 		case <-d:
 			conn.Close()
 			return
 
 		// heartbeat check
 		case <-time.After(time.Second):
-			ret, err := exchangeByte(conn, 1, 6*time.Second)
+			ret, err := exchangeByte(conn, 1, 3*time.Second)
 			if err != nil {
 				conn.Close()
 				return

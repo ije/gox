@@ -12,17 +12,19 @@ import (
 var XTunnelHead = []byte("X-TUNNEL")
 
 type Tunnel struct {
-	Name      string `json:"name"`
-	Port      uint16 `json:"port"`
-	Online    bool   `json:"online"`
-	Client    string `json:"client,omitempty"`
-	olTimer   *time.Timer
-	connQueue chan net.Conn
-	connPool  chan net.Conn
+	Name             string `json:"name"`
+	Port             uint16 `json:"port"`
+	MaxConnections   int    `json:"maxConnections"`
+	MaxProxyLifetime int    `json:"maxProxyLifetime,omitempty"`
+	Client           string `json:"client,omitempty"`
+	Online           bool   `json:"online"`
+	olTimer          *time.Timer
+	connQueue        chan net.Conn
+	connPool         chan net.Conn
 }
 
 func (t *Tunnel) Serve() (err error) {
-	l, err := net.Listen("tcp", strf(":%d", t.Port))
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", t.Port))
 	if err != nil {
 		return
 	}

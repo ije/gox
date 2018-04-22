@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -13,7 +14,7 @@ type Client struct {
 
 func (client *Client) Run() {
 	for {
-		conn, err := client.dialWithHandshake("hello", 6*time.Second)
+		conn, err := client.dialWithHandshake("hello", 15*time.Second)
 		if err != nil {
 			log.Warn(err)
 			continue
@@ -35,7 +36,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 
 			beatMessage = buf[0]
 			return
-		}, 15*time.Second) != nil {
+		}, 3*time.Second) != nil {
 			conn.Close()
 			return
 		}
@@ -81,7 +82,7 @@ func (client *Client) dialWithHandshake(handshakeMessage string, timeout time.Du
 		}
 
 		if buf[0] != 1 {
-			err = errf("server error")
+			err = fmt.Errorf("server error")
 			return
 		}
 
@@ -96,7 +97,7 @@ func (client *Client) dialAndProxy() (err error) {
 	var serverConn net.Conn
 
 	err = dotimeout(func() (err error) {
-		conn, err := dial("tcp", strf(":%d", client.ForwardPort))
+		conn, err := dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
 		if err != nil {
 			return
 		}
@@ -109,13 +110,13 @@ func (client *Client) dialAndProxy() (err error) {
 		return
 	}
 
-	serverConn, err = client.dialWithHandshake("proxy", 6*time.Second)
+	serverConn, err = client.dialWithHandshake("proxy", 3*time.Second)
 	if err != nil {
 		localConn.Close()
 		log.Warnf("proxy tunnel(%s): dial server failed: %v", client.TunnelName, err)
 		return
 	}
 
-	go proxy(serverConn, localConn)
+	go proxy(serverConn, localConn, 0)
 	return
 }
