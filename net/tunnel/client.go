@@ -36,7 +36,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 
 			beatMessage = buf[0]
 			return
-		}, 3*time.Second) != nil {
+		}, 5*time.Second) != nil {
 			conn.Close()
 			return
 		}
@@ -56,7 +56,7 @@ func (client *Client) heartBeat(conn net.Conn) {
 		if dotimeout(func() (err error) {
 			_, err = conn.Write([]byte{retMessage})
 			return
-		}, 3*time.Second) != nil {
+		}, 5*time.Second) != nil {
 			conn.Close()
 			return
 		}
@@ -110,7 +110,7 @@ func (client *Client) dialAndProxy() (err error) {
 		return
 	}
 
-	serverConn, err = client.dialWithHandshake("proxy", 3*time.Second)
+	serverConn, err = client.dialWithHandshake("proxy", 5*time.Second)
 	if err != nil {
 		localConn.Close()
 		log.Warnf("proxy tunnel(%s): dial server failed: %v", client.TunnelName, err)

@@ -24,8 +24,9 @@ func (s *Server) AddTunnel(name string, port uint16, maxConnections int, maxLife
 	tunnel := &Tunnel{
 		Name:             name,
 		Port:             port,
+		ProxyConnections: 0,
+		ProxyMaxLifetime: maxLifetime,
 		MaxConnections:   maxConnections,
-		MaxProxyLifetime: maxLifetime,
 		connQueue:        make(chan net.Conn, maxConnections),
 		connPool:         make(chan net.Conn, maxConnections),
 	}
@@ -98,8 +99,8 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		select {
 		case c := <-tunnel.connPool:
-			proxy(conn, c, time.Duration(tunnel.MaxProxyLifetime)*time.Second)
-		case <-time.After(3 * time.Second):
+			tunnel.proxy(conn, c)
+		case <-time.After(5 * time.Second):
 			conn.Close()
 		}
 		return
@@ -118,12 +119,10 @@ func (s *Server) handleConn(conn net.Conn) {
 		tunnel.Client = ""
 	}()
 
-	conn.SetDeadline(time.Time{})
-	d := time.After(2 * time.Hour)
 	for {
 		select {
 		case c := <-tunnel.connQueue:
-			ret, err := exchangeByte(conn, 2, 3*time.Second)
+			ret, err := exchangeByte(conn, 2, 5*time.Second)
 			if err != nil {
 				conn.Close()
 				return
@@ -137,14 +136,9 @@ func (s *Server) handleConn(conn net.Conn) {
 				c.Close()
 			}
 
-		// close the heartbeat connection after 2 hours
-		case <-d:
-			conn.Close()
-			return
-
 		// heartbeat check
 		case <-time.After(time.Second):
-			ret, err := exchangeByte(conn, 1, 3*time.Second)
+			ret, err := exchangeByte(conn, 1, 5*time.Second)
 			if err != nil {
 				conn.Close()
 				return

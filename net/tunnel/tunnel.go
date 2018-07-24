@@ -14,10 +14,11 @@ var XTunnelHead = []byte("X-TUNNEL")
 type Tunnel struct {
 	Name             string `json:"name"`
 	Port             uint16 `json:"port"`
-	MaxConnections   int    `json:"maxConnections"`
-	MaxProxyLifetime int    `json:"maxProxyLifetime,omitempty"`
+	ProxyConnections int    `json:"proxyConnections"`
+	ProxyMaxLifetime int    `json:"proxyMaxLifetime,omitempty"`
 	Client           string `json:"client,omitempty"`
 	Online           bool   `json:"online"`
+	MaxConnections   int    `json:"maxConnections"`
 	olTimer          *time.Timer
 	connQueue        chan net.Conn
 	connPool         chan net.Conn
@@ -32,7 +33,7 @@ func (t *Tunnel) Serve() (err error) {
 	go listen(l, func(conn net.Conn) {
 		log.Debugf("tunnel(%s, Online:%v) new connection ", t.Name, t.Online)
 
-		if !t.Online {
+		if !t.Online || len(t.connQueue) > t.MaxConnections {
 			conn.Close()
 			return
 		}
@@ -55,6 +56,12 @@ func (t *Tunnel) activate(remoteAddr string) {
 
 	t.Online = true
 	t.Client = remoteAddr
+}
+
+func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {
+	t.ProxyConnections++
+	proxy(conn1, conn2, time.Duration(t.ProxyMaxLifetime)*time.Second)
+	t.ProxyConnections--
 }
 
 func sendMessage(conn net.Conn, flag string, data []byte) (err error) {

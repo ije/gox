@@ -12,7 +12,7 @@ const (
 	httpPort        = 8088
 	poxyHttpPort    = 8080
 	tunnelPort      = 8087
-	maxConncectines = 32
+	maxConncectines = 100
 )
 
 func init() {
@@ -32,7 +32,7 @@ func init() {
 			Port: tunnelPort,
 		}
 
-		err := serv.AddTunnel("http-test", poxyHttpPort, maxConncectines)
+		err := serv.AddTunnel("http-test", poxyHttpPort, maxConncectines, 3600)
 		if err != nil {
 			log.Error(err)
 			return
