@@ -48,7 +48,7 @@ func (t *Tunnel) activate(remoteAddr string) {
 	if t.olTimer != nil {
 		t.olTimer.Stop()
 	}
-	t.olTimer = time.AfterFunc(3*time.Second, func() {
+	t.olTimer = time.AfterFunc(10*time.Second, func() {
 		t.olTimer = nil
 		t.Online = false
 		t.Client = ""

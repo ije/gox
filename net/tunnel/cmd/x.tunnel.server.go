@@ -36,7 +36,7 @@ func main() {
 		port := section.Int("port", 0)
 		if port > 0 && port < 1<<16 && strings.HasPrefix(name, "tunnel:") {
 			name = strings.TrimPrefix(name, "tunnel:")
-			ts.AddTunnel(name, uint16(port), section.Int("maxConnections", 100), section.Int("maxProxyLifetime", 3600))
+			ts.AddTunnel(name, uint16(port), section.Int("maxConnections", 100), section.Int("maxProxyLifetime", 0))
 			logger.Infof("tunnel(%s) with port(%d) added\n", name, port)
 		}
 	}

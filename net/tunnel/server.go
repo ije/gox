@@ -125,6 +125,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			ret, err := exchangeByte(conn, 2, 5*time.Second)
 			if err != nil {
 				conn.Close()
+				c.Close()
 				return
 			}
 
@@ -137,7 +138,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 
 		// heartbeat check
-		case <-time.After(time.Second):
+		case <-time.After(3 * time.Second):
 			ret, err := exchangeByte(conn, 1, 5*time.Second)
 			if err != nil {
 				conn.Close()
