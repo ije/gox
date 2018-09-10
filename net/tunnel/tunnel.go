@@ -33,7 +33,7 @@ func (t *Tunnel) Serve() (err error) {
 	go listen(l, func(conn net.Conn) {
 		log.Debugf("tunnel(%s, Online:%v) new connection ", t.Name, t.Online)
 
-		if !t.Online || len(t.connQueue) > t.MaxConnections {
+		if !t.Online || len(t.connQueue) >= t.MaxConnections {
 			conn.Close()
 			return
 		}
@@ -44,18 +44,17 @@ func (t *Tunnel) Serve() (err error) {
 	return
 }
 
-func (t *Tunnel) activate(remoteAddr string) {
+func (t *Tunnel) activate(remoteAddr string, lifetime time.Duration) {
 	if t.olTimer != nil {
 		t.olTimer.Stop()
 	}
-	t.olTimer = time.AfterFunc(10*time.Second, func() {
+	t.Online = true
+	t.Client = remoteAddr
+	t.olTimer = time.AfterFunc(lifetime, func() {
 		t.olTimer = nil
 		t.Online = false
 		t.Client = ""
 	})
-
-	t.Online = true
-	t.Client = remoteAddr
 }
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {

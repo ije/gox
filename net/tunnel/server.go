@@ -43,7 +43,24 @@ func (s *Server) Serve() (err error) {
 	go func() {
 		if s.SSPort > 0 {
 			http.ListenAndServe(fmt.Sprintf(":%d", s.SSPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				json.NewEncoder(w).Encode(s.tunnels)
+				var js []map[string]interface{}
+				for _, t := range s.tunnels {
+					meta := map[string]interface{}{
+						"name":             t.Name,
+						"port":             t.Port,
+						"proxyConnections": t.ProxyConnections,
+						"client":           t.Client,
+						"online":           t.Online,
+						"maxConnections":   t.MaxConnections,
+						"connPoolLength":   len(t.connPool),
+						"connQueueLength":  len(t.connQueue),
+					}
+					if t.ProxyMaxLifetime > 0 {
+						meta["proxyMaxLifetime"] = t.ProxyMaxLifetime
+					}
+					js = append(js, meta)
+				}
+				json.NewEncoder(w).Encode(js)
 				w.Header().Set("Content-Type", "application/json")
 			}))
 		}
@@ -80,8 +97,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		flag = f
 		tunnelName = string(d)
 		return
-	}, 15*time.Second) != nil {
-		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 15 seconds
+	}, 5*time.Second) != nil {
+		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 5 seconds
 		return
 	}
 
@@ -92,32 +109,12 @@ func (s *Server) handleConn(conn net.Conn) {
 	}
 
 	if flag == "proxy" {
-		if len(tunnel.Client) == 0 {
-			conn.Close()
-			return
-		}
-
-		select {
-		case c := <-tunnel.connPool:
-			tunnel.proxy(conn, c)
-		case <-time.After(5 * time.Second):
-			conn.Close()
-		}
-		return
-	}
-
-	// only one tunnel client connection can be keep-alive
-	if len(tunnel.Client) > 0 {
-		conn.Close()
+		tunnel.proxy(conn, <-tunnel.connPool)
 		return
 	}
 
 	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
-	tunnel.activate(remoteAddr)
-	defer func() {
-		tunnel.Online = false
-		tunnel.Client = ""
-	}()
+	tunnel.activate(remoteAddr, 15*time.Second)
 
 	for {
 		select {
@@ -129,8 +126,8 @@ func (s *Server) handleConn(conn net.Conn) {
 				return
 			}
 
+			tunnel.activate(remoteAddr, 15*time.Second)
 			if ret == 1 {
-				tunnel.activate(remoteAddr)
 				tunnel.connPool <- c
 				log.Debugf("tunnel(%s) proxy connection activated", tunnel.Name)
 			} else {
@@ -138,7 +135,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 
 		// heartbeat check
-		case <-time.After(3 * time.Second):
+		case <-time.After(10 * time.Second):
 			ret, err := exchangeByte(conn, 1, 5*time.Second)
 			if err != nil {
 				conn.Close()
@@ -146,7 +143,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 
 			if ret == 1 {
-				tunnel.activate(remoteAddr)
+				tunnel.activate(remoteAddr, 15*time.Second)
 				log.Debugf("tunnel(%s) activated(heartbeat)", tunnel.Name)
 			}
 		}

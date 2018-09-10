@@ -68,5 +68,5 @@ func Test(t *testing.T) {
 			t.Fatal(string(ret))
 		}
 	}
-	time.Sleep(6 * time.Second)
+	time.Sleep(12 * time.Second)
 }
