@@ -12,16 +12,17 @@ import (
 var XTunnelHead = []byte("X-TUNNEL")
 
 type Tunnel struct {
-	Name             string `json:"name"`
-	Port             uint16 `json:"port"`
-	ProxyConnections int    `json:"proxyConnections"`
-	ProxyMaxLifetime int    `json:"proxyMaxLifetime,omitempty"`
-	Client           string `json:"client,omitempty"`
-	Online           bool   `json:"online"`
-	MaxConnections   int    `json:"maxConnections"`
+	Name             string
+	Port             uint16
+	MaxConnections   int
+	MaxProxyLifetime int
+	online           bool
+	client           string
+	proxyConnections int
 	olTimer          *time.Timer
 	connQueue        chan net.Conn
 	connPool         chan net.Conn
+	listener         net.Listener
 }
 
 func (t *Tunnel) Serve() (err error) {
@@ -30,102 +31,96 @@ func (t *Tunnel) Serve() (err error) {
 		return
 	}
 
-	go listen(l, func(conn net.Conn) {
-		log.Debugf("tunnel(%s, Online:%v) new connection ", t.Name, t.Online)
+	t.listener = l
+	go listen(t.listener, func(conn net.Conn) {
+		log.Debugf("tunnel(%s, online:%v) new connection ", t.Name, t.online)
 
-		if !t.Online || len(t.connQueue) >= t.MaxConnections {
+		if !t.online || len(t.connQueue) >= t.MaxConnections {
 			conn.Close()
 			return
 		}
 
 		t.connQueue <- conn
 	})
-
 	return
 }
 
-func (t *Tunnel) activate(remoteAddr string, lifetime time.Duration) {
+func (t *Tunnel) activate(client string) {
+	t.online = true
+	t.client = client
 	if t.olTimer != nil {
 		t.olTimer.Stop()
 	}
-	t.Online = true
-	t.Client = remoteAddr
-	t.olTimer = time.AfterFunc(lifetime, func() {
+	t.olTimer = time.AfterFunc(15*time.Second, func() {
 		t.olTimer = nil
-		t.Online = false
-		t.Client = ""
+		t.online = false
+		t.client = ""
 	})
 }
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {
-	t.ProxyConnections++
-	proxy(conn1, conn2, time.Duration(t.ProxyMaxLifetime)*time.Second)
-	t.ProxyConnections--
+	t.proxyConnections++
+	proxy(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
+	t.proxyConnections--
 }
 
 func sendMessage(conn net.Conn, flag string, data []byte) (err error) {
 	flagLen := len(flag)
+	dataLen := uint32(len(data))
 	if flagLen > 255 {
 		err = fmt.Errorf("invalid flag")
 		return
 	}
 
-	_, err = conn.Write(XTunnelHead)
+	buf := bytes.NewBuffer(XTunnelHead)
+	buf.WriteByte(byte(flagLen))
+
+	p := make([]byte, 4)
+	binary.LittleEndian.PutUint32(p, dataLen)
+	buf.Write(p)
+
+	buf.WriteString(flag)
+
+	_, err = io.Copy(conn, buf)
 	if err != nil {
 		return
 	}
 
-	_, err = conn.Write([]byte{byte(flagLen)})
-	if err != nil {
-		return
-	}
-	_, err = conn.Write([]byte(flag))
-	if err != nil {
-		return
-	}
-
-	buf := make([]byte, 4)
-	binary.LittleEndian.PutUint32(buf, uint32(len(data)))
-	_, err = conn.Write(buf)
-	if err != nil {
-		return
-	}
-
-	if len(data) > 0 {
+	if dataLen > 0 {
 		_, err = io.Copy(conn, bytes.NewReader(data))
 	}
 	return
 }
 
 func parseMessage(conn net.Conn) (flag string, data []byte, err error) {
-	buf := make([]byte, 8)
+	buf := make([]byte, len(XTunnelHead))
 	_, err = conn.Read(buf)
 	if err != nil {
 		return
 	}
 	if !bytes.Equal(buf, XTunnelHead) {
-		err = fmt.Errorf("invalid x-tunnel head")
+		err = fmt.Errorf("invalid head")
 		return
 	}
 
-	buf = make([]byte, 1)
+	buf = make([]byte, 5)
 	_, err = conn.Read(buf)
 	if err != nil {
 		return
 	}
-	buf = make([]byte, int(buf[0]))
+
+	fl := int(buf[0])
+	dl := binary.LittleEndian.Uint32(buf[1:])
+
+	buf = make([]byte, fl)
 	_, err = conn.Read(buf)
 	if err != nil {
 		return
 	}
+
 	flag = string(buf)
 
-	buf = make([]byte, 4)
-	_, err = conn.Read(buf)
-	if err != nil {
-		return
-	}
-	if dl := binary.LittleEndian.Uint32(buf); dl > 0 {
+	if dl > 0 {
 		buf := bytes.NewBuffer(nil)
 		_, err = io.CopyN(buf, conn, int64(dl))
 		if err == nil {

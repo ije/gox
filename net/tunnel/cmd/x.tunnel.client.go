@@ -33,24 +33,26 @@ func main() {
 
 	var clients int
 	for name, section := range cfg.ExtendedSections() {
-		port := section.Int("forward-port", 0)
-		if port > 0 && port < 1<<16 && strings.HasPrefix(name, "tunnel:") {
+		forwardPort := section.Int("forward_port", 0)
+		tunnelPort := section.Int("tunnel_port", 0)
+		if forwardPort > 0 && forwardPort < 1<<16 && tunnelPort > 0 && tunnelPort < 1<<16 && strings.HasPrefix(name, "tunnel:") {
 			name = strings.TrimPrefix(name, "tunnel:")
-
 			tc := &tunnel.Client{
-				Server:      ts,
-				TunnelName:  name,
-				ForwardPort: uint16(port),
+				Server: ts,
+				Tunnel: tunnel.Tunnel{
+					Name:             name,
+					Port:             uint16(tunnelPort),
+					MaxConnections:   section.Int("max_connections", 1),
+					MaxProxyLifetime: section.Int("max_proxy_lifetime", 0),
+				},
+				ForwardPort: uint16(forwardPort),
 			}
-			go tc.Run()
-
-			logger.Infof("tunnel %s added", name)
+			go tc.Connect()
 			clients++
 		}
 	}
 
 	if clients > 0 {
-		logger.Infof("x.tunnel client started")
 		utils.WaitExit(func(sig os.Signal) bool {
 			return true
 		})

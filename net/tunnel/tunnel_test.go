@@ -9,10 +9,9 @@ import (
 )
 
 const (
-	httpPort        = 8088
-	poxyHttpPort    = 8080
-	tunnelPort      = 8087
-	maxConncectines = 100
+	tunnelPort   = 8087
+	httpPort     = 8088
+	poxyHttpPort = 8080
 )
 
 func init() {
@@ -32,31 +31,29 @@ func init() {
 			Port: tunnelPort,
 		}
 
-		err := serv.AddTunnel("http-test", poxyHttpPort, maxConncectines, 3600)
+		err := serv.Serve()
 		if err != nil {
-			log.Error(err)
-			return
-		}
-
-		err = serv.Serve()
-		if err != nil {
-			log.Error(err)
+			log.Fatal(err)
 		}
 	}()
 
 	go func() {
 		client := &Client{
-			Server:      fmt.Sprintf("127.0.0.1:%d", tunnelPort),
-			TunnelName:  "http-test",
+			Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
+			Tunnel: Tunnel{
+				Name:           "http-proxy-testing",
+				Port:           poxyHttpPort,
+				MaxConnections: 100,
+			},
 			ForwardPort: httpPort,
 		}
-
-		client.Run()
+		client.Connect()
 	}()
 }
 
 func Test(t *testing.T) {
-	time.Sleep(time.Second)
+	time.Sleep(time.Second / 2) // wait init goruntines end
+
 	for i := 0; i < 1000; i++ {
 		r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
 		if err != nil {
