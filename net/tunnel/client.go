@@ -23,11 +23,11 @@ func (client *Client) Connect() {
 			continue
 		}
 
-		client.Serve(conn)
+		client.serveConn(conn)
 	}
 }
 
-func (client *Client) Serve(conn net.Conn) {
+func (client *Client) serveConn(conn net.Conn) {
 	for {
 		if err := dotimeout(func() (err error) {
 			buf := make([]byte, 1)

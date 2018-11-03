@@ -591,20 +591,3 @@ func GetLocalIPs() (ips []string, err error) {
 	}
 	return
 }
-
-var errTimeout = fmt.Errorf("timeout")
-
-func SetTimeout(handle func() error, timeout time.Duration) (err error) {
-	var ec = make(chan error, 1)
-	go func(ec chan error) {
-		ec <- handle()
-	}(ec)
-
-	select {
-	case err = <-ec:
-	case <-time.After(timeout):
-		close(ec)
-		err = errTimeout
-	}
-	return
-}
