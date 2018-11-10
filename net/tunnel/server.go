@@ -56,12 +56,12 @@ func (s *Server) Serve() (err error) {
 	go func() {
 		if s.HTTPPort > 0 {
 			http.ListenAndServe(fmt.Sprintf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				r.URL.Path = strings.Trim(strings.TrimSpace(r.URL.Path), "/")
-				if r.URL.Path == "" {
-					w.Header().Set("Content-Type", "text/p")
-					w.Write([]byte("Tunnel X server is running..."))
-				} else if r.URL.Path == "/status" {
-					var js []map[string]interface{}
+				endpoint := strings.Trim(strings.TrimSpace(r.URL.Path), "/")
+				if endpoint == "" {
+					w.Header().Set("Content-Type", "text/plain")
+					w.Write([]byte("tunnel-x-server"))
+				} else if endpoint == "clients" {
+					js := []map[string]interface{}{}
 					for _, t := range s.tunnels {
 						meta := map[string]interface{}{
 							"name":             t.Name,

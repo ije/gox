@@ -36,7 +36,7 @@ if [ "$ok" = "yes" ]; then
 	initSupervisor="yes"
 fi
 
-supervisordconfDir="/etc/supervisor"
+supervisordconfDir="/etc/supervisor/conf.d"
 if [ "$initSupervisor" = "yes" ]; then
 	read -p "please enter the supervisord.conf directory(default is '$supervisordconfDir')? " dir
 	if [ "$dir" != "" ]; then
@@ -52,7 +52,7 @@ if [ "$?" != "0" ]; then
 fi
 
 if [ "$initSupervisor" = "yes" ]; then
-	scp -P $hostSSHPort x.tunnel.$target.supervisor.conf $loginUser@$host:$supervisordconfDir/conf.d/x.tunnel.$target.conf
+	scp -P $hostSSHPort x.tunnel.$target.supervisor.conf $loginUser@$host:$supervisordconfDir/x.tunnel.$target.conf
 	if [ "$?" != "0" ]; then
 		rm x.tunnel.$target
 		exit
