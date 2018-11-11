@@ -18,7 +18,7 @@ func (client *Client) Connect() {
 	for {
 		conn, err := client.dialWithHandshake("hello")
 		if err != nil {
-			log.Warnf("tunnel(%s): dial server failed: %v", client.Tunnel.Name, err)
+			log.Warnf("tunnel(%s): connect: %v", client.Tunnel.Name, err)
 			time.Sleep(time.Second)
 			continue
 		}
@@ -49,7 +49,7 @@ func (client *Client) serveConn(conn net.Conn) {
 			_, err = conn.Write([]byte{retMessage})
 			return
 		}, 15*time.Second); err != nil {
-			log.Warnf("tunnel(%s): %v", client.Tunnel.Name, err)
+			log.Warnf("tunnel(%s) beat: %v", client.Tunnel.Name, err)
 			conn.Close()
 			return
 		}
@@ -58,7 +58,16 @@ func (client *Client) serveConn(conn net.Conn) {
 
 func (client *Client) dialAndProxy() (err error) {
 	err = dotimeout(func() (err error) {
-		localConn, err := dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
+		var localConn net.Conn
+		for i := 0; i < 6; i++ {
+			localConn, err = dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
+			if err == nil {
+				break
+			}
+			if i < 5 {
+				time.Sleep(time.Second / 2)
+			}
+		}
 		if err != nil {
 			err = fmt.Errorf("dial local failed: %v", err)
 			return
@@ -66,7 +75,6 @@ func (client *Client) dialAndProxy() (err error) {
 
 		serverConn, err := client.dialWithHandshake("proxy")
 		if err != nil {
-			err = fmt.Errorf("dial server failed: %v", err)
 			return
 		}
 
@@ -74,7 +82,7 @@ func (client *Client) dialAndProxy() (err error) {
 		return
 	}, 10*time.Second)
 	if err != nil {
-		log.Warnf("tunnel(%s): %v", client.Tunnel.Name, err)
+		log.Warnf("tunnel(%s) dialAndProxy: %v", client.Tunnel.Name, err)
 	}
 	return
 }

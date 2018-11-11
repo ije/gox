@@ -24,15 +24,6 @@ func (s *Server) AddTunnel(name string, port uint16, maxConnections int, maxProx
 		maxConnections = 1
 	}
 
-	tunnel := &Tunnel{
-		Name:             name,
-		Port:             port,
-		MaxConnections:   maxConnections,
-		MaxProxyLifetime: maxProxyLifetime,
-		connQueue:        make(chan net.Conn, maxConnections),
-		connPool:         make(chan net.Conn, maxConnections),
-	}
-
 	if s.tunnels == nil {
 		s.tunnels = map[string]*Tunnel{}
 	} else if t, ok := s.tunnels[name]; ok && t.Port == port {
@@ -41,10 +32,20 @@ func (s *Server) AddTunnel(name string, port uint16, maxConnections int, maxProx
 			t.connQueue = make(chan net.Conn, maxConnections)
 			t.connPool = make(chan net.Conn, maxConnections)
 		}
-		t.MaxProxyLifetime = maxProxyLifetime
+		if t.MaxProxyLifetime != maxProxyLifetime {
+			t.MaxProxyLifetime = maxProxyLifetime
+		}
 		return nil
 	}
 
+	tunnel := &Tunnel{
+		Name:             name,
+		Port:             port,
+		MaxConnections:   maxConnections,
+		MaxProxyLifetime: maxProxyLifetime,
+		connQueue:        make(chan net.Conn, maxConnections),
+		connPool:         make(chan net.Conn, maxConnections),
+	}
 	err := tunnel.Serve()
 	if err == nil {
 		s.tunnels[name] = tunnel
@@ -56,6 +57,17 @@ func (s *Server) Serve() (err error) {
 	go func() {
 		if s.HTTPPort > 0 {
 			http.ListenAndServe(fmt.Sprintf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				wh := w.Header()
+				wh.Set("Access-Control-Allow-Origin", "*")
+				if r.Method == "OPTIONS" {
+					wh.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE")
+					wh.Set("Access-Control-Allow-Headers", "Accept,Accept-Encoding,Accept-Lang,Content-Type,Authorization,X-Requested-With,X-Method")
+					wh.Set("Access-Control-Allow-Credentials", "true")
+					wh.Set("Access-Control-Max-Age", "60")
+					w.WriteHeader(204)
+					return
+				}
+
 				endpoint := strings.Trim(strings.TrimSpace(r.URL.Path), "/")
 				if endpoint == "" {
 					w.Header().Set("Content-Type", "text/plain")
@@ -125,6 +137,9 @@ func (s *Server) handleConn(conn net.Conn) {
 			if _, ok := s.tunnels[tunnelName]; ok {
 				ret = 1
 			}
+		} else {
+			err = fmt.Errorf("invalid flag")
+			return
 		}
 
 		_, err = conn.Write([]byte{ret})
