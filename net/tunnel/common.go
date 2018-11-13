@@ -50,13 +50,16 @@ func listen(l net.Listener, connHandler func(net.Conn)) error {
 }
 
 func dial(network string, address string) (conn net.Conn, err error) {
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 6; i++ {
 		conn, err = net.Dial(network, address)
 		if err == nil {
 			if tcpConn, ok := conn.(*net.TCPConn); ok {
 				tcpConn.SetKeepAlive(true)
 			}
 			return
+		}
+		if i < 2 {
+			time.Sleep(time.Second / 2)
 		}
 	}
 	return

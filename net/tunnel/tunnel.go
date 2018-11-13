@@ -7,6 +7,8 @@ import (
 	"io"
 	"net"
 	"time"
+
+	"github.com/ije/gox/utils"
 )
 
 var XTunnelHead = []byte("X-TUNNEL")
@@ -16,8 +18,9 @@ type Tunnel struct {
 	Port             uint16
 	MaxConnections   int
 	MaxProxyLifetime int
+	err              error
 	online           bool
-	client           string
+	clientAddr       string
 	proxyConnections int
 	olTimer          *time.Timer
 	connQueue        chan net.Conn
@@ -25,37 +28,54 @@ type Tunnel struct {
 	listener         net.Listener
 }
 
-func (t *Tunnel) Serve() (err error) {
-	l, err := net.Listen("tcp", fmt.Sprintf(":%d", t.Port))
+func (t *Tunnel) ListenAndServe() {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", t.Port))
 	if err != nil {
+		t.err = err
 		return
 	}
+	t.listener = listener
 
-	t.listener = l
 	go listen(t.listener, func(conn net.Conn) {
-		log.Debugf("tunnel(%s, online:%v) new connection ", t.Name, t.online)
-
 		if !t.online || len(t.connQueue) >= t.MaxConnections {
 			conn.Close()
 			return
 		}
 
+		log.Debugf("tunnel(%s) heard a new connection, current connQueue has %d connections", t.Name, len(t.connQueue)+1)
 		t.connQueue <- conn
 	})
-	return
 }
 
-func (t *Tunnel) activate(client string) {
+func (t *Tunnel) activate(addr net.Addr) {
+	remoteAddr, _ := utils.SplitByLastByte(addr.String(), ':')
 	t.online = true
-	t.client = client
+	t.clientAddr = remoteAddr
 	if t.olTimer != nil {
 		t.olTimer.Stop()
 	}
 	t.olTimer = time.AfterFunc(15*time.Second, func() {
 		t.olTimer = nil
 		t.online = false
-		t.client = ""
+		t.clientAddr = ""
 	})
+}
+
+func (t *Tunnel) unactivate() {
+	if t.olTimer != nil {
+		t.olTimer.Stop()
+		t.olTimer = nil
+	}
+	t.online = false
+	t.clientAddr = ""
+}
+
+func (t *Tunnel) close() error {
+	t.unactivate()
+	if t.listener != nil {
+		return t.listener.Close()
+	}
+	return nil
 }
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {

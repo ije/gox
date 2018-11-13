@@ -8,34 +8,52 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/ije/gox/utils"
 )
 
 type Server struct {
+	lock     sync.RWMutex
 	Port     uint16 // tunnel service port
 	HTTPPort uint16
 	tunnels  map[string]*Tunnel
 }
 
-func (s *Server) AddTunnel(name string, port uint16, maxConnections int, maxProxyLifetime int) error {
+func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, maxProxyLifetime int) *Tunnel {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	if maxConnections <= 0 {
 		maxConnections = 1
 	}
 
 	if s.tunnels == nil {
 		s.tunnels = map[string]*Tunnel{}
-	} else if t, ok := s.tunnels[name]; ok && t.Port == port {
-		if t.MaxConnections != maxConnections {
-			t.MaxConnections = maxConnections
-			t.connQueue = make(chan net.Conn, maxConnections)
-			t.connPool = make(chan net.Conn, maxConnections)
+	} else if t, ok := s.tunnels[name]; ok {
+		if t.Port == port {
+			if t.MaxConnections < maxConnections {
+				t.MaxConnections = maxConnections
+				connQueue := make(chan net.Conn, maxConnections)
+				connPool := make(chan net.Conn, maxConnections)
+				close(t.connQueue)
+				close(t.connPool)
+				for conn := range t.connQueue {
+					connQueue <- conn
+				}
+				for conn := range t.connPool {
+					connPool <- conn
+				}
+				t.connQueue = connQueue
+				t.connPool = connPool
+			}
+			if t.MaxProxyLifetime != maxProxyLifetime {
+				t.MaxProxyLifetime = maxProxyLifetime
+			}
+			return t
+		} else {
+			t.close()
+			delete(s.tunnels, name)
 		}
-		if t.MaxProxyLifetime != maxProxyLifetime {
-			t.MaxProxyLifetime = maxProxyLifetime
-		}
-		return nil
 	}
 
 	tunnel := &Tunnel{
@@ -46,11 +64,9 @@ func (s *Server) AddTunnel(name string, port uint16, maxConnections int, maxProx
 		connQueue:        make(chan net.Conn, maxConnections),
 		connPool:         make(chan net.Conn, maxConnections),
 	}
-	err := tunnel.Serve()
-	if err == nil {
-		s.tunnels[name] = tunnel
-	}
-	return err
+	s.tunnels[name] = tunnel
+	tunnel.ListenAndServe()
+	return tunnel
 }
 
 func (s *Server) Serve() (err error) {
@@ -61,7 +77,7 @@ func (s *Server) Serve() (err error) {
 				wh.Set("Access-Control-Allow-Origin", "*")
 				if r.Method == "OPTIONS" {
 					wh.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE")
-					wh.Set("Access-Control-Allow-Headers", "Accept,Accept-Encoding,Accept-Lang,Content-Type,Authorization,X-Requested-With,X-Method")
+					wh.Set("Access-Control-Allow-Headers", "Accept,Accept-Encoding,Accept-Lang,Content-Type,Authorization,X-Requested-With")
 					wh.Set("Access-Control-Allow-Credentials", "true")
 					wh.Set("Access-Control-Max-Age", "60")
 					w.WriteHeader(204)
@@ -71,15 +87,17 @@ func (s *Server) Serve() (err error) {
 				endpoint := strings.Trim(strings.TrimSpace(r.URL.Path), "/")
 				if endpoint == "" {
 					w.Header().Set("Content-Type", "text/plain")
-					w.Write([]byte("tunnel-x-server"))
+					w.Write([]byte("x-tunnel-server"))
 				} else if endpoint == "clients" {
 					js := []map[string]interface{}{}
+					s.lock.RLock()
 					for _, t := range s.tunnels {
 						meta := map[string]interface{}{
 							"name":             t.Name,
 							"port":             t.Port,
-							"client":           t.client,
+							"clientAddr":       t.clientAddr,
 							"online":           t.online,
+							"error":            t.err.Error(),
 							"maxConnections":   t.MaxConnections,
 							"proxyConnections": t.proxyConnections,
 							"connPoolLength":   len(t.connPool),
@@ -90,10 +108,11 @@ func (s *Server) Serve() (err error) {
 						}
 						js = append(js, meta)
 					}
+					s.lock.RUnlock()
 					w.Header().Set("Content-Type", "application/json")
 					json.NewEncoder(w).Encode(js)
 				} else {
-					http.Error(w, http.StatusText(400), 400)
+					http.Error(w, http.StatusText(404), 404)
 				}
 			}))
 		}
@@ -109,7 +128,7 @@ func (s *Server) Serve() (err error) {
 
 func (s *Server) handleConn(conn net.Conn) {
 	var flag string
-	var tunnelName string
+	var tunnel *Tunnel
 
 	if err := dotimeout(func() (err error) {
 		var data []byte
@@ -123,55 +142,52 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
-		var ret byte = 0
+		var activated bool
 		if flag == "hello" {
-			var tunnel Tunnel
-			if gob.NewDecoder(bytes.NewReader(data)).Decode(&tunnel) == nil {
-				if s.AddTunnel(tunnel.Name, tunnel.Port, tunnel.MaxConnections, tunnel.MaxProxyLifetime) == nil {
-					tunnelName = tunnel.Name
-					ret = 1
-				}
+			var t Tunnel
+			if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
+				tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxConnections, t.MaxProxyLifetime)
+				activated = tunnel.err == nil
 			}
 		} else if flag == "proxy" {
-			tunnelName = string(data)
-			if _, ok := s.tunnels[tunnelName]; ok {
-				ret = 1
+			s.lock.RLock()
+			tunnel, activated = s.tunnels[string(data)]
+			if activated {
+				activated = tunnel.err == nil
 			}
+			s.lock.RUnlock()
 		} else {
 			err = fmt.Errorf("invalid flag")
 			return
 		}
 
-		_, err = conn.Write([]byte{ret})
-		if err != nil {
+		if !activated {
+			err = fmt.Errorf("can not activate a tunnel")
 			return
 		}
 
+		_, err = conn.Write([]byte{1})
 		return
-	}, 10*time.Second); err != nil {
+	}, 15*time.Second); err != nil {
 		log.Warn("first touch:", err)
-		conn.Close() // connection will be closed when can not get a valid handshake message and send a response in 10 seconds
-		return
-	}
-
-	tunnel, ok := s.tunnels[tunnelName]
-	if !ok {
-		log.Warn("bad tunnel name:", tunnelName)
 		conn.Close()
 		return
 	}
 
 	if flag == "proxy" {
 		tunnel.proxy(conn, <-tunnel.connPool)
+		log.Debugf("server: tunnel(%s) start to proxy, current connPool has %d connections", tunnel.Name, len(tunnel.connPool))
 		return
 	}
 
-	remoteAddr, _ := utils.SplitByLastByte(conn.RemoteAddr().String(), ':')
-	tunnel.activate(remoteAddr)
+	tunnel.activate(conn.RemoteAddr())
+	defer tunnel.unactivate()
 
+	log.Debugf("server: start to lookup connections from tunnel(%s)", tunnel.Name)
 	for {
 		select {
 		case c := <-tunnel.connQueue:
+			startTime := time.Now()
 			ret, err := exchangeByte(conn, 2, 15*time.Second)
 			if err != nil {
 				conn.Close()
@@ -179,26 +195,28 @@ func (s *Server) handleConn(conn net.Conn) {
 				return
 			}
 
-			tunnel.activate(remoteAddr)
+			tunnel.activate(conn.RemoteAddr())
 			if ret == 1 {
 				tunnel.connPool <- c
-				log.Debugf("tunnel(%s) proxy connection activated", tunnel.Name)
-			} else {
+				log.Debugf("server: tunnel(%s) is hit by proxy request, token %v", tunnel.Name, time.Now().Sub(startTime))
+			} else if ret == 0 {
 				c.Close()
-			}
-
-		// heartbeat check
-		case <-time.After(10 * time.Second):
-			ret, err := exchangeByte(conn, 1, 15*time.Second)
-			if err != nil {
+			} else {
 				conn.Close()
 				return
 			}
 
-			if ret == 1 {
-				tunnel.activate(remoteAddr)
-				log.Debugf("tunnel(%s) activated(heartbeat)", tunnel.Name)
+		// heart beat
+		case <-time.After(10 * time.Second):
+			startTime := time.Now()
+			ret, err := exchangeByte(conn, 1, 15*time.Second)
+			if err != nil || ret != 1 {
+				conn.Close()
+				return
 			}
+
+			tunnel.activate(conn.RemoteAddr())
+			log.Debugf("server: tunnel(%s) is hit by heart beat, token %v", tunnel.Name, time.Now().Sub(startTime))
 		}
 	}
 }

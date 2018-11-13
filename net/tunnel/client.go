@@ -23,11 +23,11 @@ func (client *Client) Connect() {
 			continue
 		}
 
-		client.serveConn(conn)
+		client.heartBeat(conn)
 	}
 }
 
-func (client *Client) serveConn(conn net.Conn) {
+func (client *Client) heartBeat(conn net.Conn) {
 	for {
 		if err := dotimeout(func() (err error) {
 			buf := make([]byte, 1)
@@ -36,20 +36,20 @@ func (client *Client) serveConn(conn net.Conn) {
 				return
 			}
 
-			beatMessage := buf[0]
-			if beatMessage != 1 && beatMessage != 2 {
-				err = fmt.Errorf("server sent a bad data")
+			beatState := buf[0]
+			if beatState != 1 && beatState != 2 {
+				err = fmt.Errorf("server error")
 				return
 			}
 
-			var retMessage byte = 1
-			if beatMessage == 2 && client.dialAndProxy() != nil {
-				retMessage = 0
+			var retState byte = 1
+			if beatState == 2 && client.dialAndProxy() != nil {
+				retState = 0
 			}
-			_, err = conn.Write([]byte{retMessage})
+			_, err = conn.Write([]byte{retState})
 			return
 		}, 15*time.Second); err != nil {
-			log.Warnf("tunnel(%s) beat: %v", client.Tunnel.Name, err)
+			log.Warnf("tunnel(%s) heart beat: %v", client.Tunnel.Name, err)
 			conn.Close()
 			return
 		}
@@ -57,7 +57,7 @@ func (client *Client) serveConn(conn net.Conn) {
 }
 
 func (client *Client) dialAndProxy() (err error) {
-	err = dotimeout(func() (err error) {
+	if err = dotimeout(func() (err error) {
 		var localConn net.Conn
 		for i := 0; i < 6; i++ {
 			localConn, err = dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
@@ -75,13 +75,13 @@ func (client *Client) dialAndProxy() (err error) {
 
 		serverConn, err := client.dialWithHandshake("proxy")
 		if err != nil {
+			localConn.Close()
 			return
 		}
 
 		go proxy(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
 		return
-	}, 10*time.Second)
-	if err != nil {
+	}, 15*time.Second); err != nil {
 		log.Warnf("tunnel(%s) dialAndProxy: %v", client.Tunnel.Name, err)
 	}
 	return
@@ -98,7 +98,12 @@ func (client *Client) dialWithHandshake(flag string) (conn net.Conn, err error) 
 		gob.NewEncoder(buffer).Encode(client.Tunnel)
 	} else if flag == "proxy" {
 		buffer.WriteString(client.Tunnel.Name)
+	} else {
+		err = fmt.Errorf("invalid flag")
+		c.Close()
+		return
 	}
+
 	err = sendMessage(c, flag, buffer.Bytes())
 	if err != nil {
 		c.Close()
@@ -111,11 +116,8 @@ func (client *Client) dialWithHandshake(flag string) (conn net.Conn, err error) 
 		c.Close()
 		return
 	}
-
 	if buf[0] != 1 {
-		err = fmt.Errorf("server sent a bad data")
-		c.Close()
-		return
+		err = fmt.Errorf("server error")
 	}
 
 	conn = c

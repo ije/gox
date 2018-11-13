@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -11,7 +12,7 @@ import (
 const (
 	tunnelPort   = 8087
 	httpPort     = 8088
-	poxyHttpPort = 8080
+	poxyHttpPort = 8089
 )
 
 func init() {
@@ -26,44 +27,41 @@ func init() {
 	s.SetKeepAlivesEnabled(false)
 	go s.ListenAndServe()
 
-	go func() {
-		serv := &Server{
-			Port: tunnelPort,
-		}
+	serv := &Server{
+		Port: tunnelPort,
+	}
+	go serv.Serve()
 
-		err := serv.Serve()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
-
-	go func() {
-		client := &Client{
-			Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
-			Tunnel: Tunnel{
-				Name:           "http-proxy-testing",
-				Port:           poxyHttpPort,
-				MaxConnections: 100,
-			},
-			ForwardPort: httpPort,
-		}
-		client.Connect()
-	}()
+	client := &Client{
+		Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
+		Tunnel: Tunnel{
+			Name:           "http-proxy-testing",
+			Port:           poxyHttpPort,
+			MaxConnections: 100,
+		},
+		ForwardPort: httpPort,
+	}
+	for i := 0; i < runtime.NumCPU(); i++ {
+		go client.Connect()
+	}
 }
 
 func Test(t *testing.T) {
-	time.Sleep(time.Second / 2) // wait init goruntines end
+	time.Sleep(time.Second) // wait init
 
-	for i := 0; i < 1000; i++ {
-		r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
-		if err != nil {
-			t.Fatal(err)
-		}
+	for i := 0; i < 100; i++ {
+		go func() {
+			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer r.Body.Close()
 
-		ret, _ := ioutil.ReadAll(r.Body)
-		if string(ret) != "Hello World!" {
-			t.Fatal(string(ret))
-		}
+			ret, _ := ioutil.ReadAll(r.Body)
+			if string(ret) != "Hello World!" {
+				t.Fatal(string(ret))
+			}
+		}()
 	}
-	time.Sleep(12 * time.Second)
+	time.Sleep(15 * time.Second)
 }
