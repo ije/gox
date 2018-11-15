@@ -1,9 +1,12 @@
 #!/bin/bash
 
-read -p "please enter the deploy target('client' or 'server'): " target
+target="$1"
 if [ "$target" != "client" ] && [ "$target" != "server" ]; then
-	echo "invalid the target '$target'..."
-	exit
+	read -p "please enter the deploy target('client' or 'server'): " target
+	if [ "$target" != "client" ] && [ "$target" != "server" ]; then
+		echo "invalid the target '$target'..."
+		exit
+	fi
 fi
 
 sh build.sh $target
