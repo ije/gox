@@ -172,7 +172,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		_, err = conn.Write([]byte{1})
 		return
 	}, 15*time.Second); err != nil {
-		log.Warn("first touch:", err)
+		log.Warn("client connect:", err)
 		conn.Close()
 		return
 	}
