@@ -65,65 +65,66 @@ func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, ma
 		connPool:         make(chan net.Conn, maxConnections),
 	}
 	s.tunnels[name] = tunnel
-	tunnel.ListenAndServe()
+	go tunnel.ListenAndServe()
 	return tunnel
 }
 
 func (s *Server) Serve() (err error) {
-	go func() {
-		if s.HTTPPort > 0 {
-			http.ListenAndServe(fmt.Sprintf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				wh := w.Header()
-				wh.Set("Access-Control-Allow-Origin", "*")
-				if r.Method == "OPTIONS" {
-					wh.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE")
-					wh.Set("Access-Control-Allow-Headers", "Accept,Accept-Encoding,Accept-Lang,Content-Type,Authorization,X-Requested-With")
-					wh.Set("Access-Control-Allow-Credentials", "true")
-					wh.Set("Access-Control-Max-Age", "60")
-					w.WriteHeader(204)
-					return
-				}
-
-				endpoint := strings.Trim(strings.TrimSpace(r.URL.Path), "/")
-				if endpoint == "" {
-					w.Header().Set("Content-Type", "text/plain")
-					w.Write([]byte("x-tunnel-server"))
-				} else if endpoint == "clients" {
-					js := []map[string]interface{}{}
-					s.lock.RLock()
-					for _, t := range s.tunnels {
-						meta := map[string]interface{}{
-							"name":             t.Name,
-							"port":             t.Port,
-							"clientAddr":       t.clientAddr,
-							"online":           t.online,
-							"error":            t.err.Error(),
-							"maxConnections":   t.MaxConnections,
-							"proxyConnections": t.proxyConnections,
-							"connPoolLength":   len(t.connPool),
-							"connQueueLength":  len(t.connQueue),
-						}
-						if t.MaxProxyLifetime > 0 {
-							meta["maxProxyLifetime"] = t.MaxProxyLifetime
-						}
-						js = append(js, meta)
-					}
-					s.lock.RUnlock()
-					w.Header().Set("Content-Type", "application/json")
-					json.NewEncoder(w).Encode(js)
-				} else {
-					http.Error(w, http.StatusText(404), 404)
-				}
-			}))
-		}
-	}()
-
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
 		return
 	}
 
+	if s.HTTPPort > 0 {
+		go s.serveHTTP()
+	}
 	return listen(l, s.handleConn)
+}
+
+func (s *Server) serveHTTP() (err error) {
+	return http.ListenAndServe(fmt.Sprintf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wh := w.Header()
+		wh.Set("Access-Control-Allow-Origin", "*")
+		if r.Method == "OPTIONS" {
+			wh.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE")
+			wh.Set("Access-Control-Allow-Headers", "Accept,Accept-Encoding,Accept-Lang,Content-Type,Authorization,X-Requested-With")
+			wh.Set("Access-Control-Allow-Credentials", "true")
+			wh.Set("Access-Control-Max-Age", "60")
+			w.WriteHeader(204)
+			return
+		}
+
+		endpoint := strings.Trim(strings.TrimSpace(r.URL.Path), "/")
+		if endpoint == "" {
+			w.Header().Set("Content-Type", "text/plain")
+			w.Write([]byte("x-tunnel-server"))
+		} else if endpoint == "clients" {
+			js := []map[string]interface{}{}
+			s.lock.RLock()
+			for _, t := range s.tunnels {
+				meta := map[string]interface{}{
+					"name":             t.Name,
+					"port":             t.Port,
+					"clientAddr":       t.clientAddr,
+					"online":           t.online,
+					"error":            t.err.Error(),
+					"maxConnections":   t.MaxConnections,
+					"proxyConnections": t.proxyConnections,
+					"connPoolLength":   len(t.connPool),
+					"connQueueLength":  len(t.connQueue),
+				}
+				if t.MaxProxyLifetime > 0 {
+					meta["maxProxyLifetime"] = t.MaxProxyLifetime
+				}
+				js = append(js, meta)
+			}
+			s.lock.RUnlock()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(js)
+		} else {
+			http.Error(w, http.StatusText(404), 404)
+		}
+	}))
 }
 
 func (s *Server) handleConn(conn net.Conn) {
@@ -142,27 +143,29 @@ func (s *Server) handleConn(conn net.Conn) {
 			return
 		}
 
-		var activated bool
 		if flag == "hello" {
 			var t Tunnel
 			if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
 				tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxConnections, t.MaxProxyLifetime)
-				activated = tunnel.err == nil
+				if tunnel.err != nil {
+					err = fmt.Errorf("can not activate tunnel(%s)", t.Name)
+					return
+				}
+			} else {
+				err = fmt.Errorf("invalid hello message")
+				return
 			}
 		} else if flag == "proxy" {
+			var ok bool
 			s.lock.RLock()
-			tunnel, activated = s.tunnels[string(data)]
-			if activated {
-				activated = tunnel.err == nil
-			}
+			tunnel, ok = s.tunnels[string(data)]
 			s.lock.RUnlock()
+			if !ok || tunnel.err != nil {
+				err = fmt.Errorf("can not proxy tunnel(%s)", string(data))
+				return
+			}
 		} else {
 			err = fmt.Errorf("invalid flag")
-			return
-		}
-
-		if !activated {
-			err = fmt.Errorf("can not activate a tunnel")
 			return
 		}
 

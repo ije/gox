@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/ije/gox/utils"
@@ -18,6 +19,7 @@ type Tunnel struct {
 	Port             uint16
 	MaxConnections   int
 	MaxProxyLifetime int
+	lock             sync.Mutex
 	err              error
 	online           bool
 	clientAddr       string
@@ -34,9 +36,9 @@ func (t *Tunnel) ListenAndServe() {
 		t.err = err
 		return
 	}
-	t.listener = listener
 
-	go listen(t.listener, func(conn net.Conn) {
+	t.listener = listener
+	listen(t.listener, func(conn net.Conn) {
 		if !t.online || len(t.connQueue) >= t.MaxConnections {
 			conn.Close()
 			return
@@ -48,6 +50,9 @@ func (t *Tunnel) ListenAndServe() {
 }
 
 func (t *Tunnel) activate(addr net.Addr) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	remoteAddr, _ := utils.SplitByLastByte(addr.String(), ':')
 	t.online = true
 	t.clientAddr = remoteAddr
@@ -62,6 +67,9 @@ func (t *Tunnel) activate(addr net.Addr) {
 }
 
 func (t *Tunnel) unactivate() {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	if t.olTimer != nil {
 		t.olTimer.Stop()
 		t.olTimer = nil
@@ -72,8 +80,9 @@ func (t *Tunnel) unactivate() {
 
 func (t *Tunnel) close() error {
 	t.unactivate()
-	if t.listener != nil {
-		return t.listener.Close()
+	if l := t.listener; l != nil {
+		t.listener = nil
+		return l.Close()
 	}
 	return nil
 }

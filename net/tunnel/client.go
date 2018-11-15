@@ -57,33 +57,29 @@ func (client *Client) heartBeat(conn net.Conn) {
 }
 
 func (client *Client) dialAndProxy() (err error) {
-	if err = dotimeout(func() (err error) {
-		var localConn net.Conn
-		for i := 0; i < 6; i++ {
-			localConn, err = dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
-			if err == nil {
-				break
-			}
-			if i < 5 {
-				time.Sleep(time.Second / 2)
-			}
+	var localConn net.Conn
+	for i := 0; i < 6; i++ {
+		localConn, err = dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
+		if err == nil {
+			break
 		}
-		if err != nil {
-			err = fmt.Errorf("dial local failed: %v", err)
-			return
+		if i < 5 {
+			time.Sleep(time.Second / 2)
 		}
-
-		serverConn, err := client.dialWithHandshake("proxy")
-		if err != nil {
-			localConn.Close()
-			return
-		}
-
-		go proxy(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
-		return
-	}, 15*time.Second); err != nil {
-		log.Warnf("tunnel(%s) dialAndProxy: %v", client.Tunnel.Name, err)
 	}
+	if err != nil {
+		err = fmt.Errorf("dial local: %v", err)
+		return
+	}
+
+	serverConn, err := client.dialWithHandshake("proxy")
+	if err != nil {
+		err = fmt.Errorf("dial server for proxy request: %v", err)
+		localConn.Close()
+		return
+	}
+
+	go proxy(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
 	return
 }
 
@@ -116,8 +112,11 @@ func (client *Client) dialWithHandshake(flag string) (conn net.Conn, err error) 
 		c.Close()
 		return
 	}
+
 	if buf[0] != 1 {
 		err = fmt.Errorf("server error")
+		c.Close()
+		return
 	}
 
 	conn = c

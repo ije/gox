@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"runtime"
 	"testing"
 	"time"
 )
@@ -41,7 +40,7 @@ func init() {
 		},
 		ForwardPort: httpPort,
 	}
-	for i := 0; i < runtime.NumCPU(); i++ {
+	for i := 0; i < 10; i++ {
 		go client.Connect()
 	}
 }
