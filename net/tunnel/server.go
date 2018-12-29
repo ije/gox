@@ -32,17 +32,17 @@ func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, ma
 	} else if t, ok := s.tunnels[name]; ok {
 		if t.Port == port {
 			if t.MaxConnections < maxConnections {
-				t.MaxConnections = maxConnections
 				connQueue := make(chan net.Conn, maxConnections)
-				connPool := make(chan net.Conn, maxConnections)
 				close(t.connQueue)
-				close(t.connPool)
 				for conn := range t.connQueue {
 					connQueue <- conn
 				}
+				connPool := make(chan net.Conn, maxConnections)
+				close(t.connPool)
 				for conn := range t.connPool {
 					connPool <- conn
 				}
+				t.MaxConnections = maxConnections
 				t.connQueue = connQueue
 				t.connPool = connPool
 			}
@@ -107,7 +107,6 @@ func (s *Server) serveHTTP() (err error) {
 					"port":             t.Port,
 					"clientAddr":       t.clientAddr,
 					"online":           t.online,
-					"error":            t.err.Error(),
 					"maxConnections":   t.MaxConnections,
 					"proxyConnections": t.proxyConnections,
 					"connPoolLength":   len(t.connPool),
@@ -115,6 +114,9 @@ func (s *Server) serveHTTP() (err error) {
 				}
 				if t.MaxProxyLifetime > 0 {
 					meta["maxProxyLifetime"] = t.MaxProxyLifetime
+				}
+				if t.err != nil {
+					meta["error"] = t.err.Error()
 				}
 				js = append(js, meta)
 			}
