@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"time"
 
 	logger "github.com/ije/gox/log"
@@ -34,11 +33,7 @@ func listen(l net.Listener, connHandler func(net.Conn)) error {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			if strings.Contains(err.Error(), "use of closed network connection") {
-				return err
-			}
-			time.Sleep(50 * time.Millisecond)
-			continue
+			return err
 		}
 
 		if tcpConn, ok := conn.(*net.TCPConn); ok {

@@ -59,7 +59,7 @@ func (t *Tunnel) activate(addr net.Addr) {
 	if t.olTimer != nil {
 		t.olTimer.Stop()
 	}
-	t.olTimer = time.AfterFunc(15*time.Second, func() {
+	t.olTimer = time.AfterFunc(2*heartBeatInterval*time.Second, func() {
 		t.olTimer = nil
 		t.online = false
 		t.clientAddr = ""

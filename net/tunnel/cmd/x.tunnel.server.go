@@ -23,5 +23,9 @@ func main() {
 		Port:     uint16(*port),
 		HTTPPort: uint16(*httpPort),
 	}
-	ts.Serve()
+
+	go ts.ServeHTTP()
+	for {
+		ts.Serve()
+	}
 }

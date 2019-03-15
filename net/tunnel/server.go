@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const heartBeatInterval = 15
+
 type Server struct {
 	lock     sync.RWMutex
 	Port     uint16 // tunnel service port
@@ -65,7 +67,11 @@ func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, ma
 		connPool:         make(chan net.Conn, maxConnections),
 	}
 	s.tunnels[name] = tunnel
-	go tunnel.ListenAndServe()
+	go func(t *Tunnel) {
+		for {
+			t.ListenAndServe()
+		}
+	}(tunnel)
 	return tunnel
 }
 
@@ -75,13 +81,10 @@ func (s *Server) Serve() (err error) {
 		return
 	}
 
-	if s.HTTPPort > 0 {
-		go s.serveHTTP()
-	}
 	return listen(l, s.handleConn)
 }
 
-func (s *Server) serveHTTP() (err error) {
+func (s *Server) ServeHTTP() (err error) {
 	return http.ListenAndServe(fmt.Sprintf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		wh := w.Header()
 		wh.Set("Access-Control-Allow-Origin", "*")
@@ -173,8 +176,7 @@ func (s *Server) handleConn(conn net.Conn) {
 
 		_, err = conn.Write([]byte{1})
 		return
-	}, 15*time.Second); err != nil {
-		log.Warn("client connect:", err)
+	}, 2*heartBeatInterval*time.Second); err != nil {
 		conn.Close()
 		return
 	}
@@ -193,7 +195,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		select {
 		case c := <-tunnel.connQueue:
 			startTime := time.Now()
-			ret, err := exchangeByte(conn, 2, 15*time.Second)
+			ret, err := exchangeByte(conn, 2, 2*heartBeatInterval*time.Second)
 			if err != nil {
 				conn.Close()
 				c.Close()
@@ -212,9 +214,9 @@ func (s *Server) handleConn(conn net.Conn) {
 			}
 
 		// heart beat
-		case <-time.After(10 * time.Second):
+		case <-time.After(heartBeatInterval * time.Second):
 			startTime := time.Now()
-			ret, err := exchangeByte(conn, 1, 15*time.Second)
+			ret, err := exchangeByte(conn, 1, 2*heartBeatInterval*time.Second)
 			if err != nil || ret != 1 {
 				conn.Close()
 				return

@@ -40,9 +40,7 @@ func init() {
 		},
 		ForwardPort: httpPort,
 	}
-	for i := 0; i < 10; i++ {
-		go client.Connect()
-	}
+	go client.Connect()
 }
 
 func Test(t *testing.T) {

@@ -18,16 +18,15 @@ func (client *Client) Connect() {
 	for {
 		conn, err := client.dialWithHandshake("hello")
 		if err != nil {
-			log.Warnf("tunnel(%s): connect: %v", client.Tunnel.Name, err)
 			time.Sleep(time.Second)
 			continue
 		}
 
-		client.heartBeat(conn)
+		client.serveHeartBeat(conn)
 	}
 }
 
-func (client *Client) heartBeat(conn net.Conn) {
+func (client *Client) serveHeartBeat(conn net.Conn) {
 	for {
 		if err := dotimeout(func() (err error) {
 			buf := make([]byte, 1)
@@ -48,8 +47,8 @@ func (client *Client) heartBeat(conn net.Conn) {
 			}
 			_, err = conn.Write([]byte{retState})
 			return
-		}, 15*time.Second); err != nil {
-			log.Warnf("tunnel(%s) heart beat: %v", client.Tunnel.Name, err)
+		}, 2*heartBeatInterval*time.Second); err != nil {
+			log.Warnf("tunnel(%s) break heart beat: %v", client.Tunnel.Name, err)
 			conn.Close()
 			return
 		}
