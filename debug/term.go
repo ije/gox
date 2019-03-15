@@ -6,85 +6,107 @@ import (
 	"os"
 	"sync"
 
-	"github.com/ije/gox/os/term"
 	"github.com/ije/gox/utils"
 )
 
-type ColorTerm struct {
+type TermColor uint
+
+const (
+	T_COLOR_NORMAL TermColor = 0
+	T_COLOR_RED    TermColor = 31
+	T_COLOR_GREEN  TermColor = 32
+	T_COLOR_YELLOW TermColor = 33
+	T_COLOR_BLUE   TermColor = 34
+	T_COLOR_PURPLE TermColor = 35
+	T_COLOR_CYAN   TermColor = 36
+	T_COLOR_GRAY   TermColor = 37
+)
+
+type Fmt struct {
 	lock       sync.Mutex
 	LinePrefix string
-	Color      term.Color
+	Color      TermColor
 	Pipe       io.Writer
 }
 
-func (term *ColorTerm) Print(args ...interface{}) (n int, err error) {
-	msg := fmt.Sprintln(args...)
-	if l := len(msg); l > 0 {
-		msg = msg[:l-1]
+func (f *Fmt) pipe() io.Writer {
+	pipe := f.Pipe
+	if pipe == nil {
+		pipe = os.Stderr
 	}
-	return term.PrintTo(term.Pipe, msg)
+	return pipe
 }
 
-func (term *ColorTerm) Printf(format string, args ...interface{}) (n int, err error) {
-	return term.PrintTo(term.Pipe, fmt.Sprintf(format, args...))
-}
-
-func (term *ColorTerm) ColorPrint(color term.Color, args ...interface{}) (n int, err error) {
-	msg := fmt.Sprintln(args...)
-	if l := len(msg); l > 0 {
-		msg = msg[:l-1]
+func (f *Fmt) Print(args ...interface{}) (n int, err error) {
+	if f.Color > 0 {
+		return f.ColorPrint(f.Color, args...)
 	}
-	return term.ColorPrintTo(term.Pipe, color, msg)
+	return fmt.Fprint(f.pipe(), args...)
 }
 
-func (term *ColorTerm) ColorPrintf(color term.Color, format string, args ...interface{}) (n int, err error) {
-	return term.ColorPrintTo(term.Pipe, color, fmt.Sprintf(format, args...))
+func (f *Fmt) Println(args ...interface{}) (n int, err error) {
+	if f.Color > 0 {
+		return f.ColorPrintln(f.Color, args...)
+	}
+	return fmt.Fprintln(f.pipe(), args...)
 }
 
-func (term *ColorTerm) PrintTo(pipe io.Writer, s string) (n int, err error) {
+func (f *Fmt) Printf(format string, args ...interface{}) (n int, err error) {
+	if f.Color > 0 {
+		return f.ColorPrintf(f.Color, format, args...)
+	}
+	return fmt.Fprintf(f.pipe(), format, args...)
+}
+
+func (f *Fmt) ColorPrint(color TermColor, args ...interface{}) (n int, err error) {
+	return f.colorFprint(f.Pipe, color, fmt.Sprint(args...))
+}
+
+func (f *Fmt) ColorPrintln(color TermColor, args ...interface{}) (n int, err error) {
+	return f.colorFprint(f.Pipe, color, fmt.Sprintln(args...))
+}
+
+func (f *Fmt) ColorPrintf(color TermColor, format string, args ...interface{}) (n int, err error) {
+	return f.colorFprint(f.Pipe, color, fmt.Sprintf(format, args...))
+}
+
+func (f *Fmt) colorFprint(pipe io.Writer, color TermColor, s string) (n int, err error) {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+
 	if pipe == nil {
 		pipe = os.Stderr
 	}
 
-	term.lock.Lock()
-	defer term.lock.Unlock()
-
-	var i int
 	for _, line := range utils.ParseLines(s, false) {
-		if term.Color > 30 && term.Color < 38 {
-			i, err = fmt.Fprintf(pipe, "\x1b[0;%dm%s%s\x1b[0m\n", term.Color, term.LinePrefix, line)
+		var i int
+		if color > 0 {
+			i, err = fmt.Fprintf(pipe, "\x1b[0;%dm%s%s\x1b[0m\n", color, f.LinePrefix, line)
 		} else {
-			i, err = fmt.Fprintf(pipe, "%s%s\n", term.LinePrefix, line)
+			i, err = fmt.Fprintf(pipe, "%s%s\n", f.LinePrefix, line)
 		}
 		if err != nil {
 			return
 		}
 		n += i
 	}
-
 	return
 }
 
-func (term *ColorTerm) ColorPrintTo(pipe io.Writer, color term.Color, s string) (n int, err error) {
-	if pipe == nil {
-		pipe = os.Stderr
+type Stdio struct {
+	colorManager func(b []byte) TermColor
+	*Fmt
+}
+
+func (f *Stdio) Write(p []byte) (n int, err error) {
+	var color TermColor
+	if f.colorManager != nil {
+		color = f.colorManager(p)
 	}
 
-	term.lock.Lock()
-	defer term.lock.Unlock()
-
-	var i int
-	for _, line := range utils.ParseLines(s, false) {
-		if color > 30 && color < 38 {
-			_, err = fmt.Fprintf(pipe, "\x1b[0;%dm%s%s\x1b[0m\n", color, term.LinePrefix, line)
-		} else {
-			_, err = fmt.Fprintf(pipe, "%s%s\n", term.LinePrefix, line)
-		}
-		if err != nil {
-			return
-		}
-		n += i
+	_, err = f.ColorPrint(color, string(p))
+	if err == nil {
+		n = len(p) // should return a right length ?
 	}
-
 	return
 }

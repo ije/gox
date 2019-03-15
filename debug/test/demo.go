@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/ije/gox/debug"
-	"github.com/ije/gox/term"
 )
 
 func main() {
@@ -13,8 +12,8 @@ func main() {
 		Name: "godoc",
 		Path: "godoc",
 		Args: []string{"-http=:6066"},
-		TermColorManager: func(b []byte) term.Color {
-			return term.COLOR_RED
+		TermColorManager: func(b []byte) debug.TermColor {
+			return debug.T_COLOR_RED
 		},
 	})
 	if err != nil {
@@ -29,7 +28,9 @@ func main() {
 	}
 
 	debug.AddCommand("say", func(args ...string) (ret string, err error) {
-		log.Println(strings.Join(args, " "))
+		debug.Info.Println("['" + strings.Join(args, "', '") + "']")
+		debug.Ok.Println("Cool!")
+		debug.Warn.Println("Next?")
 		return
 	})
 

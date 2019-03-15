@@ -3,6 +3,7 @@ package debug
 import (
 	"fmt"
 	"go/build"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -12,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ije/gox/os/term"
 	"github.com/ije/gox/utils"
 )
 
@@ -30,7 +30,7 @@ type Process struct {
 	LinkedPlatforms  []string
 	BeforeBuild      func(*Process) error
 	TermLinePrefix   string
-	TermColorManager func(b []byte) term.Color
+	TermColorManager func(b []byte) TermColor
 	status           string
 	startTime        time.Time
 	watchingFiles    map[string]time.Time
@@ -129,8 +129,14 @@ func (process *Process) Start() (err error) {
 		termLinePrefix = fmt.Sprintf("[%s] ", process.Name)
 	}
 
-	cmd.Stderr = &stderr{process.TermColorManager, &ColorTerm{LinePrefix: termLinePrefix}}
-	cmd.Stdout = &stdout{process.TermColorManager, &ColorTerm{LinePrefix: termLinePrefix}}
+	var stdout io.Writer = os.Stdout
+	var stderr io.Writer = os.Stderr
+	if readlineEx != nil {
+		stdout = readlineEx.Stdout()
+		stderr = readlineEx.Stderr()
+	}
+	cmd.Stdout = &Stdio{process.TermColorManager, &Fmt{LinePrefix: termLinePrefix, Pipe: stdout}}
+	cmd.Stderr = &Stdio{process.TermColorManager, &Fmt{LinePrefix: termLinePrefix, Pipe: stderr}}
 
 	runErr := make(chan error)
 	go func() {

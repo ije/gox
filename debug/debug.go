@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/chzyer/readline"
-	"github.com/ije/gox/os/term"
 )
 
 var (
@@ -22,71 +21,19 @@ var (
 )
 
 var (
-	Info = &ColorTerm{
+	Info = &Fmt{
 		LinePrefix: "[debug] ",
-		Color:      term.COLOR_GRAY,
+		Color:      T_COLOR_GRAY,
 	}
-	Ok = &ColorTerm{
+	Ok = &Fmt{
 		LinePrefix: "[debug] ",
-		Color:      term.COLOR_GREEN,
+		Color:      T_COLOR_GREEN,
 	}
-	Warn = &ColorTerm{
+	Warn = &Fmt{
 		LinePrefix: "[debug] ",
-		Color:      term.COLOR_RED,
+		Color:      T_COLOR_RED,
 	}
 )
-
-type stdout struct {
-	colorManager func(b []byte) term.Color
-	*ColorTerm
-}
-
-func (std *stdout) Write(p []byte) (n int, err error) {
-	var color term.Color
-	var pipe io.Writer
-
-	if std.colorManager != nil {
-		color = std.colorManager(p)
-	}
-
-	if readlineEx != nil {
-		pipe = readlineEx.Stdout()
-	} else {
-		pipe = os.Stdout
-	}
-
-	_, err = std.ColorPrintTo(pipe, color, string(p))
-	if err == nil {
-		n = len(p) // shoud return a right length
-	}
-	return
-}
-
-type stderr struct {
-	colorManager func(b []byte) term.Color
-	*ColorTerm
-}
-
-func (std *stderr) Write(p []byte) (n int, err error) {
-	var color term.Color
-	var pipe io.Writer
-
-	if std.colorManager != nil {
-		color = std.colorManager(p)
-	}
-
-	if readlineEx != nil {
-		pipe = readlineEx.Stderr()
-	} else {
-		pipe = os.Stderr
-	}
-
-	_, err = std.ColorPrintTo(pipe, color, string(p))
-	if err == nil {
-		n = len(p) // shoud return a right length
-	}
-	return
-}
 
 func Run() {
 	if len(processes) == 0 {
@@ -140,7 +87,7 @@ func Run() {
 	AddCommand("exit|quit|bye", func(args ...string) (ret string, err error) {
 		for _, process := range processes {
 			if process.Stop() == nil {
-				Ok.ColorPrintf(term.COLOR_NORMAL, "The process %s has been stoped", process.Name)
+				Ok.ColorPrintf(T_COLOR_NORMAL, "The process %s has been stoped", process.Name)
 			}
 		}
 		return
