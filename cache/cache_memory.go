@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ije/gox/strconv"
+	"github.com/ije/gox/utils"
 )
 
 var mcPoolLock sync.Mutex
@@ -182,7 +182,7 @@ type mcDriver struct{}
 func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, err error) {
 	var gcInterval time.Duration
 	if s, ok := args["gcInterval"]; ok && len(s) > 0 {
-		gcInterval, err = strconv.ParseDuration(s)
+		gcInterval, err = utils.ParseDuration(s)
 		if err != nil {
 			err = errors.New("Invalid GC interval")
 			return
