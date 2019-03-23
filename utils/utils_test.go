@@ -24,7 +24,7 @@ func TestParseDuration(t *testing.T) {
 }
 
 func TestParseLines(t *testing.T) {
-	t.Log(strings.Join(ParseLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n", true), "\\n"))
+	t.Log(strings.Join(ParseTextLines("abc\n123\rdef\r\r\n465\r\n\n\r\r\n789\n\r\n"), ","))
 }
 
 var cleanTests = []struct {
@@ -108,6 +108,6 @@ func TestPathCleanMallocs(t *testing.T) {
 	}
 }
 
-func TestGetLocalIPs(t *testing.T) {
-	t.Log(GetLocalIPs())
+func TestGetLocalIPList(t *testing.T) {
+	t.Log(GetLocalIPList())
 }
