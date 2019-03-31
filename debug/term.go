@@ -78,7 +78,7 @@ func (f *Fmt) colorFprint(pipe io.Writer, color TermColor, s string) (n int, err
 		pipe = os.Stderr
 	}
 
-	for _, line := range utils.ParseLines(s, false) {
+	for _, line := range utils.ParseTextLines(s) {
 		var i int
 		if color > 0 {
 			i, err = fmt.Fprintf(pipe, "\x1b[0;%dm%s%s\x1b[0m\n", color, f.LinePrefix, line)
