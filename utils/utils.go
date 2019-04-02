@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -417,6 +419,18 @@ func CleanPath(p string) string {
 	return string(buf[:w])
 }
 
+func bufApp(buf *[]byte, s string, w int, c byte) {
+	if *buf == nil {
+		if s[w] == c {
+			return
+		}
+
+		*buf = make([]byte, len(s))
+		copy(*buf, s[:w])
+	}
+	(*buf)[w] = c
+}
+
 func Ipv4ToLong(ipStr string) uint32 {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
@@ -453,14 +467,59 @@ func GetLocalIPList() (list []string, err error) {
 	return
 }
 
-func bufApp(buf *[]byte, s string, w int, c byte) {
-	if *buf == nil {
-		if s[w] == c {
-			return
+func ZipFilesTo(dir string, output io.Writer) (err error) {
+	archive := zip.NewWriter(output)
+	defer archive.Close()
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		return
+	} else if !info.IsDir() {
+		return fmt.Errorf("dir '%s' not a directory", dir)
+	}
+
+	dir, err = filepath.Abs(dir)
+	if err != nil {
+		return
+	}
+
+	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
 
-		*buf = make([]byte, len(s))
-		copy(*buf, s[:w])
-	}
-	(*buf)[w] = c
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		header.Name = strings.TrimPrefix(strings.TrimPrefix(path, dir), "/")
+		if header.Name == "" {
+			return nil
+		}
+
+		if info.IsDir() {
+			header.Name += "/"
+		} else {
+			header.Method = zip.Deflate
+		}
+
+		writer, err := archive.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(writer, file)
+		return err
+	})
 }
