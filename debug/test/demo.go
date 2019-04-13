@@ -20,17 +20,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = debug.UseHttpProxy(map[string]string{
-		"godoc": "127.0.0.1:6066",
-	})
+	err = debug.UseHttpProxy(80, true, "127.0.0.1:6066", "http")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	debug.AddCommand("say", func(args ...string) (ret string, err error) {
-		debug.Info.Println("['" + strings.Join(args, "', '") + "']")
-		debug.Ok.Println("Cool!")
-		debug.Warn.Println("Next?")
+		ret = "('" + strings.Join(args, "', '") + "')"
 		return
 	})
 

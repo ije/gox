@@ -5,16 +5,16 @@ import (
 )
 
 func TestFileLogger(t *testing.T) {
-	log, err := New("file:/tmp/test.log?maxBytes=2kb&fileDateFormat=2006-01-02")
+	log, err := New("file:/tmp/test.log?maxBytes=2kb&fileDate")
 	if err != nil {
 		t.Fatal(err)
 	}
-	log.Print("Hello World !")
-	log.Log("debug", "Hello World !")
-	log.Debug("Hello World !")
-	log.Info("Hello World !")
-	log.Warn("Hello World !")
-	log.Error("Hello World !")
-	log.Fatal("\"Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit...\"")
-	log.Info("Hello World !")
+	log.Print("Hello!")
+	log.Log("info", "Hello!")
+	log.Debug(":D")
+	log.Info("OK")
+	log.Warn("NOT GOOD")
+	log.Error("ERROR")
+	log.Fatal("DIE")
+	log.Info("Hello?")
 }

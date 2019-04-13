@@ -189,7 +189,7 @@ func (l *Logger) Log(level string, v ...interface{}) {
 	l.log(LevelByName(level), "", v...)
 }
 
-func (l *Logger) Logf(level, format string, v ...interface{}) {
+func (l *Logger) Logf(level string, format string, v ...interface{}) {
 	l.log(LevelByName(level), format, v...)
 }
 

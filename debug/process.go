@@ -21,6 +21,7 @@ type Process struct {
 	Name             string
 	Path             string
 	Args             []string
+	Env              []string
 	BuildArgs        []string
 	GoCode           string
 	GoFile           string
@@ -123,6 +124,7 @@ func (process *Process) Start() (err error) {
 	} else {
 		cmd = exec.Command(process.Path, process.Args...)
 	}
+	cmd.Env = process.Env
 
 	termLinePrefix := process.TermLinePrefix
 	if len(termLinePrefix) == 0 {

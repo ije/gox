@@ -11,10 +11,10 @@ import (
 )
 
 type fileWriter struct {
-	filePath       string
-	fileDateFormat string
-	maxFileBytes   int64
-	writedBytes    int64
+	filePath     string
+	fileDate     string
+	maxFileBytes int64
+	writedBytes  int64
 }
 
 func (w *fileWriter) Write(p []byte) (n int, err error) {
@@ -35,12 +35,11 @@ func (w *fileWriter) Write(p []byte) (n int, err error) {
 }
 
 func (w *fileWriter) fixedFilePath() (path string) {
-	if len(w.fileDateFormat) > 0 {
+	if len(w.fileDate) > 0 {
 		name, ext := utils.SplitByLastByte(w.filePath, '.')
-		return name + "-" + time.Now().Format(w.fileDateFormat) + "." + ext
-	} else {
-		return w.filePath
+		return name + "-" + time.Now().Format(w.fileDate) + "." + ext
 	}
+	return w.filePath
 }
 
 func appendFileIndex(path string, i int) string {
@@ -58,7 +57,7 @@ func appendFileIndex(path string, i int) string {
 	return path
 }
 
-func newWriter(filePath string, fileDateFormat string, maxFileBytes int64) (w *fileWriter, err error) {
+func newWriter(filePath string, fileDate string, maxFileBytes int64) (w *fileWriter, err error) {
 	dir := path.Dir(filePath)
 	if dir != "" && dir != "." {
 		if err = os.MkdirAll(dir, 0755); err != nil {
@@ -66,7 +65,7 @@ func newWriter(filePath string, fileDateFormat string, maxFileBytes int64) (w *f
 		}
 	}
 
-	w = &fileWriter{filePath: filePath, fileDateFormat: fileDateFormat, maxFileBytes: maxFileBytes}
+	w = &fileWriter{filePath: filePath, fileDate: fileDate, maxFileBytes: maxFileBytes}
 	if fi, err := os.Lstat(w.fixedFilePath()); err == nil {
 		w.writedBytes = fi.Size()
 	}
@@ -90,7 +89,15 @@ func (d *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer,
 		maxFileBytes = i
 	}
 
-	return newWriter(utils.CleanPath(addr), args["fileDateFormat"], maxFileBytes)
+	fileDate := ""
+	if val, ok := args["fileDate"]; ok {
+		if val == "" {
+			val = "2006-01-02"
+		}
+		fileDate = val
+	}
+
+	return newWriter(utils.CleanPath(addr), fileDate, maxFileBytes)
 }
 
 func init() {

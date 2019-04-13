@@ -1,9 +1,7 @@
 package debug
 
 import (
-	"encoding/json"
 	"fmt"
-	"go/build"
 )
 
 const HTTP_PROXY_SERVER_SRC = `
@@ -13,62 +11,15 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
-	"sort"
-	"strings"
 
 	"github.com/ije/gox/utils"
 )
 
-var (
-	hostRules   map[string]string
-	regexpRules []RegexpRule
-)
-
-type RegexpRule struct {
-	Regexp *regexp.Regexp
-	Server string
-}
-
-type RegexpRules []RegexpRule
-
-func (a RegexpRules) Len() int           { return len(a) }
-func (a RegexpRules) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a RegexpRules) Less(i, j int) bool { return len(a[j].Regexp.String()) < len(a[i].Regexp.String()) }
-
 func main() {
-	if len(hostRules) == 0 && len(regexpRules) == 0 {
-		fmt.Println("proxy rules is empty")
-		return
-	}
-
-	http.ListenAndServe(":80", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.ListenAndServe(":%d", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		var backServer string
-
-		for host, server := range hostRules {
-			if host == r.Host {
-				backServer = server
-				break
-			}
-		}
-
-		if len(backServer) == 0 {
-			for _, rule := range regexpRules {
-				if rule.Regexp != nil && rule.Regexp.MatchString(r.Host) {
-					backServer = rule.Server
-					break
-				}
-			}
-		}
-
-		if len(backServer) == 0 {
-			http.Error(w, "Back Server Not Found", 400)
-			return
-		}
-
-		req, err := http.NewRequest(r.Method, fmt.Sprintf("http://%%s%%s", backServer, r.RequestURI), r.Body)
+		req, err := http.NewRequest(r.Method, fmt.Sprintf("%s://%s%%s", r.RequestURI), r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -104,44 +55,20 @@ func main() {
 		io.Copy(w, resp.Body)
 	}))
 }
-
-func init() {
-	hostRules = map[string]string{}
-	for match, server := range map[string]string%s {
-		if match = strings.TrimSpace(match); len(match) > 0 && len(server) > 0 && regexp.MustCompile("^[a-zA-Z0-9\\-\\.\\*]+$").MatchString(match) {
-			m := strings.ToLower(match)
-			if m[0] == '.' {
-				if !strings.ContainsRune(m, '*') {
-					hostRules[m[1:]] = server
-				}
-				m = "*" + m
-			}
-			if strings.ContainsRune(m, '*') {
-				regexpRules = append(regexpRules, RegexpRule{regexp.MustCompile("^" + strings.Replace(strings.Replace(strings.Replace(m, ".", "\\.", -1), "-", "\\-", -1), "*", ".*?", -1) + "$"), server})
-			} else {
-				hostRules[m] = server
-			}
-		}
-	}
-	if len(regexpRules) > 0 {
-		sort.Sort(RegexpRules(regexpRules))
-	}
-}
 `
 
-func UseHttpProxy(proxyRules map[string]string) (err error) {
-	if len(proxyRules) == 0 {
-		return
+func UseHttpProxy(port uint16, sudo bool, backServer string, backServerProtocol string) (err error) {
+	if backServer == "" {
+		return fmt.Errorf("bad back server '%s'", backServer)
 	}
 
-	rules, err := json.Marshal(proxyRules)
-	if err != nil {
-		return
+	if backServerProtocol != "http" && backServerProtocol != "https" {
+		return fmt.Errorf("bad back protocol '%s'", backServerProtocol)
 	}
 
 	return AddProcess(&Process{
-		Sudo:   build.Default.GOOS == "darwin",
+		Sudo:   sudo,
 		Name:   "http-proxy",
-		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, string(rules)),
+		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, port, backServerProtocol, backServer),
 	})
 }
