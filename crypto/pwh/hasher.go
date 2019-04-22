@@ -6,49 +6,40 @@ import (
 	"crypto/sha512"
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 type PWHasher struct {
-	lock       sync.RWMutex
 	publicSalt []byte
 	complexity int
 }
 
 func New(publicSalt string, complexity int) (pwh *PWHasher) {
 	pwh = &PWHasher{}
-	pwh.Config(publicSalt, complexity)
+	pwh.config(publicSalt, complexity)
 	return
 }
 
-func (pwh *PWHasher) Config(publicSalt string, complexity int) {
+func (pwh *PWHasher) config(publicSalt string, complexity int) {
 	if complexity < 1 {
 		complexity = 1
 	}
 	saltHasher := sha512.New()
 	saltHasher.Write([]byte(publicSalt))
 
-	pwh.lock.Lock()
-	defer pwh.lock.Unlock()
-
 	pwh.complexity = complexity
 	pwh.publicSalt = saltHasher.Sum(nil)
 }
 
 func (pwh *PWHasher) Hash(word, salt string) string {
-	pwh.lock.RLock()
-	defer pwh.lock.RUnlock()
-
 	seed := rand.New(rand.NewSource(time.Now().UTC().UnixNano())).Int63n(int64(pwh.complexity))
 	return string(pwh.hash(seed, word, salt))
 }
 
 func (pwh *PWHasher) Match(word, salt, hash string) bool {
-	pwh.lock.RLock()
-	defer pwh.lock.RUnlock()
-
 	for i := 0; i < pwh.complexity; i++ {
 		if bytes.Equal([]byte(hash), pwh.hash(int64(i), word, salt)) {
 			return true
@@ -62,33 +53,42 @@ func (pwh *PWHasher) MatchX(word, salt, hash string, routines int) bool {
 		return pwh.Match(word, salt, hash)
 	}
 
-	pwh.lock.RLock()
-	defer pwh.lock.RUnlock()
+	matchedC := make(chan struct{}, 1)
+	doneC := make(chan struct{}, 1)
+	rtSize := (pwh.complexity + routines - 1) / routines
 
-	groups := (pwh.complexity + routines - 1) / routines
-	matchc := make(chan bool, routines)
-	matched := 0
+	var matched atomic.Value
+	matched.Store(false)
+
+	var wg sync.WaitGroup
+	wg.Add(routines)
+	go func() {
+		wg.Wait()
+		doneC <- struct{}{}
+	}()
+
 	for i := 0; i < routines; i++ {
 		go func(i int) {
-			for s, e := i*groups, (i+1)*groups; s < e; s++ {
-				if matched == routines {
+			defer wg.Done()
+			for s, e := i*rtSize, (i+1)*rtSize; s < e; s++ {
+				isMatched, ok := matched.Load().(bool)
+				if ok && isMatched {
 					return
 				}
 				if bytes.Equal([]byte(hash), pwh.hash(int64(s), word, salt)) {
-					matchc <- true
+					matched.Store(true)
+					matchedC <- struct{}{}
 					return
 				}
 			}
-			matchc <- false
 		}(i)
 	}
-	for {
-		if <-matchc {
-			matched = routines // stop other running tasks
-			return true
-		} else if matched++; matched == routines {
-			return false
-		}
+
+	select {
+	case <-matchedC:
+		return true
+	case <-doneC:
+		return false
 	}
 }
 

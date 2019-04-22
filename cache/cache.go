@@ -21,6 +21,11 @@ type Cache interface {
 
 // New returns a new cache by url
 func New(url string) (cache Cache, err error) {
+	if url == "" {
+		err = fmt.Errorf("invalid url")
+		return
+	}
+
 	path, query := utils.SplitByFirstByte(url, '?')
 	name, addr := utils.SplitByFirstByte(path, ':')
 	driver, ok := drivers[strings.ToLower(name)]

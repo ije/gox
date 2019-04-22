@@ -2,6 +2,7 @@ package debug
 
 import (
 	"fmt"
+	"strings"
 )
 
 const HTTP_PROXY_SERVER_SRC = `
@@ -19,7 +20,7 @@ func main() {
 	http.ListenAndServe(":%d", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		req, err := http.NewRequest(r.Method, fmt.Sprintf("%s://%s%%s", r.RequestURI), r.Body)
+		req, err := http.NewRequest(r.Method, "%s" + r.RequestURI, r.Body)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -57,18 +58,18 @@ func main() {
 }
 `
 
-func UseHttpProxy(port uint16, sudo bool, backServer string, backServerProtocol string) (err error) {
-	if backServer == "" {
-		return fmt.Errorf("bad back server '%s'", backServer)
+func UseHttpProxy(port uint16, to string, sudo bool) (err error) {
+	if port == 0 || to == "" {
+		return fmt.Errorf("invalid arguments")
 	}
 
-	if backServerProtocol != "http" && backServerProtocol != "https" {
-		return fmt.Errorf("bad back protocol '%s'", backServerProtocol)
+	if !strings.HasPrefix(to, "http://") && !strings.HasPrefix(to, "https://") {
+		to = "http://" + strings.Trim(to, "/")
 	}
 
 	return AddProcess(&Process{
 		Sudo:   sudo,
 		Name:   "http-proxy",
-		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, port, backServerProtocol, backServer),
+		GoCode: fmt.Sprintf(HTTP_PROXY_SERVER_SRC, port, to),
 	})
 }

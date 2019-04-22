@@ -5,22 +5,28 @@ import (
 )
 
 func TestDigital(t *testing.T) {
-	for l := 1; l <= 64; l++ {
+	for l := 1; l <= 512; l++ {
 		rs := Digital.String(l)
-		t.Log(rs, len(rs))
+		if (len(rs)) != l {
+			t.Fatal("bad rs")
+		}
 	}
 }
 
 func TestHex(t *testing.T) {
-	for l := 1; l <= 64; l++ {
+	for l := 1; l <= 512; l++ {
 		rs := Hex.String(l)
-		t.Log(rs, len(rs))
+		if (len(rs)) != l {
+			t.Fatal("bad rs")
+		}
 	}
 }
 
 func TestBase64(t *testing.T) {
-	for l := 1; l <= 64; l++ {
+	for l := 1; l <= 512; l++ {
 		rs := Base64.String(l)
-		t.Log(rs, len(rs))
+		if (len(rs)) != l {
+			t.Fatal("bad rs")
+		}
 	}
 }

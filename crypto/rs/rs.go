@@ -1,68 +1,45 @@
 package rs
 
-import (
-	"crypto/rand"
-	"runtime"
-)
+import "crypto/rand"
 
 var (
-	Digital *RSGen
-	Hex     *RSGen
-	Base64  *RSGen
+	Digital *RS
+	Hex     *RS
+	Base64  *RS
 )
 
-type RSGen struct {
-	pipe chan []byte
+type RS struct {
+	tab string
 }
 
-func New(tab string) *RSGen {
-	tl := byte(len(tab))
-	if tl == 0 {
-		panic("empty tab")
+func New(tab string) *RS {
+	if tab == "" {
+		return &RS{"0123456789abcdef"}
 	}
-	gen := &RSGen{pipe: make(chan []byte, runtime.NumCPU())}
-	go func() {
-		var (
-			i int
-			r []byte
-			m []byte
-		)
-		for {
-			r = make([]byte, 32)
-			m = make([]byte, 32)
-			rand.Read(r)
-			for i = 0; i < 32; i++ {
-				m[i] = tab[r[i]%tl]
-			}
-			gen.pipe <- m
-		}
-	}()
-	return gen
+	return &RS{tab}
 }
 
-func (gen *RSGen) Byte(len int) []byte {
-	if len <= 0 {
+func (rs *RS) Bytes(size int) []byte {
+	if size <= 0 {
 		return nil
-	} else if len <= 32 {
-		return (<-gen.pipe)[:len]
-	} else {
-		bytes := make([]byte, len)
-		for i := 0; i < len/32; i++ {
-			copy(bytes[32*i:], <-gen.pipe)
-		}
-		if l := len % 32; l > 0 {
-			copy(bytes[len-l:], (<-gen.pipe)[:l])
-		}
-		return bytes
 	}
+
+	tl := byte(len(rs.tab))
+	r := make([]byte, size)
+	ret := make([]byte, size)
+	rand.Read(r)
+	for i := 0; i < size; i++ {
+		ret[i] = rs.tab[r[i]%tl]
+	}
+	return ret
 }
 
-func (gen *RSGen) String(len int) string {
-	return string(gen.Byte(len))
+func (rs *RS) String(len int) string {
+	return string(rs.Bytes(len))
 }
 
 func init() {
 	Digital = New("0123456789")
 	Hex = New("0123456789abcdef")
-	Base64 = New("./0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	Base64 = New("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
 }

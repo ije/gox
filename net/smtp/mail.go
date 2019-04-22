@@ -27,7 +27,7 @@ type Attachment struct {
 	io.Reader
 }
 
-// todo: add cc and bcc support
+// TODO: add cc and bcc support
 func (mail *Mail) Encode(from *mail.Address, to AddressList) []byte {
 	buf := &mailBuffer{bytes.NewBuffer(nil)}
 	buf.writeln("MIME-Version: 1.0")

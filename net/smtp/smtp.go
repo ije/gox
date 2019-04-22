@@ -99,7 +99,7 @@ func (s *SMTP) SendMail(mail *Mail, from interface{}, to interface{}, oneToOne b
 				}
 			}
 			for email, name := range tmp {
-				recipients = append(recipients, &netmail.Address{name, email})
+				recipients = append(recipients, &netmail.Address{Name: name, Address: email})
 			}
 		}
 	}

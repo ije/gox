@@ -13,14 +13,14 @@ func main() {
 		Path: "godoc",
 		Args: []string{"-http=:6066"},
 		TermColorManager: func(b []byte) debug.TermColor {
-			return debug.T_COLOR_RED
+			return debug.T_COLOR_PURPLE
 		},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = debug.UseHttpProxy(80, true, "127.0.0.1:6066", "http")
+	err = debug.UseHttpProxy(80, "127.0.0.1:6066", true)
 	if err != nil {
 		log.Fatal(err)
 	}

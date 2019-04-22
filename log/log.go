@@ -50,47 +50,41 @@ func New(url string) (*Logger, error) {
 }
 
 func (l *Logger) parseURL(url string) (err error) {
-	if len(url) == 0 {
+	if url == "" {
+		err = fmt.Errorf("invalid url")
 		return
 	}
 
-	i := strings.IndexByte(url, ':')
-	if i == -1 {
-		return fmt.Errorf("Incorrect URL '%s'", url)
-	}
-	driver, ok := drivers[strings.ToLower(url[:i])]
+	path, query := utils.SplitByFirstByte(url, '?')
+	name, addr := utils.SplitByFirstByte(path, ':')
+	driver, ok := drivers[strings.ToLower(name)]
 	if !ok {
-		return fmt.Errorf("Unknown driver '%s'", url[:i])
+		return fmt.Errorf("Unknown driver '%s'", name)
 	}
-	url = url[i+1:]
 
-	addr := url
 	args := map[string]string{}
-	if i = strings.IndexByte(url, '?'); i >= 0 {
-		for _, q := range strings.Split(url[i+1:], "&") {
-			kv := strings.SplitN(q, "=", 2)
-			key := strings.TrimSpace(kv[0])
-			value := ""
-			if len(kv) == 2 {
-				value = strings.TrimSpace(kv[1])
-			}
-			switch strings.ToLower(key) {
-			case "prefix":
-				l.SetPrefix(value)
-			case "level":
-				l.SetLevelByName(value)
-			case "quite":
-				l.SetQuite(value == "1" || strings.ToLower(value) == "true")
-			case "buffer":
-				bytes, err := utils.ParseBytes(value)
-				if err == nil {
-					l.SetBuffer(int(bytes))
-				}
-			default:
-				args[key] = value
-			}
+	for _, q := range strings.Split(query, "&") {
+		kv := strings.SplitN(q, "=", 2)
+		key := strings.TrimSpace(kv[0])
+		value := ""
+		if len(kv) == 2 {
+			value = strings.TrimSpace(kv[1])
 		}
-		addr = url[:i]
+		switch strings.ToLower(key) {
+		case "prefix":
+			l.SetPrefix(value)
+		case "level":
+			l.SetLevelByName(value)
+		case "quite":
+			l.SetQuite(value == "1" || strings.ToLower(value) == "true")
+		case "buffer":
+			bytes, err := utils.ParseBytes(value)
+			if err == nil {
+				l.SetBuffer(int(bytes))
+			}
+		default:
+			args[key] = value
+		}
 	}
 
 	wr, err := driver.Open(addr, args)

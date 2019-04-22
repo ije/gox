@@ -1,9 +1,9 @@
 package pwh
 
-var globalPWHasher = New("gox", 1024)
+var globalPWHasher = New("golang", 1024)
 
 func Config(publicSalt string, complexity int) {
-	globalPWHasher.Config(publicSalt, complexity)
+	globalPWHasher.config(publicSalt, complexity)
 }
 
 func Hash(word, salt string) string {
