@@ -24,14 +24,14 @@ func (v Validator) Is(s string) bool {
 	}
 
 	for _, c := range s {
-		inrange := false
+		inRange := false
 		for _, r := range v {
 			if r.In(c) {
-				inrange = true
+				inRange = true
 				break
 			}
 		}
-		if !inrange {
+		if !inRange {
 			return false
 		}
 	}

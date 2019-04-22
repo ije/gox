@@ -6,9 +6,9 @@ import (
 
 func TestValid(t *testing.T) {
 	for i, test := range []struct {
-		validator   func(string) bool
-		testValue   string
-		expectedRet bool
+		validator func(string) bool
+		value     string
+		expected  bool
 	}{
 		{IsNumber, "123", true},
 		{IsNumber, "-123", true},
@@ -46,8 +46,8 @@ func TestValid(t *testing.T) {
 		{IsEmail, "golang_@gmail.com", false},
 		{IsEmail, "go+lang@gmail.com", false},
 	} {
-		if test.expectedRet != test.validator(test.testValue) {
-			t.Fatalf("no match: %d %s \n", i, test.testValue)
+		if test.expected != test.validator(test.value) {
+			t.Fatalf("no match(%d): %s", i, test.value)
 		}
 	}
 }
