@@ -2,9 +2,11 @@ package cache
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strings"
 	"time"
+
+	"github.com/ije/gox/utils"
 )
 
 type Cache interface {
@@ -17,32 +19,22 @@ type Cache interface {
 	Run(ctx context.Context, name string, args ...[]byte) error
 }
 
+// New returns a new cache by url
 func New(url string) (cache Cache, err error) {
-	i := strings.IndexByte(url, ':')
-	if i == -1 {
-		err = errors.New("Incorrect URL '" + url + "'")
-		return
-	}
-	driver, ok := drivers[strings.ToLower(url[:i])]
+	path, query := utils.SplitByFirstByte(url, '?')
+	name, addr := utils.SplitByFirstByte(path, ':')
+	driver, ok := drivers[strings.ToLower(name)]
 	if !ok {
-		err = errors.New("Unknown driver '" + url[:i] + "'")
+		err = fmt.Errorf("Unknown driver '%s'", name)
 		return
 	}
-	url = url[i+1:]
 
-	addr := url
 	args := map[string]string{}
-	if i = strings.IndexByte(url, '?'); i >= 0 {
-		for _, q := range strings.Split(url[i+1:], "&") {
-			kv := strings.SplitN(q, "=", 2)
-			key := strings.TrimSpace(kv[0])
-			value := ""
-			if len(kv) == 2 {
-				value = strings.TrimSpace(kv[1])
-			}
-			args[key] = value
+	for _, q := range strings.Split(query, "&") {
+		k, v := utils.SplitByFirstByte(q, '=')
+		if len(k) > 0 {
+			args[k] = v
 		}
-		addr = url[:i]
 	}
 
 	cache, err = driver.Open(addr, args)

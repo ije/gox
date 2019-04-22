@@ -6,10 +6,18 @@ import (
 )
 
 func TestMCache(t *testing.T) {
-	cache, err := New("memory:?gcInterval=300")
+	cache, err := New("memory?gcInterval=3s")
 	if err != nil {
 		t.Error(err)
 		return
+	}
+
+	mc, ok := cache.(*mCache)
+	if !ok {
+		t.Fatal("not a memory cache")
+	}
+	if mc.gcInterval != 3*time.Second {
+		t.Fatalf("invalid gc interval %v,should be %v", mc.gcInterval, 3*time.Second)
 	}
 
 	cache.Put(nil, "key", []byte("hello world"))
