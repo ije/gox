@@ -13,12 +13,12 @@ import (
 type fileWriter struct {
 	filePath       string
 	fileDateFormat string
-	maxFileBytes   int64
+	maxFileSize    int64
 	writedBytes    int64
 }
 
 func (w *fileWriter) Write(p []byte) (n int, err error) {
-	if w.maxFileBytes > 0 && w.writedBytes > w.maxFileBytes {
+	if w.maxFileSize > 0 && w.writedBytes > w.maxFileSize {
 		if err = os.Rename(w.filePath, appendFileIndex(w.fixedFilePath(), 0)); err != nil {
 			return
 		}
@@ -57,7 +57,7 @@ func appendFileIndex(path string, i int) string {
 	return path
 }
 
-func newWriter(filePath string, fileDateFormat string, maxFileBytes int64) (w *fileWriter, err error) {
+func newWriter(filePath string, fileDateFormat string, maxFileSize int64) (w *fileWriter, err error) {
 	dir := path.Dir(filePath)
 	if dir != "" && dir != "." {
 		if err = os.MkdirAll(dir, 0755); err != nil {
@@ -65,7 +65,7 @@ func newWriter(filePath string, fileDateFormat string, maxFileBytes int64) (w *f
 		}
 	}
 
-	w = &fileWriter{filePath: filePath, fileDateFormat: fileDateFormat, maxFileBytes: maxFileBytes}
+	w = &fileWriter{filePath: filePath, fileDateFormat: fileDateFormat, maxFileSize: maxFileSize}
 	if fi, err := os.Lstat(w.fixedFilePath()); err == nil {
 		w.writedBytes = fi.Size()
 	}
@@ -75,21 +75,9 @@ func newWriter(filePath string, fileDateFormat string, maxFileBytes int64) (w *f
 type fileLoggerDriver struct{}
 
 func (d *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer, error) {
-	var maxFileBytes int64
+	var fileDateFormat string
+	var maxFileSize int64
 
-	val, ok := args["maxFileBytes"]
-	if !ok {
-		val, ok = args["maxBytes"]
-	}
-	if ok && len(val) > 0 {
-		i, err := utils.ParseBytes(val)
-		if err != nil {
-			return nil, ErrorArgumentFormat
-		}
-		maxFileBytes = i
-	}
-
-	fileDateFormat := ""
 	if val, ok := args["fileDateFormat"]; ok {
 		if val == "" {
 			val = "2006-01-02"
@@ -97,7 +85,15 @@ func (d *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer,
 		fileDateFormat = val
 	}
 
-	return newWriter(utils.CleanPath(addr), fileDateFormat, maxFileBytes)
+	if val, ok := args["maxFileSize"]; ok && len(val) > 0 {
+		i, err := utils.ParseBytes(val)
+		if err != nil {
+			return nil, ErrorArgumentFormat
+		}
+		maxFileSize = i
+	}
+
+	return newWriter(utils.CleanPath(addr), fileDateFormat, maxFileSize)
 }
 
 func init() {

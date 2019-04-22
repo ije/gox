@@ -1,13 +1,15 @@
 /*
-
-Log Package.
+Package log ...
 
 	package main
 
-	import "github.com/ije/gox/log"
+	import (
+		"sync"
+		"github.com/ije/gox/log"
+	)
 
 	func main() {
-	    log, err := log.New("file:/tmp/go_test.log?buffer=64kb")
+	    log, err := log.New("file:/var/log/error.log?buffer=32kb")
 	    if err != nil {
 	        return
 	    }
@@ -31,17 +33,15 @@ import (
 var ErrorArgumentFormat = fmt.Errorf("invalid argument format")
 
 type Logger struct {
-	lock          sync.Mutex
-	level         Level
-	quite         bool
-	buffer        []byte
-	bufcap        int
-	buflen        int
-	prefix        string
-	output        io.Writer
-	flushTimer    *time.Timer
-	logListeners  map[Level][]func(message []byte)
-	errorListener func(data []byte, err error)
+	lock       sync.Mutex
+	level      Level
+	quite      bool
+	prefix     string
+	output     io.Writer
+	buffer     []byte
+	bufcap     int
+	buflen     int
+	flushTimer *time.Timer
 }
 
 func New(url string) (*Logger, error) {
@@ -64,26 +64,23 @@ func (l *Logger) parseURL(url string) (err error) {
 
 	args := map[string]string{}
 	for _, q := range strings.Split(query, "&") {
-		kv := strings.SplitN(q, "=", 2)
-		key := strings.TrimSpace(kv[0])
-		value := ""
-		if len(kv) == 2 {
-			value = strings.TrimSpace(kv[1])
-		}
-		switch strings.ToLower(key) {
-		case "prefix":
-			l.SetPrefix(value)
-		case "level":
-			l.SetLevelByName(value)
-		case "quite":
-			l.SetQuite(value == "1" || strings.ToLower(value) == "true")
-		case "buffer":
-			bytes, err := utils.ParseBytes(value)
-			if err == nil {
-				l.SetBuffer(int(bytes))
+		key, value := utils.SplitByFirstByte(q, '=')
+		if len(key) > 0 {
+			switch strings.ToLower(key) {
+			case "prefix":
+				l.SetPrefix(value)
+			case "level":
+				l.SetLevelByName(value)
+			case "quite":
+				l.SetQuite(value == "1" || strings.ToLower(value) == "true")
+			case "buffer":
+				bytes, err := utils.ParseBytes(value)
+				if err == nil {
+					l.SetBuffer(int(bytes))
+				}
+			default:
+				args[key] = value
 			}
-		default:
-			args[key] = value
 		}
 	}
 
@@ -95,14 +92,9 @@ func (l *Logger) parseURL(url string) (err error) {
 }
 
 func (l *Logger) SetLevel(level Level) {
-	if level < L_DEBUG || level > L_FATAL {
-		return
+	if level >= L_DEBUG && level <= L_FATAL {
+		l.level = level
 	}
-
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	l.level = level
 }
 
 func (l *Logger) SetLevelByName(name string) {
@@ -110,29 +102,26 @@ func (l *Logger) SetLevelByName(name string) {
 }
 
 func (l *Logger) SetPrefix(prefix string) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
 	l.prefix = strings.TrimSpace(prefix)
 }
 
+func (l *Logger) SetQuite(quite bool) {
+	l.quite = quite
+}
+
 func (l *Logger) SetBuffer(cap int) {
-	if cap < 1024 {
+	if cap < 32 {
 		return
 	}
+
+	l.FlushBuffer()
 
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	if l.buffer == nil {
-		l.bufcap = cap
-		l.buffer = make([]byte, cap)
-	} else if cap > l.bufcap {
-		buffer := make([]byte, cap)
-		copy(buffer, l.buffer)
-		l.bufcap = cap
-		l.buffer = buffer
-	}
+	l.buffer = make([]byte, cap)
+	l.bufcap = cap
+	l.buflen = 0
 }
 
 func (l *Logger) SetOutput(output io.Writer) {
@@ -142,49 +131,12 @@ func (l *Logger) SetOutput(output io.Writer) {
 	l.output = output
 }
 
-func (l *Logger) SetQuite(quite bool) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	l.quite = quite
-}
-
-func (l *Logger) On(level Level, callback func(message []byte)) {
-	if level < L_DEBUG || level > L_FATAL || callback == nil {
-		return
-	}
-
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	if l.logListeners == nil {
-		l.logListeners = map[Level][]func([]byte){level: []func([]byte){callback}}
-	} else {
-		l.logListeners[level] = append(l.logListeners[level], callback)
-	}
-}
-
-func (l *Logger) OnWriteError(callback func(data []byte, err error)) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	l.errorListener = callback
-}
-
-func (l *Logger) Print(v ...interface{}) {
+func (l *Logger) Log(v ...interface{}) {
 	l.log(-1, "", v...)
 }
 
-func (l *Logger) Printf(format string, v ...interface{}) {
+func (l *Logger) Logf(format string, v ...interface{}) {
 	l.log(-1, format, v...)
-}
-
-func (l *Logger) Log(level string, v ...interface{}) {
-	l.log(LevelByName(level), "", v...)
-}
-
-func (l *Logger) Logf(level string, format string, v ...interface{}) {
-	l.log(LevelByName(level), format, v...)
 }
 
 func (l *Logger) Debug(v ...interface{}) {
@@ -225,6 +177,22 @@ func (l *Logger) Fatal(v ...interface{}) {
 
 func (l *Logger) Fatalf(format string, v ...interface{}) {
 	l.fatal(format, v...)
+}
+
+func (l *Logger) FlushBuffer() (err error) {
+	l.lock.Lock()
+	defer l.lock.Unlock()
+
+	if l.buflen > 0 {
+		if l.output != nil {
+			_, err = l.output.Write(l.buffer[:l.buflen])
+			if err != nil {
+				return
+			}
+		}
+		l.buflen = 0
+	}
+	return
 }
 
 func (l *Logger) log(level Level, format string, v ...interface{}) {
@@ -283,22 +251,17 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	copy(buf[20:], prefix)
 	copy(buf[20+len(prefix):], msg)
 
-	// log event callback
-	if callbacks, ok := l.logListeners[level]; ok {
-		for _, callback := range callbacks {
-			callback(buf)
-		}
-	}
-
 	if !l.quite {
+		l.lock.Lock()
 		if level < L_ERROR {
 			os.Stdout.Write(buf)
 		} else {
 			os.Stderr.Write(buf)
 		}
+		l.lock.Unlock()
 	}
 
-	l.Write(buf)
+	l.write(buf)
 }
 
 func (l *Logger) fatal(format string, v ...interface{}) {
@@ -307,8 +270,9 @@ func (l *Logger) fatal(format string, v ...interface{}) {
 	os.Exit(1)
 }
 
-func (l *Logger) Write(p []byte) (n int, err error) {
-	if n = len(p); n == 0 {
+func (l *Logger) write(p []byte) (n int, err error) {
+	n = len(p)
+	if n == 0 {
 		return
 	}
 
@@ -319,19 +283,8 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 		return
 	}
 
-	defer func() {
-		if err != nil && l.errorListener != nil {
-			l.errorListener(p, err)
-		}
-	}()
-
 	if l.bufcap > 0 {
-		if n > l.bufcap/2 {
-			n, err = l.output.Write(p)
-			return
-		}
-
-		// Flush buffer
+		// flush buffer
 		if l.buflen > 0 && l.buflen+n > l.bufcap {
 			_, err = l.output.Write(l.buffer[:l.buflen])
 			if err != nil {
@@ -340,44 +293,23 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 			l.buflen = 0
 		}
 
-		l.buflen += copy(l.buffer[l.buflen:], p)
-		l.flushTime()
+		if n > l.bufcap {
+			n, err = l.output.Write(p)
+			return
+		}
+
+		copy(l.buffer[l.buflen:], p)
+		l.buflen += n
+
+		if l.flushTimer != nil {
+			l.flushTimer.Stop()
+		}
+		l.flushTimer = time.AfterFunc(time.Minute, func() {
+			l.flushTimer = nil
+			l.FlushBuffer()
+		})
 	} else {
 		n, err = l.output.Write(p)
 	}
-
 	return
-}
-
-func (l *Logger) FlushBuffer() (n int, err error) {
-	l.lock.Lock()
-	defer l.lock.Unlock()
-
-	if l.buflen == 0 || l.output == nil {
-		n = l.buflen
-		l.buflen = 0
-		return
-	}
-
-	_, err = l.output.Write(l.buffer[:l.buflen])
-	if err != nil {
-		return
-	}
-
-	n = l.buflen
-	l.buflen = 0
-	return
-}
-
-func (l *Logger) flushTime() {
-	if l.flushTimer != nil {
-		l.flushTimer.Stop()
-	}
-	l.flushTimer = time.AfterFunc(5*time.Minute, func() {
-		l.flushTimer = nil
-		_, err := l.FlushBuffer()
-		if err != nil {
-			l.flushTime()
-		}
-	})
 }
