@@ -6,7 +6,6 @@ import (
 	"testing"
 )
 
- 
 func TestParseLines(t *testing.T) {
 	lines := ParseTextLines("abc\ndef\rghi\r\r\njkl\r\n\n\r\r\nmno\n\r\n")
 	t.Log("'" + strings.Join(lines, "'\n'") + "'")

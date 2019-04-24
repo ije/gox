@@ -2,7 +2,6 @@ package utils
 
 import (
 	"archive/zip"
-	"bytes"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
@@ -169,11 +168,7 @@ func ParseJSONFile(filename string, v interface{}) (err error) {
 	return json.NewDecoder(r).Decode(v)
 }
 
-func WriteJSONFile(filename string, v interface{}) (err error) {
-	return WriteJSONFileWithIndent(filename, v, "")
-}
-
-func WriteJSONFileWithIndent(filename string, v interface{}, indent string) (err error) {
+func WriteJSONFile(filename string, v interface{}, indent string) (err error) {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return
@@ -186,35 +181,6 @@ func WriteJSONFileWithIndent(filename string, v interface{}, indent string) (err
 	}
 
 	return je.Encode(v)
-}
-
-func DecodeGob(data []byte, v interface{}) (err error) {
-	return gob.NewDecoder(bytes.NewReader(data)).Decode(v)
-}
-
-func EncodeGob(v interface{}) (data []byte, err error) {
-	var buf = bytes.NewBuffer(nil)
-	err = gob.NewEncoder(buf).Encode(v)
-	if err != nil {
-		return
-	}
-
-	data = buf.Bytes()
-	return
-}
-
-func MustEncodeGob(v interface{}) []byte {
-	if v == nil {
-		return nil
-	}
-
-	var buf = bytes.NewBuffer(nil)
-	err := gob.NewEncoder(buf).Encode(v)
-	if err != nil {
-		panic("gob: " + err.Error())
-	}
-
-	return buf.Bytes()
 }
 
 func ParseGobFile(filename string, v interface{}) (err error) {
@@ -467,59 +433,82 @@ func GetLocalIPList() (list []string, err error) {
 	return
 }
 
-func ZipFilesTo(dir string, output io.Writer) (err error) {
+func ZipTo(path string, output io.Writer) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if fi.IsDir() {
+		absDir, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+
+		archive := zip.NewWriter(output)
+		defer archive.Close()
+
+		return filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			header, err := zip.FileInfoHeader(info)
+			if err != nil {
+				return err
+			}
+
+			header.Name = strings.TrimPrefix(strings.TrimPrefix(path, absDir), "/")
+			if header.Name == "" {
+				return nil
+			}
+
+			if info.IsDir() {
+				header.Name += "/"
+			} else {
+				header.Method = zip.Deflate
+			}
+
+			writer, err := archive.CreateHeader(header)
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(writer, file)
+			return err
+		})
+	}
+
+	header, err := zip.FileInfoHeader(fi)
+	if err != nil {
+		return err
+	}
+	header.Method = zip.Deflate
+
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
 	archive := zip.NewWriter(output)
 	defer archive.Close()
 
-	info, err := os.Stat(dir)
+	gzw, err := archive.CreateHeader(header)
 	if err != nil {
-		return
-	} else if !info.IsDir() {
-		return fmt.Errorf("dir '%s' not a directory", dir)
-	}
-
-	dir, err = filepath.Abs(dir)
-	if err != nil {
-		return
-	}
-
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-
-		header.Name = strings.TrimPrefix(strings.TrimPrefix(path, dir), "/")
-		if header.Name == "" {
-			return nil
-		}
-
-		if info.IsDir() {
-			header.Name += "/"
-		} else {
-			header.Method = zip.Deflate
-		}
-
-		writer, err := archive.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		_, err = io.Copy(writer, file)
 		return err
-	})
+	}
+
+	_, err = io.Copy(gzw, file)
+	return err
 }
