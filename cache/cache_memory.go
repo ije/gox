@@ -16,7 +16,7 @@ type mData struct {
 }
 
 func (v mData) isExpired() bool {
-	return v.deadtime > 0 && time.Now().UnixNano() >= v.deadtime
+	return v.deadtime > 0 && time.Now().UnixNano() > v.deadtime
 }
 
 func (v mData) Bytes() []byte {
@@ -60,7 +60,7 @@ func (mc *mCache) Get(ctx context.Context, key string) (data []byte, err error) 
 	return
 }
 
-func (mc *mCache) Put(ctx context.Context, key string, data []byte) error {
+func (mc *mCache) Set(ctx context.Context, key string, data []byte) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
@@ -68,7 +68,7 @@ func (mc *mCache) Put(ctx context.Context, key string, data []byte) error {
 	return nil
 }
 
-func (mc *mCache) PutTemp(ctx context.Context, key string, data []byte, lifetime time.Duration) error {
+func (mc *mCache) SetTemp(ctx context.Context, key string, data []byte, lifetime time.Duration) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 

@@ -20,7 +20,7 @@ func TestMCache(t *testing.T) {
 		t.Fatalf("invalid gc interval %v,should be %v", mc.gcInterval, 3*time.Second)
 	}
 
-	cache.Put(nil, "key", []byte("hello world"))
+	cache.Set(nil, "key", []byte("hello world"))
 	data, err := cache.Get(nil, "key")
 	if err != nil {
 		t.Fatal(err)
@@ -29,7 +29,7 @@ func TestMCache(t *testing.T) {
 		t.Fatal("bad data", string(data))
 	}
 
-	cache.PutTemp(nil, "keytemp", []byte("hello world"), 3*time.Second)
+	cache.SetTemp(nil, "keytemp", []byte("hello world"), 3*time.Second)
 	_, err = cache.Get(nil, "keytemp")
 	if err != nil {
 		t.Fatal(err)

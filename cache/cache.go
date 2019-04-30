@@ -12,8 +12,8 @@ import (
 type Cache interface {
 	Has(ctx context.Context, key string) (bool, error)
 	Get(ctx context.Context, key string) ([]byte, error)
-	Put(ctx context.Context, key string, data []byte) error
-	PutTemp(ctx context.Context, key string, data []byte, lifetime time.Duration) error
+	Set(ctx context.Context, key string, data []byte) error
+	SetTemp(ctx context.Context, key string, data []byte, lifetime time.Duration) error
 	Delete(ctx context.Context, key string) error
 	Flush(ctx context.Context) error
 	Run(ctx context.Context, name string, args ...[]byte) error
