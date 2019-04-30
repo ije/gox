@@ -93,20 +93,17 @@ func (f *Fmt) colorFprint(pipe io.Writer, color TermColor, s string) (n int, err
 	return
 }
 
-type Stdio struct {
-	colorManager func(b []byte) TermColor
+type Fmtx struct {
+	parseColor func(b []byte) TermColor
 	*Fmt
 }
 
-func (f *Stdio) Write(p []byte) (n int, err error) {
+func (f *Fmtx) Write(p []byte) (n int, err error) {
 	var color TermColor
-	if f.colorManager != nil {
-		color = f.colorManager(p)
+	if f.parseColor != nil {
+		color = f.parseColor(p)
 	}
 
-	_, err = f.ColorPrint(color, string(p))
-	if err == nil {
-		n = len(p) // should return a right length ?
-	}
+	n, err = f.ColorPrint(color, string(p))
 	return
 }

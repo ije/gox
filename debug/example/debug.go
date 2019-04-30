@@ -12,7 +12,7 @@ func main() {
 		Name: "godoc",
 		Path: "godoc",
 		Args: []string{"-http=:6066"},
-		TermColorManager: func(b []byte) debug.TermColor {
+		TermLineColor: func(p []byte) debug.TermColor {
 			return debug.T_COLOR_PURPLE
 		},
 	})

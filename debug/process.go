@@ -17,24 +17,24 @@ import (
 )
 
 type Process struct {
-	Sudo             bool
-	Name             string
-	Path             string
-	Args             []string
-	Env              []string
-	BuildArgs        []string
-	GoCode           string
-	GoFile           string
-	GoPkg            string
-	LinkedPkgs       []string
-	LinkedFiles      []string
-	LinkedPlatforms  []string
-	BeforeBuild      func(*Process) error
-	TermLinePrefix   string
-	TermColorManager func(b []byte) TermColor
-	status           string
-	startTime        time.Time
-	watchingFiles    map[string]time.Time
+	Sudo            bool
+	Name            string
+	Path            string
+	Args            []string
+	Env             []string
+	BuildArgs       []string
+	GoCode          string
+	GoFile          string
+	GoPkg           string
+	LinkedPkgs      []string
+	LinkedFiles     []string
+	LinkedPlatforms []string
+	BeforeBuild     func(*Process) error
+	TermLinePrefix  string
+	TermLineColor   func(p []byte) TermColor
+	status          string
+	startTime       time.Time
+	watchingFiles   map[string]time.Time
 	*os.Process
 }
 
@@ -137,8 +137,8 @@ func (process *Process) Start() (err error) {
 		stdout = readlineEx.Stdout()
 		stderr = readlineEx.Stderr()
 	}
-	cmd.Stdout = &Stdio{process.TermColorManager, &Fmt{LinePrefix: termLinePrefix, Pipe: stdout}}
-	cmd.Stderr = &Stdio{process.TermColorManager, &Fmt{LinePrefix: termLinePrefix, Pipe: stderr}}
+	cmd.Stdout = &Fmtx{process.TermLineColor, &Fmt{LinePrefix: termLinePrefix, Pipe: stdout}}
+	cmd.Stderr = &Fmtx{process.TermLineColor, &Fmt{LinePrefix: termLinePrefix, Pipe: stderr}}
 
 	runErr := make(chan error)
 	go func() {
