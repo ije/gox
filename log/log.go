@@ -57,9 +57,9 @@ func (l *Logger) parseURL(url string) (err error) {
 
 	path, query := utils.SplitByFirstByte(url, '?')
 	name, addr := utils.SplitByFirstByte(path, ':')
-	driver, ok := drivers[strings.ToLower(name)]
+	fs, ok := fss[strings.ToLower(name)]
 	if !ok {
-		return fmt.Errorf("Unknown driver '%s'", name)
+		return fmt.Errorf("unknown fs '%s'", name)
 	}
 
 	args := map[string]string{}
@@ -84,7 +84,7 @@ func (l *Logger) parseURL(url string) (err error) {
 		}
 	}
 
-	wr, err := driver.Open(addr, args)
+	wr, err := fs.Open(addr, args)
 	if err == nil {
 		l.SetOutput(wr)
 	}
@@ -131,52 +131,76 @@ func (l *Logger) SetOutput(output io.Writer) {
 	l.output = output
 }
 
-func (l *Logger) Log(v ...interface{}) {
-	l.log(-1, "", v...)
+func (l *Logger) Print(v ...interface{}) {
+	l.log(-1, fmt.Sprint(v...))
 }
 
-func (l *Logger) Logf(format string, v ...interface{}) {
-	l.log(-1, format, v...)
+func (l *Logger) Println(v ...interface{}) {
+	l.log(-1, fmt.Sprintln(v...))
+}
+
+func (l *Logger) Printf(format string, v ...interface{}) {
+	l.log(-1, fmt.Sprintf(fmt.Sprintf(format, v...)))
 }
 
 func (l *Logger) Debug(v ...interface{}) {
-	l.log(L_DEBUG, "", v...)
+	l.log(L_DEBUG, fmt.Sprint(v...))
+}
+
+func (l *Logger) Debugln(v ...interface{}) {
+	l.log(L_DEBUG, fmt.Sprintln(v...))
 }
 
 func (l *Logger) Debugf(format string, v ...interface{}) {
-	l.log(L_DEBUG, format, v...)
+	l.log(L_DEBUG, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Info(v ...interface{}) {
-	l.log(L_INFO, "", v...)
+	l.log(L_INFO, fmt.Sprint(v...))
+}
+
+func (l *Logger) Infoln(v ...interface{}) {
+	l.log(L_INFO, fmt.Sprintln(v...))
 }
 
 func (l *Logger) Infof(format string, v ...interface{}) {
-	l.log(L_INFO, format, v...)
+	l.log(L_INFO, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Warn(v ...interface{}) {
-	l.log(L_WARN, "", v...)
+	l.log(L_WARN, fmt.Sprint(v...))
+}
+
+func (l *Logger) Warnln(v ...interface{}) {
+	l.log(L_WARN, fmt.Sprintln(v...))
 }
 
 func (l *Logger) Warnf(format string, v ...interface{}) {
-	l.log(L_WARN, format, v...)
+	l.log(L_WARN, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Error(v ...interface{}) {
-	l.log(L_ERROR, "", v...)
+	l.log(L_ERROR, fmt.Sprint(v...))
+}
+
+func (l *Logger) Errorln(v ...interface{}) {
+	l.log(L_ERROR, fmt.Sprintln(v...))
 }
 
 func (l *Logger) Errorf(format string, v ...interface{}) {
-	l.log(L_ERROR, format, v...)
+	l.log(L_ERROR, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Fatal(v ...interface{}) {
-	l.fatal("", v...)
+	l.fatal(fmt.Sprint(v...))
+}
+
+func (l *Logger) Fatalln(v ...interface{}) {
+	l.fatal(fmt.Sprintln(v...))
 }
 
 func (l *Logger) Fatalf(format string, v ...interface{}) {
-	l.fatal(format, v...)
+	l.fatal(fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) FlushBuffer() (err error) {
@@ -195,39 +219,23 @@ func (l *Logger) FlushBuffer() (err error) {
 	return
 }
 
-func (l *Logger) log(level Level, format string, v ...interface{}) {
-	if level != -1 && level < l.level {
+func (l *Logger) log(level Level, msg string) {
+	if level >= L_DEBUG && level < l.level {
 		return
 	}
 
-	var prefix, msg string
-	switch level {
-	case L_FATAL:
-		prefix = "[fatal] "
-	case L_ERROR:
-		prefix = "[error] "
-	case L_WARN:
-		prefix = "[warn] "
-	case L_INFO:
-		prefix = "[info] "
-	case L_DEBUG:
-		prefix = "[debug] "
+	prefix := ""
+	if level >= L_DEBUG && level <= L_FATAL {
+		prefix = fmt.Sprintf("[%s] ", level)
 	}
-	if len(l.prefix) > 0 {
-		prefix += l.prefix + " "
+	if _prefix := strings.TrimSpace(l.prefix); len(_prefix) > 0 {
+		prefix += _prefix + " "
 	}
 
-	if l := len(format); l > 0 {
-		if format[l-1] != '\n' {
-			format += "\n"
-		}
-		msg = fmt.Sprintf(format, v...)
-	} else {
-		msg = fmt.Sprintln(v...)
-	}
+	bl := 20 + len(prefix) + len(msg) + 1
+	buf := make([]byte, bl)
 
-	var i int
-	buf := make([]byte, 20+len(prefix)+len(msg))
+	i := 0
 	fd := func(u int, w int, suffix byte) {
 		i += w
 		for j := 1; w > 0; j++ {
@@ -251,6 +259,12 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 	copy(buf[20:], prefix)
 	copy(buf[20+len(prefix):], msg)
 
+	if buf[bl-2] == '\n' {
+		buf = buf[:bl-1]
+	} else {
+		buf[bl-1] = '\n'
+	}
+
 	if !l.quite {
 		l.lock.Lock()
 		if level < L_ERROR {
@@ -265,13 +279,13 @@ func (l *Logger) log(level Level, format string, v ...interface{}) {
 }
 
 func (l *Logger) fatal(format string, v ...interface{}) {
-	l.log(L_FATAL, format, v...)
+	l.log(L_FATAL, fmt.Sprintf(format, v...))
 	l.FlushBuffer()
 	os.Exit(1)
 }
 
-func (l *Logger) write(p []byte) (n int, err error) {
-	n = len(p)
+func (l *Logger) write(p []byte) (err error) {
+	n := len(p)
 	if n == 0 {
 		return
 	}

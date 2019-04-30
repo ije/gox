@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func TestFileLogger(t *testing.T) {
+func TestFileFS(t *testing.T) {
 	file := path.Join(os.TempDir(), "gox-test.log")
 	logFile := path.Join(os.TempDir(), fmt.Sprintf("gox-test-%s.log", time.Now().Format("2006-01-02-03")))
 	os.Remove(logFile)
@@ -33,7 +33,7 @@ func TestFileLogger(t *testing.T) {
 		t.Fatalf("invalid gfileDateFormat %s, should be %s", wr.fileDateFormat, "2006-01-02-03")
 	}
 
-	log.Log("Hello World!")
+	log.Print("Hello World!")
 	log.Debug(":D")
 	log.Info("Ok")
 	log.Warn("No good")
@@ -71,7 +71,7 @@ func TestFileLogger(t *testing.T) {
 	}
 
 	logText := "Dolore magna aliquam erat volutpat ut wisi enim ad minim veniam quis, nostrud exerci tation ullamcorper."
-	log.Log(logText)
+	log.Print(logText)
 	if log.buflen != 0 {
 		t.Fatalf("invalid buffer len %d, should be %d", log.buflen, 0)
 	}

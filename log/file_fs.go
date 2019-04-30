@@ -72,9 +72,9 @@ func newWriter(filePath string, fileDateFormat string, maxFileSize int64) (w *fi
 	return
 }
 
-type fileLoggerDriver struct{}
+type fileFS struct{}
 
-func (d *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer, error) {
+func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
 	var fileDateFormat string
 	var maxFileSize int64
 
@@ -93,9 +93,9 @@ func (d *fileLoggerDriver) Open(addr string, args map[string]string) (io.Writer,
 		maxFileSize = i
 	}
 
-	return newWriter(utils.CleanPath(addr), fileDateFormat, maxFileSize)
+	return newWriter(utils.CleanPath(path), fileDateFormat, maxFileSize)
 }
 
 func init() {
-	Register("file", &fileLoggerDriver{})
+	Register("file", &fileFS{})
 }

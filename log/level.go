@@ -14,6 +14,23 @@ const (
 
 type Level int8
 
+func (l Level) String() string {
+	var name string
+	switch l {
+	case L_FATAL:
+		name = "fatal"
+	case L_ERROR:
+		name = "error"
+	case L_WARN:
+		name = "warn"
+	case L_INFO:
+		name = "info"
+	case L_DEBUG:
+		name = "debug"
+	}
+	return name
+}
+
 func LevelByName(name string) (l Level) {
 	switch strings.ToLower(name) {
 	case "debug":
