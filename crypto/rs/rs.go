@@ -1,6 +1,9 @@
 package rs
 
-import "crypto/rand"
+import (
+	"crypto/rand"
+	"strings"
+)
 
 var (
 	Digital *RS
@@ -12,11 +15,21 @@ type RS struct {
 	tab string
 }
 
-func New(tab string) *RS {
-	if tab == "" {
+func New(tab ...string) *RS {
+	if len(tab) == 0 {
 		return &RS{"0123456789abcdef"}
 	}
-	return &RS{tab}
+	m := map[rune]struct{}{}
+	for _, r := range strings.Join(tab, "") {
+		m[r] = struct{}{}
+	}
+	runes := make([]rune, len(m))
+	i := 0
+	for r := range m {
+		runes[i] = r
+		i++
+	}
+	return &RS{string(runes)}
 }
 
 func (rs *RS) Bytes(size int) []byte {

@@ -4,29 +4,8 @@ import (
 	"testing"
 )
 
-func TestDigital(t *testing.T) {
-	for l := 1; l <= 512; l++ {
-		rs := Digital.String(l)
-		if (len(rs)) != l {
-			t.Fatal("bad rs")
-		}
-	}
-}
-
-func TestHex(t *testing.T) {
-	for l := 1; l <= 512; l++ {
-		rs := Hex.String(l)
-		if (len(rs)) != l {
-			t.Fatal("bad rs")
-		}
-	}
-}
-
-func TestBase64(t *testing.T) {
-	for l := 1; l <= 512; l++ {
-		rs := Base64.String(l)
-		if (len(rs)) != l {
-			t.Fatal("bad rs")
-		}
-	}
+func TestRS(t *testing.T) {
+	t.Log(Digital.String(4))
+	t.Log(Hex.String(32))
+	t.Log(Base64.String(64))
 }
