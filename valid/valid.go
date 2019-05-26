@@ -17,7 +17,7 @@ var (
 	v09azAZ    = Validator{r09, raz, rAZ}
 	vHex       = Validator{r09, FromTo{'a', 'f'}, FromTo{'A', 'F'}}
 	vSlug      = Validator{r09, raz, rAZ, Eq('.'), Eq('-')}
-	vEmailName = Validator{r09, raz, rAZ, Eq('.'), Eq('-'), Eq('_')}
+	vEmailName = Validator{r09, raz, rAZ, Eq('.'), Eq('-'), Eq('_'), Eq('+')}
 )
 
 func IsNumber(s string) bool {
@@ -77,7 +77,7 @@ func IsEmail(s string) bool {
 	}
 
 	name, domain := utils.SplitByLastByte(s, '@')
-	return !hasPreSuffix(name, '.', '-', '_') && vEmailName.Is(name) && IsDomain(domain)
+	return !hasPreSuffix(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
 }
 
 func hasPreSuffix(s string, cs ...byte) bool {
