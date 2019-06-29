@@ -41,7 +41,7 @@ func main() {
 	}
 	tunnel.SetLogger(logger)
 
-	clients := len(config.Clients)
+	var clients int
 	for _, client := range config.Clients {
 		if len(client.Name) > 0 && client.ForwardPort > 0 && client.Port > 0 {
 			tc := &tunnel.Client{
@@ -55,6 +55,7 @@ func main() {
 				ForwardPort: client.ForwardPort,
 			}
 			go tc.Connect()
+			clients++
 		}
 	}
 
