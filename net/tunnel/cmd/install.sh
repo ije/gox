@@ -1,14 +1,17 @@
-supervisorctl status x.tunnel.$1
+#!/bin/bash
+
+supervisorctl status tunnel.$1
 if [ "$?" != "0" ]; then
-	echo "need supervisor"
+	echo "needs supervisor"
 	exit
 fi
-supervisorctl stop x.tunnel.$1
-rm -f /usr/local/bin/x.tunnel.$1
-mv -f /tmp/x.tunnel.$1 /usr/local/bin/x.tunnel.$1
-chmod +x /usr/local/bin/x.tunnel.$1
+
+supervisorctl stop tunnel.$1
+rm -f /usr/local/bin/tunnel.$1
+mv -f /tmp/tunnel.$1 /usr/local/bin/tunnel.$1
+chmod +x /usr/local/bin/tunnel.$1
 if [ "$2" = "yes" ]; then
 	supervisorctl reload
 else
-	supervisorctl start x.tunnel.$1
+	supervisorctl start tunnel.$1
 fi
