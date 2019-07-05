@@ -14,5 +14,5 @@ if [ "$arch" != "" ]; then
 fi
 export GOARCH=$goarch
 
-echo "--- compiling the x.tunnel.$1 (${goos}_$goarch)..."
-go build x.tunnel.$1.go
+echo "--- compiling the tunnel.$1 (${goos}_$goarch)..."
+go build $1/$1.go

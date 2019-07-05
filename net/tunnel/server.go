@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -15,10 +14,9 @@ import (
 const heartBeatInterval = 15
 
 type Server struct {
-	lock     sync.RWMutex
-	Port     uint16 // tunnel service port
-	HTTPPort uint16
-	tunnels  map[string]*Tunnel
+	lock    sync.RWMutex
+	Port    uint16 // tunnel service port
+	tunnels map[string]*Tunnel
 }
 
 func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, maxProxyLifetime int) *Tunnel {
@@ -84,52 +82,35 @@ func (s *Server) Serve() (err error) {
 	return listen(l, s.handleConn)
 }
 
-func (s *Server) ServeHTTP() (err error) {
-	return http.ListenAndServe(fmt.Sprintf(":%d", s.HTTPPort), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		wh := w.Header()
-		wh.Set("Access-Control-Allow-Origin", "*")
-		if r.Method == "OPTIONS" {
-			wh.Set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE")
-			wh.Set("Access-Control-Allow-Headers", "Accept,Accept-Encoding,Accept-Lang,Content-Type,Authorization,X-Requested-With")
-			wh.Set("Access-Control-Allow-Credentials", "true")
-			wh.Set("Access-Control-Max-Age", "60")
-			w.WriteHeader(204)
-			return
-		}
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	clients := []map[string]interface{}{}
 
-		endpoint := strings.Trim(strings.TrimSpace(r.URL.Path), "/")
-		if endpoint == "" {
-			w.Header().Set("Content-Type", "text/plain")
-			w.Write([]byte("x-tunnel-server"))
-		} else if endpoint == "clients" {
-			js := []map[string]interface{}{}
-			s.lock.RLock()
-			for _, t := range s.tunnels {
-				meta := map[string]interface{}{
-					"name":             t.Name,
-					"port":             t.Port,
-					"clientAddr":       t.clientAddr,
-					"online":           t.online,
-					"maxConnections":   t.MaxConnections,
-					"proxyConnections": t.proxyConnections,
-					"connPoolLength":   len(t.connPool),
-					"connQueueLength":  len(t.connQueue),
-				}
-				if t.MaxProxyLifetime > 0 {
-					meta["maxProxyLifetime"] = t.MaxProxyLifetime
-				}
-				if t.err != nil {
-					meta["error"] = t.err.Error()
-				}
-				js = append(js, meta)
-			}
-			s.lock.RUnlock()
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(js)
-		} else {
-			http.Error(w, http.StatusText(404), 404)
+	s.lock.RLock()
+	for _, t := range s.tunnels {
+		meta := map[string]interface{}{
+			"name":             t.Name,
+			"port":             t.Port,
+			"clientAddr":       t.clientAddr,
+			"online":           t.online,
+			"maxConnections":   t.MaxConnections,
+			"proxyConnections": t.proxyConnections,
+			"connPoolLength":   len(t.connPool),
+			"connQueueLength":  len(t.connQueue),
 		}
-	}))
+		if t.MaxProxyLifetime > 0 {
+			meta["maxProxyLifetime"] = t.MaxProxyLifetime
+		}
+		if t.err != nil {
+			meta["error"] = t.err.Error()
+		}
+		clients = append(clients, meta)
+	}
+	s.lock.RUnlock()
+
+	w.Header().Set("Content-Type", "application/json")
+	je := json.NewEncoder(w)
+	je.SetIndent("", "\t")
+	je.Encode(clients)
 }
 
 func (s *Server) handleConn(conn net.Conn) {

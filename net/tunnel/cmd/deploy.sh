@@ -17,7 +17,7 @@ fi
 read -p "please enter hostname or ip: " host
 if [ "$host" = "" ]; then
 	echo "missing the host..."
-	rm x.tunnel.$target
+	rm tunnel.$target
 	exit
 fi
 
@@ -39,39 +39,39 @@ if [ "$ok" = "yes" ]; then
 	initSupervisor="yes"
 fi
 
-supervisordconfDir="/etc/supervisor/conf.d"
+supervisordConfDir="/etc/supervisor/conf.d"
 if [ "$initSupervisor" = "yes" ]; then
-	read -p "please enter the supervisord.conf directory(default is '$supervisordconfDir')? " dir
+	read -p "please enter the supervisord.conf directory(default is '$supervisordConfDir')? " dir
 	if [ "$dir" != "" ]; then
-		supervisordconfDir="$dir"
+		supervisordConfDir="$dir"
 	fi
 fi
 
 echo "--- uploading..."
-scp -P $hostSSHPort install.sh $loginUser@$host:/tmp/x.tunnel.install.sh
+scp -P $hostSSHPort install.sh $loginUser@$host:/tmp/tunnel.install.sh
 if [ "$?" != "0" ]; then
-	rm x.tunnel.$target
+	rm tunnel.$target
 	exit
 fi
 
 if [ "$initSupervisor" = "yes" ]; then
-	scp -P $hostSSHPort x.tunnel.$target.supervisor.conf $loginUser@$host:$supervisordconfDir/x.tunnel.$target.conf
+	scp -P $hostSSHPort $target/supervisor.conf $loginUser@$host:$supervisordConfDir/tunnel.$target.conf
 	if [ "$?" != "0" ]; then
-		rm x.tunnel.$target
+		rm tunnel.$target
 		exit
 	fi
 fi
 
-scp -P $hostSSHPort x.tunnel.$target $loginUser@$host:/tmp/x.tunnel.$target
+scp -P $hostSSHPort tunnel.$target $loginUser@$host:/tmp/tunnel.$target
 if [ "$?" != "0" ]; then
-	rm x.tunnel.$target
+	rm tunnel.$target
 	exit
 fi
 
-echo "--- restart x.tunnel.$target..."
+echo "--- restart tunnel.$target..."
 ssh -p $hostSSHPort $loginUser@$host << EOF
-	echo "restart x.tunnel.$target ..."
-	nohup sh /tmp/x.tunnel.install.sh $target $initSupervisor >/dev/null 2>&1 &
+	echo "restart tunnel.$target ..."
+	nohup sh /tmp/tunnel.install.sh $target $initSupervisor >/dev/null 2>&1 &
 EOF
 
-rm x.tunnel.$target
+rm tunnel.$target
