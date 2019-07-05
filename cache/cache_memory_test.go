@@ -17,26 +17,26 @@ func TestMCache(t *testing.T) {
 		t.Fatal("not a memory cache")
 	}
 	if mc.gcInterval != 3*time.Second {
-		t.Fatalf("invalid gc interval %v,should be %v", mc.gcInterval, 3*time.Second)
+		t.Fatalf("invalid gc interval %v, should be %v", mc.gcInterval, 3*time.Second)
 	}
 
-	cache.Set(nil, "key", []byte("hello world"))
-	data, err := cache.Get(nil, "key")
+	cache.Set("key", "hello world")
+	value, err := cache.Get("key")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(data) != "hello world" {
-		t.Fatal("bad data", string(data))
+	if value != "hello world" {
+		t.Fatalf("invalid value(%v), shoud be 'hello world'", value)
 	}
 
-	cache.SetTemp(nil, "keytemp", []byte("hello world"), 3*time.Second)
-	_, err = cache.Get(nil, "keytemp")
+	cache.SetTemp("keytemp", []byte("hello world"), 3*time.Second)
+	_, err = cache.Get("keytemp")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	time.Sleep(3 * time.Second)
-	_, err = cache.Get(nil, "keytemp")
+	_, err = cache.Get("keytemp")
 	if err != ErrExpired {
 		t.Fatal("should be expired error, but", err)
 	}

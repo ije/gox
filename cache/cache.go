@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -10,13 +9,13 @@ import (
 )
 
 type Cache interface {
-	Has(ctx context.Context, key string) (bool, error)
-	Get(ctx context.Context, key string) ([]byte, error)
-	Set(ctx context.Context, key string, data []byte) error
-	SetTemp(ctx context.Context, key string, data []byte, lifetime time.Duration) error
-	Delete(ctx context.Context, key string) error
-	Flush(ctx context.Context) error
-	Run(ctx context.Context, name string, args ...[]byte) error
+	Has(key string) (bool, error)
+	Get(key string) (interface{}, error)
+	Set(key string, value interface{}) error
+	SetTemp(key string, value interface{}, lifetime time.Duration) error
+	Delete(key string) error
+	Flush() error
+	Run(name string, args ...interface{}) error
 }
 
 // New returns a new cache by url

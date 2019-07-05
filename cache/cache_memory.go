@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"errors"
 	"runtime"
 	"sync"
@@ -11,29 +10,22 @@ import (
 )
 
 type mData struct {
-	deadtime int64
-	data     []byte
+	data     interface{}
+	deadline int64
 }
 
 func (v mData) isExpired() bool {
-	return v.deadtime > 0 && time.Now().UnixNano() > v.deadtime
-}
-
-func (v mData) Bytes() []byte {
-	if v.isExpired() {
-		return nil
-	}
-	return v.data
+	return v.deadline > 0 && time.Now().UnixNano() > v.deadline
 }
 
 type mCache struct {
 	lock       sync.RWMutex
 	storage    map[string]mData
-	gcTimer    *time.Timer
 	gcInterval time.Duration
+	gcTimer    *time.Timer
 }
 
-func (mc *mCache) Has(ctx context.Context, key string) (ok bool, err error) {
+func (mc *mCache) Has(key string) (ok bool, err error) {
 	mc.lock.RLock()
 	defer mc.lock.RUnlock()
 
@@ -41,7 +33,7 @@ func (mc *mCache) Has(ctx context.Context, key string) (ok bool, err error) {
 	return
 }
 
-func (mc *mCache) Get(ctx context.Context, key string) (data []byte, err error) {
+func (mc *mCache) Get(key string) (data interface{}, err error) {
 	mc.lock.RLock()
 	s, ok := mc.storage[key]
 	mc.lock.RUnlock()
@@ -51,34 +43,34 @@ func (mc *mCache) Get(ctx context.Context, key string) (data []byte, err error) 
 	}
 
 	if s.isExpired() {
-		mc.Delete(ctx, key)
+		mc.Delete(key)
 		err = ErrExpired
 		return
 	}
 
-	data = s.Bytes()
+	data = s.data
 	return
 }
 
-func (mc *mCache) Set(ctx context.Context, key string, data []byte) error {
+func (mc *mCache) Set(key string, data interface{}) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
-	mc.storage[key] = mData{0, data}
+	mc.storage[key] = mData{data, 0}
 	return nil
 }
 
-func (mc *mCache) SetTemp(ctx context.Context, key string, data []byte, lifetime time.Duration) error {
+func (mc *mCache) SetTemp(key string, data interface{}, lifetime time.Duration) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
 	if lifetime > 0 {
-		mc.storage[key] = mData{time.Now().Add(lifetime).UnixNano(), data}
+		mc.storage[key] = mData{data, time.Now().Add(lifetime).UnixNano()}
 	}
 	return nil
 }
 
-func (mc *mCache) Delete(ctx context.Context, key string) error {
+func (mc *mCache) Delete(key string) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
@@ -86,7 +78,7 @@ func (mc *mCache) Delete(ctx context.Context, key string) error {
 	return nil
 }
 
-func (mc *mCache) Flush(ctx context.Context) error {
+func (mc *mCache) Flush() error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
@@ -94,14 +86,11 @@ func (mc *mCache) Flush(ctx context.Context) error {
 	return nil
 }
 
-func (mc *mCache) Run(ctx context.Context, name string, data ...[]byte) error {
+func (mc *mCache) Run(name string, data ...interface{}) error {
 	return nil
 }
 
-func (mc *mCache) setGCInterval(interval time.Duration) *mCache {
-	mc.lock.Lock()
-	defer mc.lock.Unlock()
-
+func (mc *mCache) setGCInterval(interval time.Duration) {
 	if interval > 0 && interval != mc.gcInterval {
 		if mc.gcTimer != nil {
 			mc.gcTimer.Stop()
@@ -111,7 +100,6 @@ func (mc *mCache) setGCInterval(interval time.Duration) *mCache {
 			mc.gcTimer = time.AfterFunc(interval, mc.gc)
 		}
 	}
-	return mc
 }
 
 func (mc *mCache) gc() {
@@ -135,7 +123,7 @@ func (mc *mCache) gc() {
 type mcDriver struct{}
 
 func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, err error) {
-	var gcInterval time.Duration
+	gcInterval := 30 * time.Minute
 	if s, ok := args["gcInterval"]; ok && len(s) > 0 {
 		gcInterval, err = utils.ParseDuration(s)
 		if err != nil {
