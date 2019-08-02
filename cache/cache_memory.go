@@ -9,18 +9,18 @@ import (
 	"github.com/ije/gox/utils"
 )
 
-type mData struct {
-	data     interface{}
-	deadline int64
+type mItem struct {
+	value     interface{}
+	expiresAt int64
 }
 
-func (v mData) isExpired() bool {
-	return v.deadline > 0 && time.Now().UnixNano() > v.deadline
+func (v mItem) isExpired() bool {
+	return v.expiresAt > 0 && time.Now().UnixNano() > v.expiresAt
 }
 
 type mCache struct {
 	lock       sync.RWMutex
-	storage    map[string]mData
+	storage    map[string]mItem
 	gcInterval time.Duration
 	gcTimer    *time.Timer
 }
@@ -33,7 +33,7 @@ func (mc *mCache) Has(key string) (ok bool, err error) {
 	return
 }
 
-func (mc *mCache) Get(key string) (data interface{}, err error) {
+func (mc *mCache) Get(key string) (value interface{}, err error) {
 	mc.lock.RLock()
 	s, ok := mc.storage[key]
 	mc.lock.RUnlock()
@@ -48,24 +48,18 @@ func (mc *mCache) Get(key string) (data interface{}, err error) {
 		return
 	}
 
-	data = s.data
+	value = s.value
 	return
 }
 
-func (mc *mCache) Set(key string, data interface{}) error {
+func (mc *mCache) Set(key string, value interface{}, lifetime ...time.Duration) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
-	mc.storage[key] = mData{data, 0}
-	return nil
-}
-
-func (mc *mCache) SetTemp(key string, data interface{}, lifetime time.Duration) error {
-	mc.lock.Lock()
-	defer mc.lock.Unlock()
-
-	if lifetime > 0 {
-		mc.storage[key] = mData{data, time.Now().Add(lifetime).UnixNano()}
+	if len(lifetime) > 0 && lifetime[0] > 0 {
+		mc.storage[key] = mItem{value, time.Now().Add(lifetime[0]).UnixNano()}
+	} else {
+		mc.storage[key] = mItem{value, 0}
 	}
 	return nil
 }
@@ -82,11 +76,11 @@ func (mc *mCache) Flush() error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
-	mc.storage = map[string]mData{}
+	mc.storage = map[string]mItem{}
 	return nil
 }
 
-func (mc *mCache) Run(name string, data ...interface{}) error {
+func (mc *mCache) Run(name string, value ...interface{}) error {
 	return nil
 }
 
@@ -133,7 +127,7 @@ func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, e
 	}
 
 	c := &mCache{
-		storage:    map[string]mData{},
+		storage:    map[string]mItem{},
 		gcInterval: gcInterval,
 	}
 	c.setGCInterval(gcInterval)

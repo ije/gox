@@ -11,8 +11,7 @@ import (
 type Cache interface {
 	Has(key string) (bool, error)
 	Get(key string) (interface{}, error)
-	Set(key string, value interface{}) error
-	SetTemp(key string, value interface{}, lifetime time.Duration) error
+	Set(key string, value interface{}, lifetime ...time.Duration) error
 	Delete(key string) error
 	Flush() error
 	Run(name string, args ...interface{}) error

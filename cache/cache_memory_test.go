@@ -29,7 +29,7 @@ func TestMCache(t *testing.T) {
 		t.Fatalf("invalid value(%v), shoud be 'hello world'", value)
 	}
 
-	cache.SetTemp("keytemp", []byte("hello world"), 3*time.Second)
+	cache.Set("keytemp", []byte("hello world"), 3*time.Second)
 	_, err = cache.Get("keytemp")
 	if err != nil {
 		t.Fatal(err)
