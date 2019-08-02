@@ -67,26 +67,23 @@ var emails = map[string]bool{
 	"doc_@golang.org":    false,
 	"doc+@golang.org":    false,
 }
+var emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9]+((\.|\-|\_|\+)[a-zA-Z0-9]+)*@[a-zA-Z0-9]+((\.|\-)[a-zA-Z0-9]+)*\.[a-zA-Z]+$`)
 
 func BenchmarkIsEmail(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for s, want := range emails {
 			if want != IsEmail(s) {
-				b.Fatalf("no match: %s", s)
+				b.Fatalf("not matched: %s", s)
 			}
 		}
 	}
 }
 
 func BenchmarkIsEmailRegexp(b *testing.B) {
-	b.StopTimer()
-	emailRegexp := regexp.MustCompile(`^[a-zA-Z0-9]+((\.|\-|\_|\+)[a-zA-Z0-9]+)*@[a-zA-Z0-9]+((\.|\-)[a-zA-Z0-9]+)*\.[a-zA-Z]+$`)
-	b.StartTimer()
-
 	for i := 0; i < b.N; i++ {
 		for s, want := range emails {
 			if want != emailRegexp.MatchString(s) {
-				b.Fatalf("no match: %s", s)
+				b.Fatalf("not matched: %s", s)
 			}
 		}
 	}
