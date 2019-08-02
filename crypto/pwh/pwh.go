@@ -12,33 +12,33 @@ const pwTable = "*?0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXY
 
 type PWHasher struct {
 	publicSalt []byte
-	complexity int
+	cost       int
 }
 
-func New(publicSalt string, complexity int) (pwh *PWHasher) {
+func New(publicSalt string, cost int) (pwh *PWHasher) {
 	pwh = &PWHasher{}
-	pwh.Config(publicSalt, complexity)
+	pwh.Config(publicSalt, cost)
 	return
 }
 
-func (pwh *PWHasher) Config(publicSalt string, complexity int) {
-	if complexity < 1 {
-		complexity = 1
+func (pwh *PWHasher) Config(publicSalt string, cost int) {
+	if cost < 1 {
+		cost = 1
 	}
 	saltHasher := sha512.New()
 	saltHasher.Write([]byte(publicSalt))
 
-	pwh.complexity = complexity
 	pwh.publicSalt = saltHasher.Sum(nil)
+	pwh.cost = cost
 }
 
 func (pwh *PWHasher) Hash(word string, salt string) string {
-	seed := rand.New(rand.NewSource(time.Now().UTC().UnixNano())).Int63n(int64(pwh.complexity))
+	seed := rand.New(rand.NewSource(time.Now().UTC().UnixNano())).Int63n(int64(pwh.cost))
 	return string(pwh.hash(seed, word, salt))
 }
 
 func (pwh *PWHasher) Match(word string, salt string, hash string) bool {
-	for i := 0; i < pwh.complexity; i++ {
+	for i := 0; i < pwh.cost; i++ {
 		if bytes.Equal([]byte(hash), pwh.hash(int64(i), word, salt)) {
 			return true
 		}

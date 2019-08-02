@@ -2,8 +2,8 @@ package pwh
 
 var defaultPWH = New("...bla.bla.bla...", 1024)
 
-func Config(publicSalt string, complexity int) {
-	defaultPWH.Config(publicSalt, complexity)
+func Config(publicSalt string, cost int) {
+	defaultPWH.Config(publicSalt, cost)
 }
 
 func Hash(word string, salt string) string {
