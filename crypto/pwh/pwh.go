@@ -17,11 +17,11 @@ type PWHasher struct {
 
 func New(publicSalt string, complexity int) (pwh *PWHasher) {
 	pwh = &PWHasher{}
-	pwh.config(publicSalt, complexity)
+	pwh.Config(publicSalt, complexity)
 	return
 }
 
-func (pwh *PWHasher) config(publicSalt string, complexity int) {
+func (pwh *PWHasher) Config(publicSalt string, complexity int) {
 	if complexity < 1 {
 		complexity = 1
 	}
@@ -32,12 +32,12 @@ func (pwh *PWHasher) config(publicSalt string, complexity int) {
 	pwh.publicSalt = saltHasher.Sum(nil)
 }
 
-func (pwh *PWHasher) Hash(word, salt string) string {
+func (pwh *PWHasher) Hash(word string, salt string) string {
 	seed := rand.New(rand.NewSource(time.Now().UTC().UnixNano())).Int63n(int64(pwh.complexity))
 	return string(pwh.hash(seed, word, salt))
 }
 
-func (pwh *PWHasher) Match(word, salt, hash string) bool {
+func (pwh *PWHasher) Match(word string, salt string, hash string) bool {
 	for i := 0; i < pwh.complexity; i++ {
 		if bytes.Equal([]byte(hash), pwh.hash(int64(i), word, salt)) {
 			return true
@@ -46,7 +46,7 @@ func (pwh *PWHasher) Match(word, salt, hash string) bool {
 	return false
 }
 
-func (pwh *PWHasher) hash(seed int64, word, salt string) []byte {
+func (pwh *PWHasher) hash(seed int64, word string, salt string) []byte {
 	codeTable := make([]byte, 64)
 	for i, p := 0, rand.New(rand.NewSource(seed)).Perm(64); i < 64; i++ {
 		codeTable[i] = pwTable[p[i]]

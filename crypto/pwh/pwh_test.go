@@ -5,8 +5,8 @@ import (
 )
 
 var password = "password"
-var salt = "QXnAPLQJRrUouCG6uMRkijNhejwfEMKWmaBfp4RpyPxdNvaKdXLBfiVRm9NgCPGg"
-var publicSalt = "fAJgKq4xwgcicbsT6b6KPPFyXEqhuCLkgrceTJfpxARyReyzvmWVmcRdcEAjmKJB"
+var salt = "private_salt"
+var publicSalt = "public_salt"
 var testHasher = New(publicSalt, 5120)
 
 func TestPWH(t *testing.T) {
