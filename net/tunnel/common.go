@@ -65,31 +65,27 @@ func proxy(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
 		return fmt.Errorf("invalid connections")
 	}
 
-	ec1 := make(chan error, 1)
-	ec2 := make(chan error, 1)
+	ec := make(chan error, 2)
 
 	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
 		_, err := io.Copy(conn1, conn2)
 		ec <- err
-	}(conn1, conn2, ec1)
+	}(conn1, conn2, ec)
 
 	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
 		_, err := io.Copy(conn2, conn1)
 		ec <- err
-	}(conn1, conn2, ec2)
+	}(conn1, conn2, ec)
 
 	if timeout > 0 {
 		select {
-		case err = <-ec1:
-		case err = <-ec2:
+		case e := <-ec:
+			err = e
 		case <-time.After(timeout):
 			err = errTimeout
 		}
 	} else {
-		select {
-		case err = <-ec1:
-		case err = <-ec2:
-		}
+		err = <-ec
 	}
 
 	conn1.Close()

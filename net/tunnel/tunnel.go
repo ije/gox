@@ -20,7 +20,6 @@ type Tunnel struct {
 	MaxConnections   int
 	MaxProxyLifetime int
 	lock             sync.Mutex
-	err              error
 	online           bool
 	clientAddr       string
 	proxyConnections int
@@ -30,15 +29,14 @@ type Tunnel struct {
 	listener         net.Listener
 }
 
-func (t *Tunnel) ListenAndServe() {
+func (t *Tunnel) ListenAndServe() (err error) {
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", t.Port))
 	if err != nil {
-		t.err = err
 		return
 	}
 
 	t.listener = listener
-	listen(t.listener, func(conn net.Conn) {
+	return listen(t.listener, func(conn net.Conn) {
 		if !t.online || len(t.connQueue) >= t.MaxConnections {
 			conn.Close()
 			return
@@ -80,6 +78,8 @@ func (t *Tunnel) unactivate() {
 
 func (t *Tunnel) close() error {
 	t.unactivate()
+	close(t.connQueue)
+	close(t.connPool)
 	if l := t.listener; l != nil {
 		t.listener = nil
 		return l.Close()

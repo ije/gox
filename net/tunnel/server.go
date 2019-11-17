@@ -30,30 +30,13 @@ func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, ma
 	if s.tunnels == nil {
 		s.tunnels = map[string]*Tunnel{}
 	} else if t, ok := s.tunnels[name]; ok {
-		if t.Port == port {
-			if t.MaxConnections < maxConnections {
-				connQueue := make(chan net.Conn, maxConnections)
-				close(t.connQueue)
-				for conn := range t.connQueue {
-					connQueue <- conn
-				}
-				connPool := make(chan net.Conn, maxConnections)
-				close(t.connPool)
-				for conn := range t.connPool {
-					connPool <- conn
-				}
-				t.MaxConnections = maxConnections
-				t.connQueue = connQueue
-				t.connPool = connPool
-			}
-			if t.MaxProxyLifetime != maxProxyLifetime {
-				t.MaxProxyLifetime = maxProxyLifetime
-			}
+		if t.Port == port && t.MaxConnections >= maxConnections {
+			t.MaxConnections = maxConnections
+			t.MaxProxyLifetime = maxProxyLifetime
 			return t
-		} else {
-			t.close()
-			delete(s.tunnels, name)
 		}
+		t.close()
+		delete(s.tunnels, name)
 	}
 
 	tunnel := &Tunnel{
@@ -100,9 +83,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if t.MaxProxyLifetime > 0 {
 			meta["maxProxyLifetime"] = t.MaxProxyLifetime
 		}
-		if t.err != nil {
-			meta["error"] = t.err.Error()
-		}
 		clients = append(clients, meta)
 	}
 	s.lock.RUnlock()
@@ -133,10 +113,6 @@ func (s *Server) handleConn(conn net.Conn) {
 			var t Tunnel
 			if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
 				tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxConnections, t.MaxProxyLifetime)
-				if tunnel.err != nil {
-					err = fmt.Errorf("can not activate tunnel(%s)", t.Name)
-					return
-				}
 			} else {
 				err = fmt.Errorf("invalid hello message")
 				return
@@ -146,7 +122,7 @@ func (s *Server) handleConn(conn net.Conn) {
 			s.lock.RLock()
 			tunnel, ok = s.tunnels[string(data)]
 			s.lock.RUnlock()
-			if !ok || tunnel.err != nil {
+			if !ok {
 				err = fmt.Errorf("can not proxy tunnel(%s)", string(data))
 				return
 			}
