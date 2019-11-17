@@ -2,6 +2,7 @@ package utils
 
 import (
 	"archive/zip"
+	"bytes"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
@@ -177,6 +178,35 @@ func WriteJSONFile(filename string, v interface{}, indent string) (err error) {
 	}
 
 	return je.Encode(v)
+}
+
+func DecodeGob(data []byte, v interface{}) (err error) {
+	return gob.NewDecoder(bytes.NewReader(data)).Decode(v)
+}
+
+func EncodeGob(v interface{}) (data []byte, err error) {
+	var buf = bytes.NewBuffer(nil)
+	err = gob.NewEncoder(buf).Encode(v)
+	if err != nil {
+		return
+	}
+
+	data = buf.Bytes()
+	return
+}
+
+func MustEncodeGob(v interface{}) []byte {
+	if v == nil {
+		return nil
+	}
+
+	var buf = bytes.NewBuffer(nil)
+	err := gob.NewEncoder(buf).Encode(v)
+	if err != nil {
+		panic("gob: " + err.Error())
+	}
+
+	return buf.Bytes()
 }
 
 func ParseGobFile(filename string, v interface{}) (err error) {
