@@ -18,13 +18,12 @@ func TestFileFS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if log.bufcap != 64 {
-		t.Fatalf("invalid buffer cap %d, should be %d", log.bufcap, 64)
-	}
-
 	wr, ok := log.output.(*fileWriter)
 	if !ok {
 		t.Fatal("not a file log")
+	}
+	if log.bufcap != 64 {
+		t.Fatalf("invalid buffer cap %d, should be %d", log.bufcap, 64)
 	}
 	if wr.maxFileSize != 2*1024 {
 		t.Fatalf("invalid maxFileSize %d, should be %d", wr.maxFileSize, 2*1024)
@@ -36,18 +35,15 @@ func TestFileFS(t *testing.T) {
 	log.Print("Hello World!")
 	log.Debug(":D")
 	log.Info("Ok")
-	log.Warn("No good")
-	log.Error("ERROR")
+	log.Warn("Beep")
+	log.Error("Boom")
 
 	exp := `2016/01/02 15:04:05 Hello World!
 2016/01/02 15:04:05 [debug] :D
 2016/01/02 15:04:05 [info] Ok
-2016/01/02 15:04:05 [warn] No good
-2016/01/02 15:04:05 [error] ERROR
+2016/01/02 15:04:05 [warn] Beep
+2016/01/02 15:04:05 [error] Boom
 `
-	if l := len(exp); log.buflen != l%log.bufcap-1 {
-		t.Fatalf("invalid buffer len %d, should be %d", log.buflen, l%log.bufcap-1)
-	}
 
 	data, err := ioutil.ReadFile(logFile)
 	if err != nil {

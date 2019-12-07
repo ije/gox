@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -59,10 +60,14 @@ func appendFileIndex(path string, i int) string {
 
 func newWriter(filePath string, fileDateFormat string, maxFileSize int64) (w *fileWriter, err error) {
 	dir := path.Dir(filePath)
-	if dir != "" && dir != "." {
-		if err = os.MkdirAll(dir, 0755); err != nil {
-			return
-		}
+	fi, err := os.Stat(dir)
+	if err != nil && os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0755)
+	} else if err == nil && !fi.IsDir() {
+		err = fmt.Errorf("invalid filePath %s", filePath)
+	}
+	if err != nil {
+		return
 	}
 
 	w = &fileWriter{filePath: filePath, fileDateFormat: fileDateFormat, maxFileSize: maxFileSize}
@@ -93,7 +98,7 @@ func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
 		maxFileSize = i
 	}
 
-	return newWriter(utils.CleanPath(path), fileDateFormat, maxFileSize)
+	return newWriter(path, fileDateFormat, maxFileSize)
 }
 
 func init() {
