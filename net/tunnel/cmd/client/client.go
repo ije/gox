@@ -16,6 +16,7 @@ type Config struct {
 }
 
 type Client struct {
+	Server           string `json:"server"`
 	Name             string `json:"name"`
 	Port             uint16 `json:"port"`
 	ForwardPort      uint16 `json:"forwardPort"`
@@ -41,11 +42,15 @@ func main() {
 	}
 	tunnel.SetLogger(logger)
 
-	var clients int
+	var clientCount int
 	for _, client := range config.Clients {
 		if len(client.Name) > 0 && client.ForwardPort > 0 && client.Port > 0 {
+			sever := config.Server
+			if client.Server != "" {
+				sever = client.Server
+			}
 			tc := &tunnel.Client{
-				Server: config.Server,
+				Server: sever,
 				Tunnel: tunnel.Tunnel{
 					Name:             client.Name,
 					Port:             client.Port,
@@ -55,13 +60,16 @@ func main() {
 				ForwardPort: client.ForwardPort,
 			}
 			go tc.Connect()
-			clients++
+			clientCount++
 		}
 	}
 
-	if clients > 0 {
+	if clientCount > 0 {
+		logger.Infof("%d clients added", clientCount)
 		utils.WaitExit(func(sig os.Signal) bool {
 			return true
 		})
+	} else {
+		logger.Error("exit: no clients")
 	}
 }
