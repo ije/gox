@@ -165,8 +165,6 @@ type TunnelInfo struct {
 	Online           bool   `json:"online"`
 	ClientAddr       string `json:"clientAddr"`
 	ProxyConnections int    `json:"proxyConnections"`
-	ConnQueueLength  int    `json:"connQueueLength"`
-	ConnPoolLength   int    `json:"connPoolLength"`
 }
 
 type TunnelSlice []TunnelInfo

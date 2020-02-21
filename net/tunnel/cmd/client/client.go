@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ije/gox/log"
 	"github.com/ije/gox/net/tunnel"
@@ -12,20 +13,19 @@ import (
 
 type Config struct {
 	Server  string   `json:"server"`
-	Clients []Client `json:"clients"`
+	Tunnels []Tunnel `json:"tunnels"`
 }
 
-type Client struct {
+type Tunnel struct {
 	Server           string `json:"server"`
 	Name             string `json:"name"`
 	Port             uint16 `json:"port"`
 	ForwardPort      uint16 `json:"forwardPort"`
-	MaxConnections   int    `json:"maxConnections"`
 	MaxProxyLifetime int    `json:"maxProxyLifetime"`
 }
 
 func main() {
-	cfile := flag.String("c", "/etc/tunnel/client.json", "tunnel client configuration file")
+	cfile := flag.String("c", "/etc/gox.tunnel/config.json", "gox tunnel client configuration")
 	debug := flag.Bool("d", false, "debug mode")
 	flag.Parse()
 
@@ -42,34 +42,36 @@ func main() {
 	}
 	tunnel.SetLogger(logger)
 
-	var clientCount int
-	for _, client := range config.Clients {
-		if len(client.Name) > 0 && client.ForwardPort > 0 && client.Port > 0 {
-			sever := config.Server
-			if client.Server != "" {
-				sever = client.Server
+	var tunnelCount int
+	for _, t := range config.Tunnels {
+		if len(t.Name) > 0 && t.ForwardPort > 0 && t.Port > 0 {
+			server := config.Server
+			if t.Server != "" {
+				server = t.Server
 			}
-			tc := &tunnel.Client{
-				Server: sever,
-				Tunnel: tunnel.Tunnel{
-					Name:             client.Name,
-					Port:             client.Port,
-					MaxConnections:   client.MaxConnections,
-					MaxProxyLifetime: client.MaxProxyLifetime,
-				},
-				ForwardPort: client.ForwardPort,
+			server = strings.TrimSpace(server)
+			if server != "" {
+				tc := &tunnel.Client{
+					Server: server,
+					Tunnel: tunnel.Tunnel{
+						Name:             t.Name,
+						Port:             t.Port,
+						MaxProxyLifetime: t.MaxProxyLifetime,
+					},
+					ForwardPort: t.ForwardPort,
+				}
+				go tc.Connect()
+				tunnelCount++
 			}
-			go tc.Connect()
-			clientCount++
 		}
 	}
 
-	if clientCount > 0 {
-		logger.Infof("%d clients added", clientCount)
+	if tunnelCount > 0 {
+		logger.Infof("%d tunnels added", tunnelCount)
 		utils.WaitExit(func(sig os.Signal) bool {
 			return true
 		})
 	} else {
-		logger.Error("exit: no clients")
+		logger.Error("exit: no tunnels")
 	}
 }

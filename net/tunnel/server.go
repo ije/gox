@@ -28,7 +28,9 @@ func (s *Server) ActivateTunnel(name string, port uint16, maxProxyLifetime int) 
 		s.tunnels = map[string]*Tunnel{}
 	} else if t, ok := s.tunnels[name]; ok {
 		if t.Port == port {
-			t.MaxProxyLifetime = maxProxyLifetime
+			if t.MaxProxyLifetime != maxProxyLifetime {
+				t.MaxProxyLifetime = maxProxyLifetime
+			}
 			return t
 		}
 		t.close()
@@ -60,8 +62,6 @@ func (s *Server) Serve() (err error) {
 	return listen(l, s.handleConn)
 }
 
-
-
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	tunnels := TunnelSlice{}
 	s.lock.RLock()
@@ -73,8 +73,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			ClientAddr:       t.clientAddr,
 			Online:           t.online,
 			ProxyConnections: t.proxyConnections,
-			ConnPoolLength:   len(t.connPool),
-			ConnQueueLength:  len(t.connQueue),
 		})
 	}
 	s.lock.RUnlock()
