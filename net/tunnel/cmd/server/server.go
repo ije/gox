@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"net/http"
 
 	"github.com/ije/gox/log"
@@ -10,7 +11,7 @@ import (
 
 func main() {
 	port := flag.Int("port", 333, "tunnel service port")
-	httpAddr := flag.String("http", "localhost:8080", "tunnel http server addr")
+	httpPort := flag.Int("http-port", 8080, "tunnel service http server addr")
 	debug := flag.Bool("d", false, "debug mode")
 	flag.Parse()
 
@@ -23,7 +24,7 @@ func main() {
 	ts := &tunnel.Server{
 		Port: uint16(*port),
 	}
-	go http.ListenAndServe(*httpAddr, ts)
+	go http.ListenAndServe(fmt.Sprintf(":%d", *httpPort), ts)
 	for {
 		ts.Serve()
 	}

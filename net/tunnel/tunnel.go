@@ -17,7 +17,6 @@ var XTunnelHead = []byte("X-TUNNEL")
 type Tunnel struct {
 	Name             string
 	Port             uint16
-	MaxConnections   int
 	MaxProxyLifetime int
 	lock             sync.Mutex
 	online           bool
@@ -37,7 +36,7 @@ func (t *Tunnel) ListenAndServe() (err error) {
 
 	t.listener = listener
 	return listen(t.listener, func(conn net.Conn) {
-		if !t.online || len(t.connQueue) >= t.MaxConnections {
+		if !t.online {
 			conn.Close()
 			return
 		}
@@ -158,3 +157,20 @@ func parseMessage(conn net.Conn) (flag string, data []byte, err error) {
 	}
 	return
 }
+
+type TunnelInfo struct {
+	Name             string `json:"name"`
+	Port             uint16 `json:"port"`
+	MaxProxyLifetime int    `json:"maxProxyLifetime,omitempty"`
+	Online           bool   `json:"online"`
+	ClientAddr       string `json:"clientAddr"`
+	ProxyConnections int    `json:"proxyConnections"`
+	ConnQueueLength  int    `json:"connQueueLength"`
+	ConnPoolLength   int    `json:"connPoolLength"`
+}
+
+type TunnelSlice []TunnelInfo
+
+func (p TunnelSlice) Len() int           { return len(p) }
+func (p TunnelSlice) Less(i, j int) bool { return p[i].Name < p[j].Name }
+func (p TunnelSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }

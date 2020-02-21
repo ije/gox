@@ -55,23 +55,23 @@ if [ "$?" != "0" ]; then
 fi
 
 if [ "$initSupervisor" = "yes" ]; then
-	scp -P $hostSSHPort $target/supervisor.conf $loginUser@$host:$supervisordConfDir/tunnel.$target.conf
+	scp -P $hostSSHPort $target/supervisor.conf $loginUser@$host:$supervisordConfDir/gox.tunnel.$target.conf
 	if [ "$?" != "0" ]; then
-		rm tunnel.$target
+		rm $target/$target
 		exit
 	fi
 fi
 
-scp -P $hostSSHPort tunnel.$target $loginUser@$host:/tmp/tunnel.$target
+scp -P $hostSSHPort $target/$target $loginUser@$host:/tmp/gox.tunnel.$target
 if [ "$?" != "0" ]; then
-	rm tunnel.$target
+	rm $target/$target
 	exit
 fi
 
-echo "--- restart tunnel.$target..."
+echo "--- restart service..."
 ssh -p $hostSSHPort $loginUser@$host << EOF
-	echo "restart tunnel.$target ..."
+	echo "tunnel $target restarted"
 	nohup sh /tmp/tunnel.install.sh $target $initSupervisor >/dev/null 2>&1 &
 EOF
 
-rm tunnel.$target
+rm $target/$target

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 )
@@ -19,19 +20,14 @@ type Server struct {
 	tunnels map[string]*Tunnel
 }
 
-func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, maxProxyLifetime int) *Tunnel {
+func (s *Server) ActivateTunnel(name string, port uint16, maxProxyLifetime int) *Tunnel {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-
-	if maxConnections <= 0 {
-		maxConnections = 1
-	}
 
 	if s.tunnels == nil {
 		s.tunnels = map[string]*Tunnel{}
 	} else if t, ok := s.tunnels[name]; ok {
-		if t.Port == port && t.MaxConnections >= maxConnections {
-			t.MaxConnections = maxConnections
+		if t.Port == port {
 			t.MaxProxyLifetime = maxProxyLifetime
 			return t
 		}
@@ -42,10 +38,9 @@ func (s *Server) ActivateTunnel(name string, port uint16, maxConnections int, ma
 	tunnel := &Tunnel{
 		Name:             name,
 		Port:             port,
-		MaxConnections:   maxConnections,
 		MaxProxyLifetime: maxProxyLifetime,
-		connQueue:        make(chan net.Conn, maxConnections),
-		connPool:         make(chan net.Conn, maxConnections),
+		connQueue:        make(chan net.Conn, 1000),
+		connPool:         make(chan net.Conn, 1000),
 	}
 	s.tunnels[name] = tunnel
 	go func(t *Tunnel) {
@@ -65,32 +60,34 @@ func (s *Server) Serve() (err error) {
 	return listen(l, s.handleConn)
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	clients := []map[string]interface{}{}
 
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	tunnels := TunnelSlice{}
 	s.lock.RLock()
 	for _, t := range s.tunnels {
-		meta := map[string]interface{}{
-			"name":             t.Name,
-			"port":             t.Port,
-			"clientAddr":       t.clientAddr,
-			"online":           t.online,
-			"maxConnections":   t.MaxConnections,
-			"proxyConnections": t.proxyConnections,
-			"connPoolLength":   len(t.connPool),
-			"connQueueLength":  len(t.connQueue),
-		}
-		if t.MaxProxyLifetime > 0 {
-			meta["maxProxyLifetime"] = t.MaxProxyLifetime
-		}
-		clients = append(clients, meta)
+		tunnels = append(tunnels, TunnelInfo{
+			Name:             t.Name,
+			Port:             t.Port,
+			MaxProxyLifetime: t.MaxProxyLifetime,
+			ClientAddr:       t.clientAddr,
+			Online:           t.online,
+			ProxyConnections: t.proxyConnections,
+			ConnPoolLength:   len(t.connPool),
+			ConnQueueLength:  len(t.connQueue),
+		})
 	}
 	s.lock.RUnlock()
+
+	sort.Sort(tunnels)
 
 	w.Header().Set("Content-Type", "application/json")
 	je := json.NewEncoder(w)
 	je.SetIndent("", "\t")
-	je.Encode(clients)
+	je.Encode(map[string]interface{}{
+		"port":    s.Port,
+		"tunnels": tunnels,
+	})
 }
 
 func (s *Server) handleConn(conn net.Conn) {
@@ -112,7 +109,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		if flag == "hello" {
 			var t Tunnel
 			if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
-				tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxConnections, t.MaxProxyLifetime)
+				tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxProxyLifetime)
 			} else {
 				err = fmt.Errorf("invalid hello message")
 				return

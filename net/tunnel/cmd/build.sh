@@ -15,6 +15,7 @@ fi
 export GOARCH=$goarch
 
 target="$1"
+cd "./$target"
 
-echo "--- compiling the tunnel.$1 (${goos}_$goarch)..."
-go build -o "./$target" "$target/$target.go"
+echo "--- compiling..."
+go build $target.go
