@@ -27,47 +27,24 @@ func (client *Client) Connect() {
 }
 
 func (client *Client) serveHeartBeat(conn net.Conn) {
+	defer conn.Close()
+
 	for {
-		if err := dotimeout(func() (err error) {
-			buf := make([]byte, 1)
-			_, err = conn.Read(buf)
-			if err != nil {
-				return
-			}
-
-			beatState := buf[0]
-			if beatState != 1 && beatState != 2 {
-				err = fmt.Errorf("server error")
-				return
-			}
-
-			var retState byte = 1
-			if beatState == 2 && client.dialAndProxy() != nil {
-				retState = 0
-			}
-			_, err = conn.Write([]byte{retState})
+		buf := make([]byte, 1)
+		_, err := conn.Read(buf)
+		if err != nil {
 			return
-		}, 2*heartBeatInterval*time.Second); err != nil {
-			log.Warnf("tunnel(%s) break heart beat: %v", client.Tunnel.Name, err)
-			conn.Close()
-			return
+		}
+
+		if buf[0] == 2 {
+			client.dialAndProxy()
 		}
 	}
 }
 
 func (client *Client) dialAndProxy() (err error) {
-	var localConn net.Conn
-	for i := 0; i < 6; i++ {
-		localConn, err = dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
-		if err == nil {
-			break
-		}
-		if i < 5 {
-			time.Sleep(time.Second / 2)
-		}
-	}
+	localConn, err := net.Dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
 	if err != nil {
-		err = fmt.Errorf("dial local: %v", err)
 		return
 	}
 
@@ -83,7 +60,7 @@ func (client *Client) dialAndProxy() (err error) {
 }
 
 func (client *Client) dialWithHandshake(flag string) (conn net.Conn, err error) {
-	c, err := dial("tcp", client.Server)
+	c, err := net.Dial("tcp", client.Server)
 	if err != nil {
 		return
 	}

@@ -33,17 +33,28 @@ func (t *Tunnel) ListenAndServe() (err error) {
 	if err != nil {
 		return
 	}
+	defer listener.Close()
 
 	t.listener = listener
-	return listen(t.listener, func(conn net.Conn) {
-		if !t.online {
-			conn.Close()
-			return
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			t.listener = nil
+			return err
 		}
 
-		log.Debugf("tunnel(%s) heard a new connection, current connQueue has %d connections", t.Name, len(t.connQueue)+1)
-		t.connQueue <- conn
-	})
+		go t.handleConn(conn)
+	}
+}
+
+func (t *Tunnel) handleConn(conn net.Conn) {
+	if !t.online {
+		conn.Close()
+		return
+	}
+
+	log.Debugf("tunnel(%s) heard a new connection, current connQueue has %d connections", t.Name, len(t.connQueue))
+	t.connQueue <- conn
 }
 
 func (t *Tunnel) activate(addr net.Addr) {
@@ -55,6 +66,7 @@ func (t *Tunnel) activate(addr net.Addr) {
 	t.clientAddr = remoteAddr
 	if t.olTimer != nil {
 		t.olTimer.Stop()
+		t.olTimer = nil
 	}
 	t.olTimer = time.AfterFunc(2*heartBeatInterval*time.Second, func() {
 		t.olTimer = nil
@@ -75,15 +87,14 @@ func (t *Tunnel) unactivate() {
 	t.clientAddr = ""
 }
 
-func (t *Tunnel) close() error {
+func (t *Tunnel) close() {
 	t.unactivate()
 	close(t.connQueue)
 	close(t.connPool)
 	if l := t.listener; l != nil {
 		t.listener = nil
-		return l.Close()
+		l.Close()
 	}
-	return nil
 }
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {
@@ -155,6 +166,35 @@ func parseMessage(conn net.Conn) (flag string, data []byte, err error) {
 			data = buf.Bytes()
 		}
 	}
+	return
+}
+
+func proxy(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
+	ec := make(chan error, 2)
+
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn1, conn2)
+		ec <- err
+	}(conn1, conn2, ec)
+
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn2, conn1)
+		ec <- err
+	}(conn1, conn2, ec)
+
+	if timeout > 0 {
+		select {
+		case e := <-ec:
+			err = e
+		case <-time.After(timeout):
+			err = fmt.Errorf("timeout")
+		}
+	} else {
+		err = <-ec
+	}
+
+	conn1.Close()
+	conn2.Close()
 	return
 }
 
