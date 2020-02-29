@@ -14,6 +14,7 @@ const (
 	PB
 )
 
+// ParseBytes parses a bytes string
 func ParseBytes(s string) (int64, error) {
 	if sl := len(s); sl > 0 {
 		b := B
@@ -49,7 +50,8 @@ func ParseBytes(s string) (int64, error) {
 	return 0, strconv.ErrSyntax
 }
 
-// TODO: should parse format like '1d6h30m15s'?
+// ParseDuration parses a duration string
+// TODO: parse format like '1d6h30m15s'?
 func ParseDuration(s string) (time.Duration, error) {
 	if sl := len(s); sl > 0 {
 		t := time.Second

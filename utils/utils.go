@@ -21,15 +21,15 @@ import (
 	"syscall"
 )
 
-func WaitExit(ok func(os.Signal) bool) {
-	if ok == nil {
+func WaitExitSignal(callback func(os.Signal) bool) {
+	if callback == nil {
 		return
 	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGHUP)
-	if !ok(<-c) {
-		WaitExit(ok)
+	if !callback(<-c) {
+		WaitExitSignal(callback)
 	}
 }
 

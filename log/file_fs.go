@@ -93,7 +93,7 @@ func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
 	if val, ok := args["maxFileSize"]; ok && len(val) > 0 {
 		i, err := utils.ParseBytes(val)
 		if err != nil {
-			return nil, ErrorArgumentFormat
+			return nil, fmt.Errorf("invalid maxFileSize argument")
 		}
 		maxFileSize = i
 	}

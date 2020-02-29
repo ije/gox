@@ -9,11 +9,11 @@ Package log ...
 	)
 
 	func main() {
-	    log, err := log.New("file:/var/log/error.log?buffer=32kb")
+	    l, err := log.New("file:/var/log/error.log?buffer=32kb")
 	    if err != nil {
 	        return
 	    }
-	    log.Info("Hello World!")
+	    l.Info("Hello World!")
 	}
 
 */
@@ -30,14 +30,12 @@ import (
 	"github.com/ije/gox/utils"
 )
 
-var ErrorArgumentFormat = fmt.Errorf("invalid argument format")
-
 type Logger struct {
 	lock       sync.Mutex
 	level      Level
-	quite      bool
 	prefix     string
 	output     io.Writer
+	quite      bool
 	buffer     []byte
 	bufcap     int
 	buflen     int
@@ -57,7 +55,7 @@ func (l *Logger) parseURL(url string) (err error) {
 
 	path, query := utils.SplitByFirstByte(url, '?')
 	name, addr := utils.SplitByFirstByte(path, ':')
-	fs, ok := fss[strings.ToLower(name)]
+	fs, ok := registeredFSS[strings.ToLower(name)]
 	if !ok {
 		return fmt.Errorf("unknown fs '%s'", name)
 	}
@@ -84,10 +82,12 @@ func (l *Logger) parseURL(url string) (err error) {
 		}
 	}
 
-	wr, err := fs.Open(addr, args)
-	if err == nil {
-		l.SetOutput(wr)
+	output, err := fs.Open(addr, args)
+	if err != nil {
+		return
 	}
+
+	l.SetOutput(output)
 	return
 }
 
@@ -307,21 +307,20 @@ func (l *Logger) write(p []byte) (err error) {
 			l.buflen = 0
 		}
 
-		if n > l.bufcap {
-			n, err = l.output.Write(p)
-			return
-		}
-
-		copy(l.buffer[l.buflen:], p)
-		l.buflen += n
-
 		if l.flushTimer != nil {
 			l.flushTimer.Stop()
 		}
-		l.flushTimer = time.AfterFunc(time.Minute, func() {
-			l.flushTimer = nil
-			l.FlushBuffer()
-		})
+
+		if n > l.bufcap {
+			n, err = l.output.Write(p)
+		} else {
+			copy(l.buffer[l.buflen:], p)
+			l.buflen += n
+			l.flushTimer = time.AfterFunc(time.Minute, func() {
+				l.flushTimer = nil
+				l.FlushBuffer()
+			})
+		}
 	} else {
 		n, err = l.output.Write(p)
 	}

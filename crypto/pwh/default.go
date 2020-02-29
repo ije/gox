@@ -1,6 +1,6 @@
 package pwh
 
-var defaultPWH = New("...bla.bla.bla...", 1024)
+var defaultPWH = New("gox", 1024)
 
 func Config(publicSalt string, cost int) {
 	defaultPWH.Config(publicSalt, cost)

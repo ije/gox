@@ -10,7 +10,7 @@ import (
 )
 
 type mItem struct {
-	value     interface{}
+	value     []byte
 	expiresAt int64
 }
 
@@ -33,7 +33,7 @@ func (mc *mCache) Has(key string) (ok bool, err error) {
 	return
 }
 
-func (mc *mCache) Get(key string) (value interface{}, err error) {
+func (mc *mCache) Get(key string) (value []byte, err error) {
 	mc.lock.RLock()
 	s, ok := mc.storage[key]
 	mc.lock.RUnlock()
@@ -52,14 +52,20 @@ func (mc *mCache) Get(key string) (value interface{}, err error) {
 	return
 }
 
-func (mc *mCache) Set(key string, value interface{}, lifetime ...time.Duration) error {
+func (mc *mCache) Set(key string, value []byte) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
-	if len(lifetime) > 0 && lifetime[0] > 0 {
-		mc.storage[key] = mItem{value, time.Now().Add(lifetime[0]).UnixNano()}
-	} else {
-		mc.storage[key] = mItem{value, 0}
+	mc.storage[key] = mItem{value, 0}
+	return nil
+}
+
+func (mc *mCache) SetTemp(key string, value []byte, lifetime time.Duration) error {
+	mc.lock.Lock()
+	defer mc.lock.Unlock()
+
+	if lifetime > 0 {
+		mc.storage[key] = mItem{value, time.Now().Add(lifetime).UnixNano()}
 	}
 	return nil
 }
@@ -80,7 +86,7 @@ func (mc *mCache) Flush() error {
 	return nil
 }
 
-func (mc *mCache) Run(name string, value ...interface{}) error {
+func (mc *mCache) Notify(name string, value ...string) error {
 	return nil
 }
 

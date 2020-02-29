@@ -17,7 +17,7 @@ var CRLF = []byte("\r\n")
 type Mail struct {
 	Subject     string
 	PlainText   []byte
-	Html        []byte
+	HTML        []byte
 	Attachments []*Attachment
 }
 
@@ -42,7 +42,7 @@ func (mail *Mail) Encode(from *mail.Address, to AddressList) []byte {
 		buf.writeln()
 		buf.writeln("--", boundary)
 	}
-	if len(mail.PlainText) > 0 && len(mail.Html) > 0 {
+	if len(mail.PlainText) > 0 && len(mail.HTML) > 0 {
 		cBoundary := newBoundary()
 		buf.writeln("Content-Type: multipart/alternative; boundary=", cBoundary)
 		buf.writeln()
@@ -51,14 +51,14 @@ func (mail *Mail) Encode(from *mail.Address, to AddressList) []byte {
 		buf.writeln()
 		buf.writeln()
 		buf.writeln("--", cBoundary)
-		buf.writeHtmlBody(mail.Html)
+		buf.writeHTMLBody(mail.HTML)
 		buf.writeln()
 		buf.writeln()
 		buf.writeln("--", cBoundary, "--")
 	} else if len(mail.PlainText) > 0 {
 		buf.writeTextBody(mail.PlainText)
-	} else if len(mail.Html) > 0 {
-		buf.writeHtmlBody(mail.Html)
+	} else if len(mail.HTML) > 0 {
+		buf.writeHTMLBody(mail.HTML)
 	}
 	if len(mail.Attachments) > 0 {
 		for _, attchment := range mail.Attachments {
@@ -105,7 +105,7 @@ func (buf *mailBuffer) writeTextBody(text []byte) {
 	buf.Write(text)
 }
 
-func (buf *mailBuffer) writeHtmlBody(html []byte) {
+func (buf *mailBuffer) writeHTMLBody(html []byte) {
 	buf.writeln("Content-Type: text/html; charset=UTF-8")
 
 	for _, c := range html {

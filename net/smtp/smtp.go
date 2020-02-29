@@ -5,20 +5,21 @@ import (
 	"fmt"
 	netmail "net/mail"
 	"net/smtp"
-	"strings"
 	"sync"
-
-	"github.com/ije/gox/valid"
 )
 
 type SMTP struct {
-	DefaultFrom *netmail.Address
-	addr        string
-	auth        smtp.Auth
+	addr     string
+	auth     smtp.Auth
+	username string
 }
 
-func New(host string, port uint16, username string, password string, defaultForm string) *SMTP {
-	return &SMTP{Address(defaultForm), fmt.Sprintf("%s:%d", host, port), smtp.PlainAuth("", username, password, host)}
+func New(host string, port uint16, username string, password string) *SMTP {
+	return &SMTP{
+		addr:     fmt.Sprintf("%s:%d", host, port),
+		auth:     smtp.PlainAuth("", username, password, host),
+		username: username,
+	}
 }
 
 func (s *SMTP) Auth() (err error) {
@@ -30,93 +31,28 @@ func (s *SMTP) Auth() (err error) {
 	return c.Auth(s.auth)
 }
 
-func (s *SMTP) SendMail(mail *Mail, from interface{}, to interface{}, oneToOne bool) (err error) {
+func (s *SMTP) SendMail(mail *Mail, from string, to string, oneToOne bool) (err error) {
 	if mail == nil {
 		err = errors.New("mail is nil")
 		return
 	}
 
 	var sender *netmail.Address
-	var recipients AddressList
-
-	if from != nil {
-		switch a := from.(type) {
-		case string:
-			sender, err = netmail.ParseAddress(a)
-			if err != nil {
-				return
-			}
-		case netmail.Address:
-			if valid.IsEmail(a.Address) {
-				sender = &a
-			}
-		case *netmail.Address:
-			if valid.IsEmail(a.Address) {
-				sender = a
-			}
-		}
+	if from == "" {
+		sender, err = netmail.ParseAddress(s.username)
+	} else {
+		sender, err = netmail.ParseAddress(from)
 	}
-	if sender == nil {
-		sender = s.DefaultFrom
-	}
-	if sender == nil {
-		err = ErrEmptySender
+	if err != nil {
 		return
 	}
 
-	if to != nil {
-		switch a := to.(type) {
-		case string:
-			var list []*netmail.Address
-			list, err = netmail.ParseAddressList(a)
-			if err != nil {
-				return
-			}
-			recipients = AddressList(list)
-		case []netmail.Address:
-			for _, s := range a {
-				if valid.IsEmail(s.Address) {
-					recipients = append(recipients, &s)
-				}
-			}
-		case []*netmail.Address:
-			for _, s := range a {
-				if valid.IsEmail(s.Address) {
-					recipients = append(recipients, s)
-				}
-			}
-		case AddressList:
-			for _, s := range a {
-				if valid.IsEmail(s.Address) {
-					recipients = append(recipients, s)
-				}
-			}
-		case map[string]string:
-			tmp := map[string]string{}
-			for name, email := range a {
-				if valid.IsEmail(email) {
-					tmp[email] = strings.TrimSpace(name)
-				}
-			}
-			for email, name := range tmp {
-				recipients = append(recipients, &netmail.Address{Name: name, Address: email})
-			}
-		}
-	}
-	if recipients == nil || len(recipients) == 0 {
-		err = ErrEmptyRecipients
+	list, err := netmail.ParseAddressList(to)
+	if err != nil {
 		return
 	}
 
-	if len(mail.Subject) == 0 {
-		err = ErrEmptySubject
-		return
-	}
-
-	if len(mail.PlainText) == 0 && len(mail.Html) == 0 {
-		err = ErrEmptyContent
-		return
-	}
+	recipients := AddressList(list)
 
 	if !oneToOne {
 		err = smtp.SendMail(s.addr, s.auth, sender.Address, recipients.List(), mail.Encode(sender, recipients))

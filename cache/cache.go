@@ -10,11 +10,12 @@ import (
 
 type Cache interface {
 	Has(key string) (bool, error)
-	Get(key string) (interface{}, error)
-	Set(key string, value interface{}, lifetime ...time.Duration) error
+	Get(key string) ([]byte, error)
+	Set(key string, value []byte) error
+	SetTemp(key string, value []byte, lifetime time.Duration) error
 	Delete(key string) error
 	Flush() error
-	Run(name string, args ...interface{}) error
+	Notify(name string, args ...string) error
 }
 
 // New returns a new cache by url

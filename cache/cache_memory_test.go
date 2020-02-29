@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestMCache(t *testing.T) {
+func TestMemCache(t *testing.T) {
 	cache, err := New("memory?gcInterval=3s")
 	if err != nil {
 		t.Error(err)
@@ -20,23 +20,23 @@ func TestMCache(t *testing.T) {
 		t.Fatalf("invalid gc interval %v, should be %v", mc.gcInterval, 3*time.Second)
 	}
 
-	cache.Set("key", "hello world")
+	cache.Set("key", []byte("hello world"))
 	value, err := cache.Get("key")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if value != "hello world" {
+	if string(value) != "hello world" {
 		t.Fatalf("invalid value(%v), shoud be 'hello world'", value)
 	}
 
-	cache.Set("keytemp", []byte("hello world"), 3*time.Second)
-	_, err = cache.Get("keytemp")
+	cache.SetTemp("key2", []byte("hello world"), 3*time.Second)
+	_, err = cache.Get("key2")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	time.Sleep(3 * time.Second)
-	_, err = cache.Get("keytemp")
+	_, err = cache.Get("key2")
 	if err != ErrExpired {
 		t.Fatal("should be expired error, but", err)
 	}
