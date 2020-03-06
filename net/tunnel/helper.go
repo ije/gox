@@ -22,6 +22,7 @@ func sendMessage(conn net.Conn, flag Flag, data []byte) (err error) {
 	if dl > 0 {
 		buf.Write(data)
 	}
+	buf.Write([]byte{'\r', '\n'})
 
 	_, err = io.Copy(conn, buf)
 	return
@@ -60,6 +61,17 @@ func parseMessage(conn net.Conn) (flag Flag, data []byte, err error) {
 		if err == nil {
 			data = buf.Bytes()
 		}
+	}
+
+	// parse EOF
+	buf = make([]byte, 2)
+	_, err = conn.Read(buf)
+	if err != nil {
+		return
+	}
+
+	if !bytes.Equal(buf, []byte{'\r', '\n'}) {
+		err = fmt.Errorf("invalid head")
 	}
 	return
 }
