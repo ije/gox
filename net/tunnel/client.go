@@ -70,7 +70,11 @@ func (client *Client) dial(flag Flag) (conn net.Conn, err error) {
 
 	buffer := bytes.NewBuffer(nil)
 	if flag == FlagHello {
-		gob.NewEncoder(buffer).Encode(client.Tunnel)
+		gob.NewEncoder(buffer).Encode(TunnelInfo{
+			Name:             client.Tunnel.Name,
+			Port:             client.Tunnel.Port,
+			MaxProxyLifetime: client.Tunnel.MaxProxyLifetime,
+		})
 	} else if flag == FlagProxy {
 		buffer.WriteString(client.Tunnel.Name)
 	} else {

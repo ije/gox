@@ -104,7 +104,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	var tunnel *Tunnel
 
 	if flag == FlagHello {
-		var t Tunnel
+		var t TunnelInfo
 		if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
 			tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxProxyLifetime)
 		} else {
@@ -115,15 +115,12 @@ func (s *Server) handleConn(conn net.Conn) {
 		s.lock.RLock()
 		tunnel, ok = s.tunnels[string(data)]
 		s.lock.RUnlock()
-		if !ok {
-			return
+		if ok {
+			tunnel.proxy(conn, <-tunnel.connPool)
 		}
-	} else {
 		return
-	}
-
-	if flag == FlagProxy {
-		tunnel.proxy(conn, <-tunnel.connPool)
+	} else {
+		// invalid flag
 		return
 	}
 
