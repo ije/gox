@@ -12,6 +12,7 @@ const (
 	tunnelPort    = 8087
 	httpPort      = 8088
 	httpProxyPort = 8089
+	message       = "Hello World!"
 )
 
 func init() {
@@ -21,7 +22,7 @@ func init() {
 	s := &http.Server{
 		Addr: fmt.Sprintf(":%d", httpPort),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Hello World!"))
+			w.Write([]byte(message))
 		}),
 	}
 	s.SetKeepAlivesEnabled(false)
@@ -37,7 +38,7 @@ func init() {
 	client := &Client{
 		Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
 		Tunnel: Tunnel{
-			Name: "http-proxy-testing",
+			Name: "test",
 			Port: httpProxyPort,
 		},
 		ForwardPort: httpPort,
@@ -57,7 +58,7 @@ func Test(t *testing.T) {
 			defer r.Body.Close()
 
 			ret, _ := ioutil.ReadAll(r.Body)
-			if string(ret) != "Hello World!" {
+			if string(ret) != message {
 				t.Fatal(string(ret))
 			}
 		}()
