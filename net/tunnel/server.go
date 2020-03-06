@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sort"
@@ -107,6 +108,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		var t TunnelInfo
 		if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
 			tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxProxyLifetime)
+			log.Printf("tunnel(%s) activated, port: %d, maxProxyLifetime: %ds", t.Name, t.Port, t.MaxProxyLifetime)
 		} else {
 			return
 		}

@@ -36,7 +36,7 @@ func (client *Client) serveHeartBeat(conn net.Conn) {
 			return
 		}
 
-		// fmt.Println("heartbeat returns:", flag)
+		log.Println("heartbeat returns:", flag)
 		if flag == FlagProxy {
 			go client.dialAndProxy()
 		} else if flag != FlagHello {
