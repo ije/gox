@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"sort"
@@ -13,7 +12,7 @@ import (
 	"time"
 )
 
-const heartBeatInterval = 15
+var heartBeatInterval = 15
 
 type Server struct {
 	lock    sync.RWMutex
@@ -104,14 +103,14 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	var tunnel *Tunnel
 
-	if flag == "hello" {
+	if flag == FlagHello {
 		var t Tunnel
 		if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
 			tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxProxyLifetime)
 		} else {
 			return
 		}
-	} else if flag == "proxy" {
+	} else if flag == FlagProxy {
 		var ok bool
 		s.lock.RLock()
 		tunnel, ok = s.tunnels[string(data)]
@@ -123,14 +122,8 @@ func (s *Server) handleConn(conn net.Conn) {
 		return
 	}
 
-	_, err = conn.Write([]byte{1})
-	if err != nil {
-		return
-	}
-
-	if flag == "proxy" {
+	if flag == FlagProxy {
 		tunnel.proxy(conn, <-tunnel.connPool)
-		log.Println("the tunnel(%s) start to proxy connection", tunnel.Name)
 		return
 	}
 
@@ -140,7 +133,7 @@ func (s *Server) handleConn(conn net.Conn) {
 	for {
 		select {
 		case c := <-tunnel.connQueue:
-			_, err := conn.Write([]byte{2})
+			err := sendMessage(conn, FlagProxy, nil)
 			if err != nil {
 				c.Close()
 				return
@@ -148,11 +141,10 @@ func (s *Server) handleConn(conn net.Conn) {
 
 			tunnel.activate(conn.RemoteAddr())
 			tunnel.connPool <- c
-			log.Println("the tunnel(%s) is hit by proxy request ", tunnel.Name)
 
 		// heart beat
-		case <-time.After(heartBeatInterval * time.Second):
-			_, err := conn.Write([]byte{1})
+		case <-time.After(time.Duration(heartBeatInterval) * time.Second):
+			err := sendMessage(conn, FlagHello, nil)
 			if err != nil {
 				return
 			}

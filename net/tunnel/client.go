@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"log"
 	"net"
 	"time"
 )
@@ -16,7 +17,7 @@ type Client struct {
 
 func (client *Client) Connect() {
 	for {
-		conn, err := client.dialWithHandshake("hello")
+		conn, err := client.dial(FlagHello)
 		if err != nil {
 			time.Sleep(time.Second)
 			continue
@@ -30,27 +31,29 @@ func (client *Client) serveHeartBeat(conn net.Conn) {
 	defer conn.Close()
 
 	for {
-		buf := make([]byte, 1)
-		_, err := conn.Read(buf)
+		flag, _, err := parseMessage(conn)
 		if err != nil {
 			return
 		}
 
-		if buf[0] == 2 {
-			client.dialAndProxy()
+		// fmt.Println("heartbeat returns:", flag)
+		if flag == FlagProxy {
+			go client.dialAndProxy()
+		} else if flag != FlagHello {
+			return
 		}
 	}
 }
 
-func (client *Client) dialAndProxy() (err error) {
+func (client *Client) dialAndProxy() {
 	localConn, err := net.Dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
 	if err != nil {
 		return
 	}
 
-	serverConn, err := client.dialWithHandshake("proxy")
+	serverConn, err := client.dial(FlagProxy)
 	if err != nil {
-		err = fmt.Errorf("dial server for proxy request: %v", err)
+		log.Println("[dialAndProxy] can not dial server: ", err)
 		localConn.Close()
 		return
 	}
@@ -59,16 +62,16 @@ func (client *Client) dialAndProxy() (err error) {
 	return
 }
 
-func (client *Client) dialWithHandshake(flag string) (conn net.Conn, err error) {
+func (client *Client) dial(flag Flag) (conn net.Conn, err error) {
 	c, err := net.Dial("tcp", client.Server)
 	if err != nil {
 		return
 	}
 
 	buffer := bytes.NewBuffer(nil)
-	if flag == "hello" {
+	if flag == FlagHello {
 		gob.NewEncoder(buffer).Encode(client.Tunnel)
-	} else if flag == "proxy" {
+	} else if flag == FlagProxy {
 		buffer.WriteString(client.Tunnel.Name)
 	} else {
 		err = fmt.Errorf("invalid flag")
@@ -78,19 +81,6 @@ func (client *Client) dialWithHandshake(flag string) (conn net.Conn, err error) 
 
 	err = sendMessage(c, flag, buffer.Bytes())
 	if err != nil {
-		c.Close()
-		return
-	}
-
-	buf := make([]byte, 1)
-	_, err = c.Read(buf)
-	if err != nil {
-		c.Close()
-		return
-	}
-
-	if buf[0] != 1 {
-		err = fmt.Errorf("server error")
 		c.Close()
 		return
 	}

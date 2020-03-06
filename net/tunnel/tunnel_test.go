@@ -15,8 +15,9 @@ const (
 )
 
 func init() {
-	log.SetLevelByName("debug")
+	heartBeatInterval = 1
 
+	// a http service
 	s := &http.Server{
 		Addr: fmt.Sprintf(":%d", httpPort),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,17 +27,18 @@ func init() {
 	s.SetKeepAlivesEnabled(false)
 	go s.ListenAndServe()
 
+	// tunnel server
 	serv := &Server{
 		Port: tunnelPort,
 	}
 	go serv.Serve()
 
+	// tunnel client
 	client := &Client{
 		Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
 		Tunnel: Tunnel{
-			Name:           "http-proxy-testing",
-			Port:           httpProxyPort,
-			MaxConnections: 100,
+			Name: "http-proxy-testing",
+			Port: httpProxyPort,
 		},
 		ForwardPort: httpPort,
 	}
@@ -44,7 +46,7 @@ func init() {
 }
 
 func Test(t *testing.T) {
-	time.Sleep(time.Second) // wait init
+	time.Sleep(time.Second) // wait init finished
 
 	for i := 0; i < 100; i++ {
 		go func() {
@@ -60,5 +62,5 @@ func Test(t *testing.T) {
 			}
 		}()
 	}
-	time.Sleep(15 * time.Second)
+	time.Sleep(5 * time.Second)
 }
