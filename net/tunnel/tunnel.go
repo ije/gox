@@ -19,6 +19,7 @@ type Tunnel struct {
 	Port             uint16
 	MaxProxyLifetime int
 	lock             sync.Mutex
+	crtime           int64
 	online           bool
 	clientAddr       string
 	proxyConnections int
@@ -53,7 +54,6 @@ func (t *Tunnel) handleConn(conn net.Conn) {
 		return
 	}
 
-	log.Debugf("tunnel(%s) heard a new connection, current connQueue has %d connections", t.Name, len(t.connQueue))
 	t.connQueue <- conn
 }
 

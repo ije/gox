@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sort"
@@ -41,6 +42,7 @@ func (s *Server) ActivateTunnel(name string, port uint16, maxProxyLifetime int) 
 		Name:             name,
 		Port:             port,
 		MaxProxyLifetime: maxProxyLifetime,
+		crtime:           time.Now().Unix(),
 		connQueue:        make(chan net.Conn, 1000),
 		connPool:         make(chan net.Conn, 1000),
 	}
@@ -84,9 +86,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	sort.Sort(tunnels)
 
 	w.Header().Set("Content-Type", "application/json")
-	je := json.NewEncoder(w)
-	je.SetIndent("", "\t")
-	je.Encode(map[string]interface{}{
+	j := json.NewEncoder(w)
+	j.SetIndent("", "\t")
+	j.Encode(map[string]interface{}{
 		"port":    s.Port,
 		"tunnels": tunnels,
 	})
@@ -128,7 +130,7 @@ func (s *Server) handleConn(conn net.Conn) {
 
 	if flag == "proxy" {
 		tunnel.proxy(conn, <-tunnel.connPool)
-		log.Debugf("server: proxy tunnel(%s) connection", tunnel.Name)
+		log.Println("the tunnel(%s) start to proxy connection", tunnel.Name)
 		return
 	}
 
@@ -138,25 +140,24 @@ func (s *Server) handleConn(conn net.Conn) {
 	for {
 		select {
 		case c := <-tunnel.connQueue:
-			n, err := conn.Write([]byte{2})
-			if err != nil || n != 1 {
+			_, err := conn.Write([]byte{2})
+			if err != nil {
 				c.Close()
 				return
 			}
 
 			tunnel.activate(conn.RemoteAddr())
 			tunnel.connPool <- c
-			log.Debugf("server: tunnel(%s) is hit by proxy request ", tunnel.Name)
+			log.Println("the tunnel(%s) is hit by proxy request ", tunnel.Name)
 
 		// heart beat
 		case <-time.After(heartBeatInterval * time.Second):
-			n, err := conn.Write([]byte{1})
-			if err != nil || n != 1 {
+			_, err := conn.Write([]byte{1})
+			if err != nil {
 				return
 			}
 
 			tunnel.activate(conn.RemoteAddr())
-			log.Debugf("server: tunnel(%s) is hit by heart beat ", tunnel.Name)
 		}
 	}
 }

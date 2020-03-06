@@ -9,9 +9,9 @@ import (
 )
 
 const (
-	tunnelPort   = 8087
-	httpPort     = 8088
-	poxyHttpPort = 8089
+	tunnelPort    = 8087
+	httpPort      = 8088
+	httpProxyPort = 8089
 )
 
 func init() {
@@ -35,7 +35,7 @@ func init() {
 		Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
 		Tunnel: Tunnel{
 			Name:           "http-proxy-testing",
-			Port:           poxyHttpPort,
+			Port:           httpProxyPort,
 			MaxConnections: 100,
 		},
 		ForwardPort: httpPort,
@@ -48,7 +48,7 @@ func Test(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		go func() {
-			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", poxyHttpPort))
+			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", httpProxyPort))
 			if err != nil {
 				t.Fatal(err)
 			}

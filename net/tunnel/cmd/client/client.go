@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ije/gox/log"
 	"github.com/ije/gox/net/tunnel"
 	"github.com/ije/gox/utils"
 )
@@ -26,7 +25,6 @@ type Tunnel struct {
 
 func main() {
 	cfile := flag.String("c", "/etc/gox.tunnel/config.json", "gox tunnel client configuration")
-	debug := flag.Bool("d", false, "debug mode")
 	flag.Parse()
 
 	var config Config
@@ -35,12 +33,6 @@ func main() {
 		fmt.Println("load the configuration failed:", err)
 		return
 	}
-
-	logger := &log.Logger{}
-	if !*debug {
-		logger.SetLevelByName("info")
-	}
-	tunnel.SetLogger(logger)
 
 	var tunnelCount int
 	for _, t := range config.Tunnels {
@@ -67,11 +59,10 @@ func main() {
 	}
 
 	if tunnelCount > 0 {
-		logger.Infof("%d tunnels added", tunnelCount)
-		utils.WaitExit(func(sig os.Signal) bool {
+		utils.WaitExitSignal(func(sig os.Signal) bool {
 			return true
 		})
 	} else {
-		logger.Error("exit: no tunnels")
+		fmt.Println("exit: no tunnels")
 	}
 }
