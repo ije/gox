@@ -64,6 +64,11 @@ func (s *Server) Serve() (err error) {
 			return err
 		}
 
+		tcpConn, ok := conn.(*net.TCPConn)
+		if ok {
+			tcpConn.SetKeepAlive(false)
+		}
+
 		go s.handleConn(conn)
 	}
 }

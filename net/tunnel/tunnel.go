@@ -39,6 +39,11 @@ func (t *Tunnel) ListenAndServe() (err error) {
 			return err
 		}
 
+		tcpConn, ok := conn.(*net.TCPConn)
+		if ok {
+			tcpConn.SetKeepAlive(false)
+		}
+
 		go t.handleConn(conn)
 	}
 }
