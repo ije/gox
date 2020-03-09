@@ -66,7 +66,7 @@ func (s *Server) Serve() (err error) {
 
 		tcpConn, ok := conn.(*net.TCPConn)
 		if ok {
-			tcpConn.SetKeepAlive(false)
+			tcpConn.SetKeepAlive(true)
 		}
 
 		go s.handleConn(conn)

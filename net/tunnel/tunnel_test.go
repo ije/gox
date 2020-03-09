@@ -21,7 +21,7 @@ func init() {
 	s := &http.Server{
 		Addr: fmt.Sprintf(":%d", httpPort),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("Hello World!"))
+			w.Write([]byte("hello world!"))
 		}),
 	}
 	s.SetKeepAlivesEnabled(false)
@@ -57,7 +57,7 @@ func Test(t *testing.T) {
 			defer r.Body.Close()
 
 			ret, _ := ioutil.ReadAll(r.Body)
-			if string(ret) != "Hello World!" {
+			if string(ret) != "hello world!" {
 				t.Fatal(string(ret))
 			}
 		}()
