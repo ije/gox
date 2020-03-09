@@ -12,17 +12,16 @@ const (
 	tunnelPort    = 8087
 	httpPort      = 8088
 	httpProxyPort = 8089
-	message       = "Hello World!"
 )
 
 func init() {
 	heartBeatInterval = 1
 
-	// a http service
+	// start a http server
 	s := &http.Server{
 		Addr: fmt.Sprintf(":%d", httpPort),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(message))
+			w.Write([]byte("Hello World!"))
 		}),
 	}
 	s.SetKeepAlivesEnabled(false)
@@ -47,7 +46,7 @@ func init() {
 }
 
 func Test(t *testing.T) {
-	time.Sleep(time.Second) // wait init finished
+	time.Sleep(3 * time.Second) // wait init finished
 
 	for i := 0; i < 100; i++ {
 		go func() {
@@ -58,10 +57,10 @@ func Test(t *testing.T) {
 			defer r.Body.Close()
 
 			ret, _ := ioutil.ReadAll(r.Body)
-			if string(ret) != message {
+			if string(ret) != "Hello World!" {
 				t.Fatal(string(ret))
 			}
 		}()
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(3 * time.Second)
 }

@@ -17,8 +17,8 @@ var heartBeatInterval = 15
 
 type Server struct {
 	lock    sync.RWMutex
-	Port    uint16 // tunnel service port
 	tunnels map[string]*Tunnel
+	Port    uint16 // tunnel service port
 }
 
 func (s *Server) ActivateTunnel(name string, port uint16, maxProxyLifetime int) *Tunnel {

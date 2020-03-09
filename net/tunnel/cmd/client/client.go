@@ -24,7 +24,7 @@ type Tunnel struct {
 }
 
 func main() {
-	cfile := flag.String("c", "/etc/gox.tunnel/config.json", "gox tunnel client configuration")
+	cfile := flag.String("c", "./config.json", "gox tunnel client configuration")
 	flag.Parse()
 
 	var config Config
