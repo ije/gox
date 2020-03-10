@@ -5,6 +5,7 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
 	ErrExpired  = errors.New("expired")
+	ErrNotFound = errors.New("not found")
+	ErrIO       = errors.New("io error")
 )

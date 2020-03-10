@@ -27,9 +27,18 @@ type mCache struct {
 
 func (mc *mCache) Has(key string) (ok bool, err error) {
 	mc.lock.RLock()
-	defer mc.lock.RUnlock()
+	s, ok := mc.storage[key]
+	mc.lock.RUnlock()
+	if !ok {
+		return
+	}
 
-	_, ok = mc.storage[key]
+	if s.isExpired() {
+		go mc.Delete(key)
+		ok = false
+		return
+	}
+
 	return
 }
 
@@ -43,7 +52,7 @@ func (mc *mCache) Get(key string) (value []byte, err error) {
 	}
 
 	if s.isExpired() {
-		mc.Delete(key)
+		go mc.Delete(key)
 		err = ErrExpired
 		return
 	}
@@ -127,7 +136,7 @@ func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, e
 	if s, ok := args["gcInterval"]; ok && len(s) > 0 {
 		gcInterval, err = utils.ParseDuration(s)
 		if err != nil {
-			err = errors.New("Invalid GC interval")
+			err = errors.New("invalid GC interval")
 			return
 		}
 	}
