@@ -58,16 +58,17 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.lock.RUnlock()
 		if ok {
 			info := map[string]interface{}{
-				"name":             t.Name,
-				"port":             t.Port,
-				"maxProxyLifetime": t.MaxProxyLifetime,
-				"clientAddr":       t.clientAddr,
-				"online":           t.online,
-				"proxyConnections": t.proxyConnections,
-				"listener":         "nil",
+				"name":       t.Name,
+				"port":       t.Port,
+				"clientAddr": t.clientAddr,
+				"online":     t.online,
+				"listener":   nil,
 			}
 			if t.MaxProxyLifetime > 0 {
 				info["maxProxyLifetime"] = t.MaxProxyLifetime
+			}
+			if t.proxyConnections > 0 {
+				info["proxyConnections"] = t.proxyConnections
 			}
 			if t.listener != nil {
 				info["listener"] = "ok"
@@ -191,8 +192,8 @@ func (s *Server) activateTunnel(name string, port uint16, maxProxyLifetime uint3
 			MaxProxyLifetime: maxProxyLifetime,
 		},
 		crtime:    time.Now().Unix(),
-		connQueue: make(chan net.Conn, 1000),
-		connPool:  make(chan net.Conn, 1000),
+		connQueue: make(chan net.Conn, 100),
+		connPool:  make(chan net.Conn, 100),
 	}
 	s.tunnels[name] = tunnel
 	go tunnel.ListenAndServe()
