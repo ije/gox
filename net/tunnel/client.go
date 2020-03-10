@@ -13,7 +13,7 @@ import (
 
 type Client struct {
 	Server      string
-	Tunnel      Tunnel
+	Tunnel      *TunnelProps
 	ForwardPort uint16
 }
 

@@ -9,10 +9,14 @@ import (
 	"github.com/ije/gox/utils"
 )
 
-type Tunnel struct {
+type TunnelProps struct {
 	Name             string
 	Port             uint16
 	MaxProxyLifetime uint32
+}
+
+type Tunnel struct {
+	*TunnelProps
 	lock             sync.Mutex
 	crtime           int64
 	online           bool

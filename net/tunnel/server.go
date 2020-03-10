@@ -185,12 +185,14 @@ func (s *Server) activateTunnel(name string, port uint16, maxProxyLifetime uint3
 	}
 
 	tunnel := &Tunnel{
-		Name:             name,
-		Port:             port,
-		MaxProxyLifetime: maxProxyLifetime,
-		crtime:           time.Now().Unix(),
-		connQueue:        make(chan net.Conn, 1000),
-		connPool:         make(chan net.Conn, 1000),
+		TunnelProps: &TunnelProps{
+			Name:             name,
+			Port:             port,
+			MaxProxyLifetime: maxProxyLifetime,
+		},
+		crtime:    time.Now().Unix(),
+		connQueue: make(chan net.Conn, 1000),
+		connPool:  make(chan net.Conn, 1000),
 	}
 	s.tunnels[name] = tunnel
 	go tunnel.ListenAndServe()

@@ -45,10 +45,10 @@ func main() {
 			if server != "" {
 				tc := &tunnel.Client{
 					Server: server,
-					Tunnel: tunnel.Tunnel{
+					Tunnel: &tunnel.TunnelProps{
 						Name:             t.Name,
 						Port:             t.Port,
-						MaxProxyLifetime: t.MaxProxyLifetime,
+						MaxProxyLifetime: uint32(t.MaxProxyLifetime),
 					},
 					ForwardPort: t.ForwardPort,
 				}
