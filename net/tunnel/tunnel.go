@@ -12,7 +12,7 @@ import (
 type Tunnel struct {
 	Name             string
 	Port             uint16
-	MaxProxyLifetime int
+	MaxProxyLifetime uint32
 	lock             sync.Mutex
 	crtime           int64
 	online           bool
@@ -41,7 +41,7 @@ func (t *Tunnel) ListenAndServe() (err error) {
 
 		tcpConn, ok := conn.(*net.TCPConn)
 		if ok {
-			tcpConn.SetKeepAlive(true)
+			tcpConn.SetKeepAlive(false)
 		}
 
 		go t.handleConn(conn)
@@ -99,6 +99,6 @@ func (t *Tunnel) close() {
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {
 	t.proxyConnections++
-	proxy(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
+	utils.Proxy(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
 	t.proxyConnections--
 }

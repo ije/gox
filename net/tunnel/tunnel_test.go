@@ -37,7 +37,7 @@ func init() {
 	client := &Client{
 		Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
 		Tunnel: Tunnel{
-			Name: "test",
+			Name: "test-tunnel",
 			Port: httpProxyPort,
 		},
 		ForwardPort: httpPort,

@@ -2,11 +2,13 @@ package tunnel
 
 import (
 	"bytes"
-	"encoding/gob"
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
 	"time"
+
+	"github.com/ije/gox/utils"
 )
 
 type Client struct {
@@ -36,29 +38,40 @@ func (client *Client) serveHeartBeat(conn net.Conn) {
 			return
 		}
 
-		log.Println("heartbeat returns:", flag)
-		if flag == FlagProxy {
-			go client.dialAndProxy()
-		} else if flag != FlagHello {
+		log.Println("heartbeat flag:", flag)
+		if flag == FlagHello {
+			err = sendMessage(conn, FlagHello, nil)
+		} else if flag == FlagProxy {
+			err2 := client.dialAndProxy()
+			if err2 != nil {
+				err = sendMessage(conn, FlagError, []byte(err2.Error()))
+			} else {
+				err = sendMessage(conn, FlagReady, nil)
+			}
+		} else {
+			return
+		}
+		if err != nil {
 			return
 		}
 	}
 }
 
-func (client *Client) dialAndProxy() {
+func (client *Client) dialAndProxy() (err error) {
 	localConn, err := net.Dial("tcp", fmt.Sprintf(":%d", client.ForwardPort))
 	if err != nil {
+		err = fmt.Errorf("dial local: %v", err)
 		return
 	}
 
 	serverConn, err := client.dial(FlagProxy)
 	if err != nil {
-		log.Println("[dialAndProxy] can not dial server: ", err)
 		localConn.Close()
+		err = fmt.Errorf("dial server: %v", err)
 		return
 	}
 
-	go proxy(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
+	go utils.Proxy(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
 	return
 }
 
@@ -70,11 +83,14 @@ func (client *Client) dial(flag Flag) (conn net.Conn, err error) {
 
 	buffer := bytes.NewBuffer(nil)
 	if flag == FlagHello {
-		gob.NewEncoder(buffer).Encode(TunnelInfo{
-			Name:             client.Tunnel.Name,
-			Port:             client.Tunnel.Port,
-			MaxProxyLifetime: client.Tunnel.MaxProxyLifetime,
-		})
+		buffer.WriteByte(byte(len(client.Tunnel.Name)))
+		buffer.WriteString(client.Tunnel.Name)
+		p := make([]byte, 2)
+		binary.LittleEndian.PutUint16(p, client.Tunnel.Port)
+		buffer.Write(p)
+		p = make([]byte, 4)
+		binary.LittleEndian.PutUint32(p, client.Tunnel.MaxProxyLifetime)
+		buffer.Write(p)
 	} else if flag == FlagProxy {
 		buffer.WriteString(client.Tunnel.Name)
 	} else {

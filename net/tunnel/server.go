@@ -1,8 +1,7 @@
 package tunnel
 
 import (
-	"bytes"
-	"encoding/gob"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -21,36 +20,6 @@ type Server struct {
 	Port    uint16 // tunnel service port
 }
 
-func (s *Server) ActivateTunnel(name string, port uint16, maxProxyLifetime int) *Tunnel {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	if s.tunnels == nil {
-		s.tunnels = map[string]*Tunnel{}
-	} else if t, ok := s.tunnels[name]; ok {
-		if t.Port == port {
-			if t.MaxProxyLifetime != maxProxyLifetime {
-				t.MaxProxyLifetime = maxProxyLifetime
-			}
-			return t
-		}
-		t.close()
-		delete(s.tunnels, name)
-	}
-
-	tunnel := &Tunnel{
-		Name:             name,
-		Port:             port,
-		MaxProxyLifetime: maxProxyLifetime,
-		crtime:           time.Now().Unix(),
-		connQueue:        make(chan net.Conn, 1000),
-		connPool:         make(chan net.Conn, 1000),
-	}
-	s.tunnels[name] = tunnel
-	go tunnel.ListenAndServe()
-	return tunnel
-}
-
 func (s *Server) Serve() (err error) {
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Port))
 	if err != nil {
@@ -66,7 +35,7 @@ func (s *Server) Serve() (err error) {
 
 		tcpConn, ok := conn.(*net.TCPConn)
 		if ok {
-			tcpConn.SetKeepAlive(true)
+			tcpConn.SetKeepAlive(false)
 		}
 
 		go s.handleConn(conn)
@@ -74,26 +43,43 @@ func (s *Server) Serve() (err error) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	tunnels := TunnelSlice{}
+	var names sort.StringSlice
 	s.lock.RLock()
 	for _, t := range s.tunnels {
-		tunnels = append(tunnels, TunnelInfo{
-			Name:             t.Name,
-			Port:             t.Port,
-			MaxProxyLifetime: t.MaxProxyLifetime,
-			ClientAddr:       t.clientAddr,
-			Online:           t.online,
-			ProxyConnections: t.proxyConnections,
-		})
+		names = append(names, t.Name)
 	}
 	s.lock.RUnlock()
+	names.Sort()
 
-	sort.Sort(tunnels)
+	var tunnels []interface{}
+	for _, name := range names {
+		s.lock.RLock()
+		t, ok := s.tunnels[name]
+		s.lock.RUnlock()
+		if ok {
+			info := map[string]interface{}{
+				"name":             t.Name,
+				"port":             t.Port,
+				"maxProxyLifetime": t.MaxProxyLifetime,
+				"clientAddr":       t.clientAddr,
+				"online":           t.online,
+				"proxyConnections": t.proxyConnections,
+				"listener":         "nil",
+			}
+			if t.MaxProxyLifetime > 0 {
+				info["maxProxyLifetime"] = t.MaxProxyLifetime
+			}
+			if t.listener != nil {
+				info["listener"] = "ok"
+			}
+			tunnels = append(tunnels, info)
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	j := json.NewEncoder(w)
-	j.SetIndent("", "\t")
-	j.Encode(map[string]interface{}{
+	jw := json.NewEncoder(w)
+	jw.SetIndent("", "\t")
+	jw.Encode(map[string]interface{}{
 		"port":    s.Port,
 		"tunnels": tunnels,
 	})
@@ -110,10 +96,14 @@ func (s *Server) handleConn(conn net.Conn) {
 	var tunnel *Tunnel
 
 	if flag == FlagHello {
-		var t TunnelInfo
-		if gob.NewDecoder(bytes.NewReader(data)).Decode(&t) == nil {
-			tunnel = s.ActivateTunnel(t.Name, t.Port, t.MaxProxyLifetime)
-			log.Printf("tunnel(%s) activated, port: %d, maxProxyLifetime: %ds", t.Name, t.Port, t.MaxProxyLifetime)
+		dl := len(data)
+		if dl > 0 && dl == 1+int(data[0])+2+4 {
+			nl := int(data[0])
+			name := string(data[1 : 1+nl])
+			port := binary.LittleEndian.Uint16(data[1+nl:])
+			maxProxyLifetime := binary.LittleEndian.Uint32(data[1+nl+2:])
+			tunnel = s.activateTunnel(name, port, maxProxyLifetime)
+			log.Printf("tunnel(%s) activated, port: %d, maxProxyLifetime: %ds", name, port, maxProxyLifetime)
 		} else {
 			return
 		}
@@ -143,6 +133,20 @@ func (s *Server) handleConn(conn net.Conn) {
 				return
 			}
 
+			flag, data, err := parseMessage(conn)
+			if err != nil {
+				c.Close()
+				return
+			}
+
+			if flag != FlagReady {
+				if flag == FlagError {
+					log.Printf("tunnel(%s) client returns an error: %s", tunnel.Name, string(data))
+				}
+				c.Close()
+				return
+			}
+
 			tunnel.activate(conn.RemoteAddr())
 			tunnel.connPool <- c
 
@@ -153,7 +157,42 @@ func (s *Server) handleConn(conn net.Conn) {
 				return
 			}
 
+			flag, _, err := parseMessage(conn)
+			if err != nil || flag != FlagHello {
+				return
+			}
+
 			tunnel.activate(conn.RemoteAddr())
 		}
 	}
+}
+
+func (s *Server) activateTunnel(name string, port uint16, maxProxyLifetime uint32) *Tunnel {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if s.tunnels == nil {
+		s.tunnels = map[string]*Tunnel{}
+	} else if t, ok := s.tunnels[name]; ok {
+		if t.Port == port {
+			if t.MaxProxyLifetime != maxProxyLifetime {
+				t.MaxProxyLifetime = maxProxyLifetime
+			}
+			return t
+		}
+		t.close()
+		delete(s.tunnels, name)
+	}
+
+	tunnel := &Tunnel{
+		Name:             name,
+		Port:             port,
+		MaxProxyLifetime: maxProxyLifetime,
+		crtime:           time.Now().Unix(),
+		connQueue:        make(chan net.Conn, 1000),
+		connPool:         make(chan net.Conn, 1000),
+	}
+	s.tunnels[name] = tunnel
+	go tunnel.ListenAndServe()
+	return tunnel
 }

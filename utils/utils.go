@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 func WaitExitSignal(callback func(os.Signal) bool) {
@@ -537,4 +538,33 @@ func ZipTo(path string, output io.Writer) error {
 
 	_, err = io.Copy(gzw, file)
 	return err
+}
+
+func Proxy(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
+	ec := make(chan error, 2)
+
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn1, conn2)
+		ec <- err
+	}(conn1, conn2, ec)
+
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn2, conn1)
+		ec <- err
+	}(conn1, conn2, ec)
+
+	if timeout > 0 {
+		select {
+		case e := <-ec:
+			err = e
+		case <-time.After(timeout):
+			err = fmt.Errorf("timeout")
+		}
+	} else {
+		err = <-ec
+	}
+
+	conn1.Close()
+	conn2.Close()
+	return
 }
