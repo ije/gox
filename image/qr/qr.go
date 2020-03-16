@@ -12,7 +12,7 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/ije/gox/image/qr/coding"
+	"gox/image/qr/coding"
 )
 
 // A Level denotes a QR error correction level.

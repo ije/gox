@@ -5,7 +5,7 @@ Package log ...
 
 	import (
 		"sync"
-		"github.com/ije/gox/log"
+		"gox/log"
 	)
 
 	func main() {
@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ije/gox/utils"
+	"gox/utils"
 )
 
 type Logger struct {

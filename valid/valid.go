@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ije/gox/utils"
+	"gox/utils"
 )
 
 var (

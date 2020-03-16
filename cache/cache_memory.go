@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ije/gox/utils"
+	"gox/utils"
 )
 
 type mItem struct {
