@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"gox/utils"
+	"github.com/ije/gox/utils"
 )
 
 // GWT is an api token rsa crypto with gob encoding

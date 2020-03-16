@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"gox/net/tunnel"
+	"github.com/ije/gox/net/tunnel"
 )
 
 func main() {

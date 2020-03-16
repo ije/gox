@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"gox/utils"
+	"github.com/ije/gox/utils"
 )
 
 type Cache interface {

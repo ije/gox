@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	"gox/utils"
+	"github.com/ije/gox/utils"
 )
 
 type fileWriter struct {

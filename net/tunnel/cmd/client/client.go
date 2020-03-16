@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"gox/net/tunnel"
-	"gox/utils"
+	"github.com/ije/gox/net/tunnel"
+	"github.com/ije/gox/utils"
 )
 
 type Config struct {

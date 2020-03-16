@@ -43,7 +43,7 @@ func TestValid(t *testing.T) {
 		{IsEmail, "123@golang.org", true},
 		{IsEmail, "doc-dev@golang.org", true},
 		{IsEmail, "doc.dev@golang.org", true},
-		{IsEmail, "doc+dev@golang.org", false},
+		{IsEmail, "doc+dev@golang.org", true},
 		{IsEmail, "doc_dev@golang.org", true},
 		{IsEmail, "doc-@golang.org", false},
 		{IsEmail, "doc.@golang.org", false},

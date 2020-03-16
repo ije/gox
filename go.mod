@@ -1,3 +1,3 @@
-module gox
+module github.com/ije/gox
 
 go 1.14

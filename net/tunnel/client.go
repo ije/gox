@@ -8,7 +8,7 @@ import (
 	"net"
 	"time"
 
-	"gox/utils"
+	"github.com/ije/gox/utils"
 )
 
 type Client struct {

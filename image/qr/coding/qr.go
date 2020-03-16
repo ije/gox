@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"gox/image/qr/gf256"
+	"github.com/ije/gox/image/qr/gf256"
 )
 
 // Field is the field for QR error correction.
