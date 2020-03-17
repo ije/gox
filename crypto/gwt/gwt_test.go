@@ -6,7 +6,7 @@ import (
 )
 
 func Test(t *testing.T) {
-	gwt := &GWT{"gwt-secret"}
+	gwt := &GWT{"gwt-secret", "json"}
 
 	type User struct {
 		UID  uint32
@@ -18,7 +18,7 @@ func Test(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(tokenString)
+	t.Log(tokenString, len(tokenString))
 
 	type User2 struct {
 		UID   uint32

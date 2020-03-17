@@ -5,12 +5,18 @@ import (
 )
 
 var defaultGWT = &GWT{
-	Secret: "gwt-secret",
+	Secret:   "gwt-secret",
+	Encoding: "json",
 }
 
 // Config sets the secret and issuer of the default GWT
-func Config(secret string) {
-	defaultGWT.Secret = secret
+func Config(secret string, encoding string) {
+	if len(secret) > 0 {
+		defaultGWT.Secret = secret
+	}
+	if encoding == "json" || encoding == "gob" {
+		defaultGWT.Encoding = encoding
+	}
 }
 
 // SignToken creates a token with expires
