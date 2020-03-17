@@ -8,33 +8,25 @@ import (
 )
 
 var (
-	r09        = FromTo{'0', '9'}
-	raz        = FromTo{'a', 'z'}
-	rAZ        = FromTo{'A', 'Z'}
-	v09        = Validator{r09}
-	vaz        = Validator{raz}
-	v09AZ      = Validator{r09, rAZ}
-	v09azAZ    = Validator{r09, raz, rAZ}
-	vHex       = Validator{r09, FromTo{'a', 'f'}, FromTo{'A', 'F'}}
-	vSlug      = Validator{r09, raz, rAZ, Eq('.'), Eq('-')}
-	vEmailName = Validator{r09, raz, rAZ, Eq('.'), Eq('-'), Eq('_'), Eq('+')}
+	rNum       = FromTo{'0', '9'}
+	rword      = FromTo{'a', 'z'}
+	rWORD      = FromTo{'A', 'Z'}
+	vNum       = Validator{rNum}
+	vHex       = Validator{rNum, FromTo{'a', 'f'}, FromTo{'A', 'F'}}
+	vSlug      = Validator{rNum, rword, rWORD, Eq('-')}
+	vEmailName = Validator{rNum, rword, rWORD, Eq('.'), Eq('-'), Eq('_'), Eq('+')}
 )
 
 func IsNumber(s string) bool {
 	if len(s) > 1 && s[0] == '-' {
 		s = s[1:]
 	}
-	inter, floater := utils.SplitByLastByte(s, '.')
-	return v09.Is(inter) && (floater == "" || v09.Is(floater))
+	integer, floater := utils.SplitByLastByte(s, '.')
+	return vNum.Is(integer) && (floater == "" || vNum.Is(floater))
 }
 
 func IsHexString(s string) bool {
 	return vHex.Is(s)
-}
-
-func IsIETFLangTag(s string) bool {
-	l, c := utils.SplitByFirstByte(s, '-')
-	return len(l) == 2 && vaz.Is(l) && (len(c) == 0 || v09AZ.Is(c))
 }
 
 func IsIP(s string) bool {
@@ -43,7 +35,7 @@ func IsIP(s string) bool {
 
 func IsIPv4(s string) bool {
 	for i, p := range strings.Split(s, ".") {
-		if i > 3 || !v09.Is(p) || len(p) > 3 {
+		if i > 3 || !vNum.Is(p) || len(p) > 3 {
 			return false
 		}
 		if i, _ := strconv.Atoi(p); i > 255 {
@@ -59,7 +51,7 @@ func IsIPv6(s string) bool {
 }
 
 func IsSlug(s string) bool {
-	return !hasPreSuffix(s, '.', '-') && vSlug.Is(s)
+	return !hasAnyfix(s, '-') && vSlug.Is(s)
 }
 
 func IsDomain(s string) bool {
@@ -77,10 +69,10 @@ func IsEmail(s string) bool {
 	}
 
 	name, domain := utils.SplitByLastByte(s, '@')
-	return !hasPreSuffix(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
+	return !hasAnyfix(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
 }
 
-func hasPreSuffix(s string, cs ...byte) bool {
+func hasAnyfix(s string, cs ...byte) bool {
 	l := len(s)
 	if l == 0 {
 		return false
