@@ -1,7 +1,6 @@
 package valid
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/ije/gox/utils"
@@ -29,27 +28,6 @@ func IsHexString(s string) bool {
 	return vHex.Is(s)
 }
 
-func IsIP(s string) bool {
-	return IsIPv4(s) || IsIPv6(s)
-}
-
-func IsIPv4(s string) bool {
-	for i, p := range strings.Split(s, ".") {
-		if i > 3 || !vNum.Is(p) || len(p) > 3 {
-			return false
-		}
-		if i, _ := strconv.Atoi(p); i > 255 {
-			return false
-		}
-	}
-
-	return true
-}
-
-func IsIPv6(s string) bool {
-	return false
-}
-
 func IsSlug(s string) bool {
 	return !hasAnyfix(s, '-') && vSlug.Is(s)
 }
@@ -70,6 +48,33 @@ func IsEmail(s string) bool {
 
 	name, domain := utils.SplitByLastByte(s, '@')
 	return !hasAnyfix(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
+}
+
+func IsIP(s string) bool {
+	return IsIPv4(s) || IsIPv6(s)
+}
+
+func IsIPv4(s string) bool {
+	parts := strings.Split(s, ".")
+	if len(parts) != 4 {
+		return false
+	}
+
+	for _, p := range parts {
+		l := len(p)
+		if !vNum.Is(p) || l > 3 {
+			return false
+		}
+		if l == 3 && (p[0] > '2' || (p[0] == '2' && (p[1] > '5' || p[2] > '5'))) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func IsIPv6(s string) bool {
+	return false
 }
 
 func hasAnyfix(s string, cs ...byte) bool {
