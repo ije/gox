@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// SendError records send a mail error
 type SendError struct {
 	Message string
 	From    *mail.Address
@@ -15,11 +16,12 @@ func (err *SendError) Error() string {
 	return err.Message
 }
 
-type OTOSendError struct {
+// SendErrors records send mails error
+type SendErrors struct {
 	Errors []*SendError
 }
 
-func (err *OTOSendError) Error() string {
+func (err *SendErrors) Error() string {
 	var es []string
 	for _, e := range err.Errors {
 		es = append(es, e.Error())

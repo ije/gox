@@ -8,20 +8,21 @@ import (
 	"sync"
 )
 
+// A SMTP to send mails
 type SMTP struct {
-	addr     string
-	auth     smtp.Auth
-	username string
+	addr string
+	auth smtp.Auth
 }
 
+// New returns a smtp client
 func New(host string, port uint16, username string, password string) *SMTP {
 	return &SMTP{
-		addr:     fmt.Sprintf("%s:%d", host, port),
-		auth:     smtp.PlainAuth("", username, password, host),
-		username: username,
+		addr: fmt.Sprintf("%s:%d", host, port),
+		auth: smtp.PlainAuth("", username, password, host),
 	}
 }
 
+// Auth authorizes the username and password
 func (s *SMTP) Auth() (err error) {
 	c, err := smtp.Dial(s.addr)
 	if err != nil {
@@ -31,18 +32,14 @@ func (s *SMTP) Auth() (err error) {
 	return c.Auth(s.auth)
 }
 
+// SendMail sends a mail
 func (s *SMTP) SendMail(mail *Mail, from string, to string, oneToOne bool) (err error) {
 	if mail == nil {
 		err = errors.New("mail is nil")
 		return
 	}
 
-	var sender *netmail.Address
-	if from == "" {
-		sender, err = netmail.ParseAddress(s.username)
-	} else {
-		sender, err = netmail.ParseAddress(from)
-	}
+	sender, err := netmail.ParseAddress(from)
 	if err != nil {
 		return
 	}
@@ -51,7 +48,6 @@ func (s *SMTP) SendMail(mail *Mail, from string, to string, oneToOne bool) (err 
 	if err != nil {
 		return
 	}
-
 	recipients := AddressList(list)
 
 	if !oneToOne {
@@ -63,7 +59,7 @@ func (s *SMTP) SendMail(mail *Mail, from string, to string, oneToOne bool) (err 
 	}
 
 	var wg sync.WaitGroup
-	var errs OTOSendError
+	var errs SendErrors
 	for _, recipient := range recipients {
 		wg.Add(1)
 		go func(to *netmail.Address) {

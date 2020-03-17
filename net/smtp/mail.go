@@ -9,11 +9,14 @@ import (
 	"io"
 	"math/rand"
 	"net/mail"
+	"strings"
 	"time"
 )
 
+// CRLF defines the newline
 var CRLF = []byte("\r\n")
 
+// Mail body for smtp
 type Mail struct {
 	Subject     string
 	PlainText   []byte
@@ -21,12 +24,41 @@ type Mail struct {
 	Attachments []*Attachment
 }
 
+// Attachment for mail
 type Attachment struct {
 	Name        string
 	ContentType string
 	io.Reader
 }
 
+// AddressList defines a list of mail.Address
+type AddressList []*mail.Address
+
+// List returns the list of mail address
+func (list AddressList) List() []string {
+	var ss []string
+	for _, addr := range list {
+		ss = append(ss, addr.Address)
+	}
+	return ss
+}
+
+func (list AddressList) String() string {
+	var ss []string
+	for _, addr := range list {
+		ss = append(ss, addr.String())
+	}
+	return strings.Join(ss, ", ")
+}
+
+// AppendAttachment appends an attachment
+func (mail *Mail) AppendAttachment(attachment *Attachment) {
+	if attachment != nil {
+		mail.Attachments = append(mail.Attachments, attachment)
+	}
+}
+
+// Encode encodes mail to mime bytes
 // TODO: add cc and bcc support
 func (mail *Mail) Encode(from *mail.Address, to AddressList) []byte {
 	buf := &mailBuffer{bytes.NewBuffer(nil)}
