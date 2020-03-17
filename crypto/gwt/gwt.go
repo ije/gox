@@ -33,7 +33,7 @@ func (gwt *GWT) SignToken(payload interface{}, expires time.Duration) (token str
 
 	chData, err := encodeData(Channel{
 		Payload:   payloadData,
-		ExpiresAt: time.Now().Add(expires).Unix(),
+		ExpiresAt: time.Now().UTC().Add(expires).Unix(),
 		Issuer:    "go-gwt",
 	}, gwt.Encoding)
 	if err != nil {
@@ -64,9 +64,9 @@ func (gwt *GWT) ParseToken(tokenString string, v interface{}) (err error) {
 		return
 	}
 
-	d := time.Now().Unix() - ch.ExpiresAt
+	d := time.Now().UTC().Unix() - ch.ExpiresAt
 	if d > 0 {
-		err = expiresError(fmt.Sprintf("token is expired by %v", time.Duration(d)*time.Second))
+		err = &expiresError{fmt.Sprintf("token is expired by %v", time.Duration(d)*time.Second)}
 		return
 	}
 
