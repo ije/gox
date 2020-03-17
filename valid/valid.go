@@ -83,11 +83,9 @@ func hasAnyfix(s string, cs ...byte) bool {
 		return false
 	}
 
-	for _, c := range []byte{s[0], s[l-1]} {
-		for _, _c := range cs {
-			if c == _c {
-				return true
-			}
+	for _, c := range cs {
+		if c == s[0] || (l > 1 && c == s[l-1]) {
+			return true
 		}
 	}
 
