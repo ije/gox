@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestJWT(t *testing.T) {
+func Test(t *testing.T) {
 	gwt := &GWT{"gwt-secret"}
 
 	type User struct {

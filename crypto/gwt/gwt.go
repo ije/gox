@@ -14,7 +14,7 @@ type GWT struct {
 	Secret string
 }
 
-// Channel is a payload container includes expires and issuer info
+// Channel is a payload container includes expires and issuer for GWT
 type Channel struct {
 	Payload   []byte
 	ExpiresAt int64
@@ -32,7 +32,7 @@ func (gwt *GWT) SignToken(payload interface{}, expires time.Duration) (token str
 	chData, err := encodeGob(Channel{
 		Payload:   payloadData,
 		ExpiresAt: time.Now().Add(expires).Unix(),
-		Issuer:    "GWT",
+		Issuer:    "go-gwt",
 	})
 	if err != nil {
 		err = fmt.Errorf("can not encode channel: %v", err)
@@ -68,7 +68,7 @@ func (gwt *GWT) ParseToken(tokenString string, v interface{}) (err error) {
 		return
 	}
 
-	if ch.Issuer != "GWT" {
+	if ch.Issuer != "go-gwt" {
 		err = fmt.Errorf("invalid issuer '%s'", ch.Issuer)
 		return
 	}

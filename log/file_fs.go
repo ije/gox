@@ -80,15 +80,8 @@ func newWriter(filePath string, fileDateFormat string, maxFileSize int64) (w *fi
 type fileFS struct{}
 
 func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
-	var fileDateFormat string
 	var maxFileSize int64
-
-	if val, ok := args["fileDateFormat"]; ok {
-		if val == "" {
-			val = "2006-01-02"
-		}
-		fileDateFormat = val
-	}
+	var fileDateFormat string
 
 	if val, ok := args["maxFileSize"]; ok && len(val) > 0 {
 		i, err := utils.ParseBytes(val)
@@ -96,6 +89,13 @@ func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
 			return nil, fmt.Errorf("invalid maxFileSize argument")
 		}
 		maxFileSize = i
+	}
+
+	if val, ok := args["fileDateFormat"]; ok {
+		if val == "" {
+			val = "2006-01-02"
+		}
+		fileDateFormat = val
 	}
 
 	return newWriter(path, fileDateFormat, maxFileSize)
