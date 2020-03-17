@@ -48,19 +48,27 @@ func New(url string) (*Logger, error) {
 }
 
 func (l *Logger) parseURL(url string) (err error) {
+	url = strings.ReplaceAll(url, " ", "")
 	if url == "" {
-		err = fmt.Errorf("invalid url")
-		return
+		return nil
 	}
 
-	path, query := utils.SplitByFirstByte(url, '?')
-	name, addr := utils.SplitByFirstByte(path, ':')
-	fs, ok := registeredFSS[strings.ToLower(name)]
+	fsn, path := utils.SplitByFirstByte(url, ':')
+	fs, ok := registeredFSs[strings.ToLower(fsn)]
 	if !ok {
-		return fmt.Errorf("unknown fs '%s'", name)
+		return fmt.Errorf("unknown fs protocol '%s'", fsn)
+	}
+
+	// handle format like file:///var/log/error.log
+	if strings.HasPrefix(path, "//") {
+		path = strings.TrimPrefix(path, "//")
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "./" + path
 	}
 
 	args := map[string]string{}
+	addr, query := utils.SplitByFirstByte(path, '?')
 	for _, q := range strings.Split(query, "&") {
 		key, value := utils.SplitByFirstByte(q, '=')
 		if len(key) > 0 {
@@ -70,7 +78,7 @@ func (l *Logger) parseURL(url string) (err error) {
 			case "level":
 				l.SetLevelByName(value)
 			case "quite":
-				l.SetQuite(value == "1" || strings.ToLower(value) == "true")
+				l.SetQuite(value == "" || value == "1" || strings.ToLower(value) == "true")
 			case "buffer":
 				bytes, err := utils.ParseBytes(value)
 				if err == nil {
@@ -228,36 +236,23 @@ func (l *Logger) log(level Level, msg string) {
 	if level >= L_DEBUG && level <= L_FATAL {
 		prefix = fmt.Sprintf("[%s] ", level)
 	}
-	if _prefix := strings.TrimSpace(l.prefix); len(_prefix) > 0 {
+	if _prefix := l.prefix; len(_prefix) > 0 {
 		prefix += _prefix + " "
 	}
 
 	bl := 20 + len(prefix) + len(msg) + 1
 	buf := make([]byte, bl)
-
-	i := 0
-	fd := func(u int, w int, suffix byte) {
-		i += w
-		for j := 1; w > 0; j++ {
-			buf[i-j] = byte(u%10) + '0'
-			u /= 10
-			w--
-		}
-		i++
-		buf[i-1] = suffix
-	}
-
 	now := time.Now()
 	year, month, day := now.Date()
 	hour, min, sec := now.Clock()
-	fd(year, 4, '/')
-	fd(int(month), 2, '/')
-	fd(day, 2, ' ')
-	fd(hour, 2, ':')
-	fd(min, 2, ':')
-	fd(sec, 2, ' ')
-	copy(buf[20:], prefix)
-	copy(buf[20+len(prefix):], msg)
+	i := pad(buf, 0, year, 4, '/')
+	i = pad(buf, i, int(month), 2, '/')
+	i = pad(buf, i, day, 2, ' ')
+	i = pad(buf, i, hour, 2, ':')
+	i = pad(buf, i, min, 2, ':')
+	i = pad(buf, i, sec, 2, ' ')
+	copy(buf[i:], prefix)
+	copy(buf[i+len(prefix):], msg)
 
 	if buf[bl-2] == '\n' {
 		buf = buf[:bl-1]
@@ -325,4 +320,15 @@ func (l *Logger) write(p []byte) (err error) {
 		n, err = l.output.Write(p)
 	}
 	return
+}
+
+func pad(p []byte, i int, u int, w int, suffix byte) int {
+	i += w
+	for j := 1; w > 0; j++ {
+		p[i-j] = byte(u%10) + '0'
+		u /= 10
+		w--
+	}
+	p[i] = suffix
+	return i + 1
 }
