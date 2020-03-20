@@ -2,7 +2,6 @@ package utils
 
 import (
 	"archive/zip"
-	"bytes"
 	"encoding/binary"
 	"encoding/gob"
 	"encoding/json"
@@ -181,35 +180,6 @@ func WriteJSONFile(filename string, v interface{}, indent string) (err error) {
 	return je.Encode(v)
 }
 
-func DecodeGob(data []byte, v interface{}) (err error) {
-	return gob.NewDecoder(bytes.NewReader(data)).Decode(v)
-}
-
-func EncodeGob(v interface{}) (data []byte, err error) {
-	var buf = bytes.NewBuffer(nil)
-	err = gob.NewEncoder(buf).Encode(v)
-	if err != nil {
-		return
-	}
-
-	data = buf.Bytes()
-	return
-}
-
-func MustEncodeGob(v interface{}) []byte {
-	if v == nil {
-		return nil
-	}
-
-	var buf = bytes.NewBuffer(nil)
-	err := gob.NewEncoder(buf).Encode(v)
-	if err != nil {
-		panic("gob: " + err.Error())
-	}
-
-	return buf.Bytes()
-}
-
 func ParseGobFile(filename string, v interface{}) (err error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -246,32 +216,6 @@ func SplitByLastByte(s string, c byte) (string, string) {
 		}
 	}
 	return s, ""
-}
-
-func ParseTextLines(s string) (lines []string) {
-	for i, j, l := 0, 0, len(s); i < l; i++ {
-		switch s[i] {
-		case '\r', '\n':
-			if i > j {
-				lines = append(lines, s[j:i])
-			} else if i == j {
-				lines = append(lines, "")
-			}
-			j = i + 1
-			if s[i] == '\r' && i+1 < l && s[i+1] == '\n' {
-				if i == l-2 {
-					lines = append(lines, "")
-				}
-				i++
-				j++
-			}
-		default:
-			if i == l-1 && j < l {
-				lines = append(lines, s[j:])
-			}
-		}
-	}
-	return
 }
 
 func ToNumber(v interface{}) (f float64, err error) {
@@ -424,7 +368,7 @@ func bufApp(buf *[]byte, s string, w int, c byte) {
 	(*buf)[w] = c
 }
 
-func Ipv4ToLong(ipStr string) uint32 {
+func IPv4ToLong(ipStr string) uint32 {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
 		return 0
@@ -433,7 +377,7 @@ func Ipv4ToLong(ipStr string) uint32 {
 	return binary.BigEndian.Uint32(ip)
 }
 
-func LongToIpv4(ipLong uint32) string {
+func LongToIPv4(ipLong uint32) string {
 	ipByte := make([]byte, 4)
 	binary.BigEndian.PutUint32(ipByte, ipLong)
 	ip := net.IP(ipByte)
@@ -540,8 +484,8 @@ func ZipTo(path string, output io.Writer) error {
 	return err
 }
 
-func Proxy(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
-	ec := make(chan error, 2)
+func ProxyConn(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
+	ec := make(chan error, 1)
 
 	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
 		_, err := io.Copy(conn1, conn2)

@@ -71,7 +71,7 @@ func (client *Client) dialAndProxy() (err error) {
 		return
 	}
 
-	go utils.Proxy(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
+	go utils.ProxyConn(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
 	return
 }
 

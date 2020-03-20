@@ -103,6 +103,6 @@ func (t *Tunnel) close() {
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {
 	t.proxyConnections++
-	utils.Proxy(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
+	utils.ProxyConn(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
 	t.proxyConnections--
 }

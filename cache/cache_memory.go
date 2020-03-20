@@ -5,8 +5,6 @@ import (
 	"runtime"
 	"sync"
 	"time"
-
-	"github.com/ije/gox/utils"
 )
 
 type mItem struct {
@@ -134,7 +132,7 @@ type mcDriver struct{}
 func (mcd *mcDriver) Open(region string, args map[string]string) (cache Cache, err error) {
 	gcInterval := 30 * time.Minute
 	if s, ok := args["gcInterval"]; ok && len(s) > 0 {
-		gcInterval, err = utils.ParseDuration(s)
+		gcInterval, err = time.ParseDuration(s)
 		if err != nil {
 			err = errors.New("invalid GC interval")
 			return
