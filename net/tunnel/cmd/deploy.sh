@@ -12,7 +12,6 @@ fi
 read -p "please enter hostname or ip: " host
 if [ "$host" == "" ]; then
 	echo "missing the host..."
-	rm $target/$target
 	exit
 fi
 
@@ -35,7 +34,7 @@ if [ "$ok" == "yes" ]; then
 fi
 
 exeArgs=""
-supervisordConfDir="/etc/supervisor/conf.d"
+supervisorConfDir="/etc/supervisor/conf.d"
 if [ "$initSupervisor" == "yes" ]; then
 	if [ "$target" == "server" ]; then
 		read -p "please enter the server port(default is 333):" port
@@ -51,9 +50,9 @@ if [ "$initSupervisor" == "yes" ]; then
 			exeArgs="$exeArgs -http-port=$port2"
 		fi
 	fi
-	read -p "please enter the supervisor scripts directory(default is '$supervisordConfDir')? " dir
+	read -p "please enter the supervisor scripts directory(default is '$supervisorConfDir')? " dir
 	if [ "$dir" != "" ]; then
-		supervisordConfDir="$dir"
+		supervisorConfDir="$dir"
 	fi
 fi
 
@@ -63,30 +62,22 @@ if [ "$?" != "0" ]; then
 fi
 
 echo "--- uploading..."
-scp -P $hostSSHPort install.sh $loginUser@$host:/tmp/tunnel.install.sh
+scp -P $hostSSHPort $target-main/$target $loginUser@$host:/tmp/gox.tunnel.$target
 if [ "$?" != "0" ]; then
-	rm $target/$target
+	rm $target-main/$target
 	exit
 fi
 
-if [ "$initSupervisor" == "yes" ]; then
-	scp -P $hostSSHPort $target/supervisor.conf $loginUser@$host:$supervisordConfDir/gox.tunnel.$target.conf
-	if [ "$?" != "0" ]; then
-		rm $target/$target
-		exit
-	fi
-fi
-
-scp -P $hostSSHPort $target/$target $loginUser@$host:/tmp/gox.tunnel.$target
+scp -P $hostSSHPort install.sh $loginUser@$host:/tmp/tunnel.install.sh
 if [ "$?" != "0" ]; then
-	rm $target/$target
+	rm $target-main/$target
 	exit
 fi
 
 echo "--- restart service..."
 ssh -p $hostSSHPort $loginUser@$host << EOF
-	echo "tunnel $target restarted"
-	nohup sh /tmp/tunnel.install.sh $target "$exeArgs" $initSupervisor "$supervisordConfDir" >/dev/null 2>&1 &
+	echo "--- execute install scripts..."
+	nohup sh /tmp/tunnel.install.sh $target "$exeArgs" $initSupervisor "$supervisorConfDir" >/dev/null 2>&1 &
 EOF
 
-rm $target/$target
+rm $target-main/$target

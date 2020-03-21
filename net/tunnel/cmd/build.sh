@@ -15,7 +15,7 @@ fi
 export GOARCH=$goarch
 
 target="$1"
-cd "./$target"
+cd "./$target-main"
 
 echo "--- compiling..."
 go build $target.go

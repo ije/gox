@@ -130,7 +130,7 @@ func (s *Server) handleConn(conn net.Conn) {
 		}
 		return
 	} else {
-		// invalid flag
+		// unsupport flag
 		return
 	}
 
