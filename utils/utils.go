@@ -499,8 +499,7 @@ func ProxyConn(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error
 
 	if timeout > 0 {
 		select {
-		case e := <-ec:
-			err = e
+		case err = <-ec:
 		case <-time.After(timeout):
 			err = fmt.Errorf("timeout")
 		}

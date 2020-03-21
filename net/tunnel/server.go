@@ -1,6 +1,8 @@
 package tunnel
 
 import (
+	"bytes"
+	"crypto/sha1"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -15,9 +17,11 @@ import (
 var heartBeatInterval = 15
 
 type Server struct {
-	lock    sync.RWMutex
-	tunnels map[string]*Tunnel
-	Port    uint16 // tunnel service port
+	Port     uint16 // tunnel service port
+	Password string
+	passhash []byte
+	lock     sync.RWMutex
+	tunnels  map[string]*Tunnel
 }
 
 func (s *Server) Serve() (err error) {
@@ -35,7 +39,8 @@ func (s *Server) Serve() (err error) {
 
 		tcpConn, ok := conn.(*net.TCPConn)
 		if ok {
-			tcpConn.SetKeepAlive(false)
+			tcpConn.SetKeepAlive(true)
+			tcpConn.SetKeepAlivePeriod(time.Minute)
 		}
 
 		go s.handleConn(conn)
@@ -67,9 +72,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if t.MaxProxyLifetime > 0 {
 				info["maxProxyLifetime"] = t.MaxProxyLifetime
 			}
-			if t.proxyConnections > 0 {
-				info["proxyConnections"] = t.proxyConnections
-			}
 			if t.listener != nil {
 				info["listener"] = "ok"
 			}
@@ -86,15 +88,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) secret() []byte {
+	if len(s.passhash) == sha1.Size {
+		return s.passhash
+	}
+
+	s.passhash = genSecret(s.Password)
+	return s.passhash
+}
+
 func (s *Server) handleConn(conn net.Conn) {
 	defer conn.Close()
 
+	var tunnel *Tunnel
+
 	flag, data, err := parseMessage(conn)
-	if err != nil {
+	if err != nil || len(data) < 20 || !bytes.Equal(s.secret(), data[:20]) {
 		return
 	}
-
-	var tunnel *Tunnel
+	data = data[20:]
 
 	if flag == FlagHello {
 		dl := len(data)
@@ -192,8 +204,8 @@ func (s *Server) activateTunnel(name string, port uint16, maxProxyLifetime uint3
 			MaxProxyLifetime: maxProxyLifetime,
 		},
 		crtime:    time.Now().Unix(),
-		connQueue: make(chan net.Conn, 100),
-		connPool:  make(chan net.Conn, 100),
+		connQueue: make(chan net.Conn, 1000),
+		connPool:  make(chan net.Conn, 1000),
 	}
 	s.tunnels[name] = tunnel
 	go tunnel.ListenAndServe()

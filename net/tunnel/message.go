@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -65,4 +66,11 @@ func parseMessage(conn net.Conn) (flag Flag, data []byte, err error) {
 		data = buf.Bytes()
 	}
 	return
+}
+
+func genSecret(password string) []byte {
+	h := sha1.New()
+	h.Write([]byte("gox.tunnel"))
+	h.Write([]byte(password))
+	return h.Sum(nil)
 }

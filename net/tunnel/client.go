@@ -13,6 +13,7 @@ import (
 
 type Client struct {
 	Server      string
+	Password    string
 	Tunnel      *TunnelProps
 	ForwardPort uint16
 }
@@ -81,7 +82,7 @@ func (client *Client) dial(flag Flag) (conn net.Conn, err error) {
 		return
 	}
 
-	buffer := bytes.NewBuffer(nil)
+	buffer := bytes.NewBuffer(genSecret(client.Password))
 	if flag == FlagHello {
 		buffer.WriteByte(byte(len(client.Tunnel.Name)))
 		buffer.WriteString(client.Tunnel.Name)

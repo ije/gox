@@ -17,15 +17,14 @@ type TunnelProps struct {
 
 type Tunnel struct {
 	*TunnelProps
-	lock             sync.Mutex
-	crtime           int64
-	online           bool
-	clientAddr       string
-	proxyConnections int
-	olTimer          *time.Timer
-	connQueue        chan net.Conn
-	connPool         chan net.Conn
-	listener         net.Listener
+	lock       sync.Mutex
+	crtime     int64
+	online     bool
+	clientAddr string
+	olTimer    *time.Timer
+	connQueue  chan net.Conn
+	connPool   chan net.Conn
+	listener   net.Listener
 }
 
 func (t *Tunnel) ListenAndServe() (err error) {
@@ -45,7 +44,8 @@ func (t *Tunnel) ListenAndServe() (err error) {
 
 		tcpConn, ok := conn.(*net.TCPConn)
 		if ok {
-			tcpConn.SetKeepAlive(false)
+			tcpConn.SetKeepAlive(true)
+			tcpConn.SetKeepAlivePeriod(time.Minute)
 		}
 
 		go t.handleConn(conn)
@@ -102,7 +102,5 @@ func (t *Tunnel) close() {
 }
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {
-	t.proxyConnections++
 	utils.ProxyConn(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
-	t.proxyConnections--
 }

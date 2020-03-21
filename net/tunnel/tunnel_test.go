@@ -29,13 +29,15 @@ func init() {
 
 	// tunnel server
 	serv := &Server{
-		Port: tunnelPort,
+		Port:     tunnelPort,
+		Password: "azsx",
 	}
 	go serv.Serve()
 
 	// tunnel client
 	client := &Client{
-		Server: fmt.Sprintf("127.0.0.1:%d", tunnelPort),
+		Server:   fmt.Sprintf("127.0.0.1:%d", tunnelPort),
+		Password: "azsx",
 		Tunnel: &TunnelProps{
 			Name: "test-tunnel",
 			Port: httpProxyPort,
@@ -46,7 +48,7 @@ func init() {
 }
 
 func Test(t *testing.T) {
-	time.Sleep(3 * time.Second) // wait init finished
+	time.Sleep(time.Second) // wait init finished
 
 	for i := 0; i < 100; i++ {
 		go func() {
