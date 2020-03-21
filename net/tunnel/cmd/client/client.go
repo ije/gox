@@ -11,12 +11,14 @@ import (
 )
 
 type Config struct {
-	Server  string   `json:"server"`
-	Tunnels []Tunnel `json:"tunnels"`
+	Server   string   `json:"server"`
+	Password string   `json:"password"`
+	Tunnels  []Tunnel `json:"tunnels"`
 }
 
 type Tunnel struct {
 	Server           string `json:"server"`
+	Password         string `json:"password"`
 	Name             string `json:"name"`
 	Port             uint16 `json:"port"`
 	ForwardPort      uint16 `json:"forwardPort"`
@@ -36,15 +38,22 @@ func main() {
 
 	var tunnelCount int
 	for _, t := range config.Tunnels {
-		if len(t.Name) > 0 && t.ForwardPort > 0 && t.Port > 0 {
+		if len(t.Name) > 0 && len(t.Name) < 256 && t.ForwardPort > 0 && t.Port > 0 {
 			server := config.Server
+			password := config.Password
 			if t.Server != "" {
 				server = t.Server
+				password = t.Password
+			}
+			if server == "" {
+				fmt.Printf("invalid tunnel(%s) config: missing server\n", t.Name)
+				continue
 			}
 			server = strings.TrimSpace(server)
 			if server != "" {
 				tc := &tunnel.Client{
-					Server: server,
+					Server:   server,
+					Password: password,
 					Tunnel: &tunnel.TunnelProps{
 						Name:             t.Name,
 						Port:             t.Port,
@@ -55,6 +64,8 @@ func main() {
 				go tc.Connect()
 				tunnelCount++
 			}
+		} else {
+			fmt.Println("invalid tunnel config:", t)
 		}
 	}
 

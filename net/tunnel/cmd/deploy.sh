@@ -9,15 +9,10 @@ if [ "$target" != "client" ] && [ "$target" != "server" ]; then
 	fi
 fi
 
-sh build.sh $target
-if [ "$?" != "0" ]; then 
-	exit
-fi
-
 read -p "please enter hostname or ip: " host
-if [ "$host" = "" ]; then
+if [ "$host" == "" ]; then
 	echo "missing the host..."
-	rm tunnel.$target
+	rm $target/$target
 	exit
 fi
 
@@ -34,27 +29,47 @@ if [ "$port" != "" ]; then
 fi
 
 initSupervisor="no"
-read -p "install/update the supervisor config script('yes' or 'no', default is 'no')? " ok
-if [ "$ok" = "yes" ]; then
+read -p "setup supervisor program('yes' or 'no', default is 'no')? " ok
+if [ "$ok" == "yes" ]; then
 	initSupervisor="yes"
 fi
 
+exeArgs=""
 supervisordConfDir="/etc/supervisor/conf.d"
-if [ "$initSupervisor" = "yes" ]; then
-	read -p "please enter the supervisord.conf directory(default is '$supervisordConfDir')? " dir
+if [ "$initSupervisor" == "yes" ]; then
+	if [ "$target" == "server" ]; then
+		read -p "please enter the server port(default is 333):" port
+		if [ "$port" != "" ]; then
+			exeArgs="$exeArgs -port=$port"
+		fi
+		read -p "please enter the server password: " password
+		if [ "$password" != "" ]; then
+			exeArgs="$exeArgs -password='$password'"
+		fi
+		read -p "please enter the server http port for status(default is 8080):" port2
+		if [ "$port2" != "" ]; then
+			exeArgs="$exeArgs -http-port=$port2"
+		fi
+	fi
+	read -p "please enter the supervisor scripts directory(default is '$supervisordConfDir')? " dir
 	if [ "$dir" != "" ]; then
 		supervisordConfDir="$dir"
 	fi
 fi
 
-echo "--- uploading..."
-scp -P $hostSSHPort install.sh $loginUser@$host:/tmp/tunnel.install.sh
-if [ "$?" != "0" ]; then
-	rm tunnel.$target
+sh build.sh $target
+if [ "$?" != "0" ]; then 
 	exit
 fi
 
-if [ "$initSupervisor" = "yes" ]; then
+echo "--- uploading..."
+scp -P $hostSSHPort install.sh $loginUser@$host:/tmp/tunnel.install.sh
+if [ "$?" != "0" ]; then
+	rm $target/$target
+	exit
+fi
+
+if [ "$initSupervisor" == "yes" ]; then
 	scp -P $hostSSHPort $target/supervisor.conf $loginUser@$host:$supervisordConfDir/gox.tunnel.$target.conf
 	if [ "$?" != "0" ]; then
 		rm $target/$target
@@ -71,7 +86,7 @@ fi
 echo "--- restart service..."
 ssh -p $hostSSHPort $loginUser@$host << EOF
 	echo "tunnel $target restarted"
-	nohup sh /tmp/tunnel.install.sh $target $initSupervisor >/dev/null 2>&1 &
+	nohup sh /tmp/tunnel.install.sh $target "$exeArgs" $initSupervisor "$supervisordConfDir" >/dev/null 2>&1 &
 EOF
 
 rm $target/$target
