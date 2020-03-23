@@ -76,7 +76,7 @@ fi
 
 echo "--- restart service..."
 ssh -p $hostSSHPort $loginUser@$host << EOF
-	echo "--- execute install scripts..."
+	echo "--- execute install script..."
 	nohup sh /tmp/tunnel.install.sh $target "$exeArgs" $initSupervisor "$supervisorConfDir" >/dev/null 2>&1 &
 EOF
 
