@@ -1,4 +1,4 @@
 .DS_Store
 smtp_test.go
-**/server/server
-**/client/client
+**/server-main/server
+**/client-main/client
