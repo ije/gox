@@ -35,14 +35,14 @@ func TestFileFS(t *testing.T) {
 	log.Print("Hello World!")
 	log.Debug(":D")
 	log.Info("Ok")
-	log.Warn("Beep")
-	log.Error("Boom")
+	log.Warn("BEEP")
+	log.Error("BOOM!!!")
 
 	exp := `2016/01/02 15:04:05 Hello World!
 2016/01/02 15:04:05 [debug] :D
 2016/01/02 15:04:05 [info] Ok
-2016/01/02 15:04:05 [warn] Beep
-2016/01/02 15:04:05 [error] Boom
+2016/01/02 15:04:05 [warn] BEEP
+2016/01/02 15:04:05 [error] BOOM!!!
 `
 
 	data, err := ioutil.ReadFile(logFile)

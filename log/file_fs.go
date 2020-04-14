@@ -102,5 +102,5 @@ func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
 }
 
 func init() {
-	Register("file", &fileFS{})
+	RegisterFileSystem("file", &fileFS{})
 }

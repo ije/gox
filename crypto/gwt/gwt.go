@@ -1,3 +1,4 @@
+// Package gwt implements an api token manager with rsa crypto
 package gwt
 
 import (
@@ -10,7 +11,7 @@ import (
 	"github.com/ije/gox/utils"
 )
 
-// GWT is an api token rsa crypto
+// GWT is an api token manager with rsa crypto
 type GWT struct {
 	Secret   string
 	Encoding string

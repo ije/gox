@@ -1,10 +1,9 @@
 /*
-Package log ...
+Package log implements a simple logging package.
 
 	package main
 
 	import (
-		"sync"
 		"github.com/ije/gox/log"
 	)
 
@@ -12,7 +11,8 @@ Package log ...
 	    l, err := log.New("file:/var/log/error.log?buffer=32kb")
 	    if err != nil {
 	        return
-	    }
+		}
+
 	    l.Info("Hello World!")
 	}
 
@@ -54,7 +54,7 @@ func (l *Logger) parseURL(url string) (err error) {
 	}
 
 	fsn, path := utils.SplitByFirstByte(url, ':')
-	fs, ok := registeredFSs[strings.ToLower(fsn)]
+	fs, ok := registeredFileSystems[strings.ToLower(fsn)]
 	if !ok {
 		return fmt.Errorf("unknown fs protocol '%s'", fsn)
 	}

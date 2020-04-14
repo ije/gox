@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-var registeredFSs = map[string]FS{}
+var registeredFileSystems = map[string]FileSystem{}
 
-type FS interface {
+type FileSystem interface {
 	Open(path string, args map[string]string) (writer io.Writer, err error)
 }
 
-func Register(name string, fs FS) {
+func RegisterFileSystem(name string, fs FileSystem) {
 	if fs != nil {
-		registeredFSs[strings.ToLower(name)] = fs
+		registeredFileSystems[strings.ToLower(name)] = fs
 	}
 }
