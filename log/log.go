@@ -140,10 +140,6 @@ func (l *Logger) SetOutput(output io.Writer) {
 }
 
 func (l *Logger) Print(v ...interface{}) {
-	l.log(-1, fmt.Sprint(v...))
-}
-
-func (l *Logger) Println(v ...interface{}) {
 	l.log(-1, fmt.Sprintln(v...))
 }
 
@@ -152,10 +148,6 @@ func (l *Logger) Printf(format string, v ...interface{}) {
 }
 
 func (l *Logger) Debug(v ...interface{}) {
-	l.log(L_DEBUG, fmt.Sprint(v...))
-}
-
-func (l *Logger) Debugln(v ...interface{}) {
 	l.log(L_DEBUG, fmt.Sprintln(v...))
 }
 
@@ -164,10 +156,6 @@ func (l *Logger) Debugf(format string, v ...interface{}) {
 }
 
 func (l *Logger) Info(v ...interface{}) {
-	l.log(L_INFO, fmt.Sprint(v...))
-}
-
-func (l *Logger) Infoln(v ...interface{}) {
 	l.log(L_INFO, fmt.Sprintln(v...))
 }
 
@@ -176,10 +164,6 @@ func (l *Logger) Infof(format string, v ...interface{}) {
 }
 
 func (l *Logger) Warn(v ...interface{}) {
-	l.log(L_WARN, fmt.Sprint(v...))
-}
-
-func (l *Logger) Warnln(v ...interface{}) {
 	l.log(L_WARN, fmt.Sprintln(v...))
 }
 
@@ -188,10 +172,6 @@ func (l *Logger) Warnf(format string, v ...interface{}) {
 }
 
 func (l *Logger) Error(v ...interface{}) {
-	l.log(L_ERROR, fmt.Sprint(v...))
-}
-
-func (l *Logger) Errorln(v ...interface{}) {
 	l.log(L_ERROR, fmt.Sprintln(v...))
 }
 
@@ -200,10 +180,6 @@ func (l *Logger) Errorf(format string, v ...interface{}) {
 }
 
 func (l *Logger) Fatal(v ...interface{}) {
-	l.fatal(fmt.Sprint(v...))
-}
-
-func (l *Logger) Fatalln(v ...interface{}) {
 	l.fatal(fmt.Sprintln(v...))
 }
 
