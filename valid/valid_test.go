@@ -5,29 +5,12 @@ import (
 	"testing"
 )
 
-var emailRegexp = regexp.MustCompile(`^[a-zA-Z0-9]+((\.|\-|\_|\+)[a-zA-Z0-9]+)*@[a-zA-Z0-9]+((\.|\-)[a-zA-Z0-9]+)*\.[a-zA-Z]+$`)
-
-var emails = map[string]bool{
-	"doc@golang.org":     true,
-	"123@golang.org":     true,
-	"doc-dev@golang.org": true,
-	"doc.dev@golang.org": true,
-	"doc+dev@golang.org": true,
-	"doc_dev@golang.org": true,
-	"doc-@golang.org":    false,
-	"doc.@golang.org":    false,
-	"doc_@golang.org":    false,
-	"doc+@golang.org":    false,
-}
-
-type validator struct {
-	validate func(string) bool
-	value    string
-	exp      bool
-}
-
 func TestValid(t *testing.T) {
-	for _, v := range []validator{
+	for _, v := range []struct {
+		validate func(string) bool
+		value    string
+		exp      bool
+	}{
 		{IsNumber, "123", true},
 		{IsNumber, "-123", true},
 		{IsNumber, "123.456", true},
@@ -65,6 +48,19 @@ func TestValid(t *testing.T) {
 	}
 }
 
+var emails = map[string]bool{
+	"doc@golang.org":     true,
+	"123@golang.org":     true,
+	"doc-dev@golang.org": true,
+	"doc.dev@golang.org": true,
+	"doc+dev@golang.org": true,
+	"doc_dev@golang.org": true,
+	"doc-@golang.org":    false,
+	"doc.@golang.org":    false,
+	"doc_@golang.org":    false,
+	"doc+@golang.org":    false,
+}
+
 func BenchmarkIsEmail(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for s, want := range emails {
@@ -75,10 +71,13 @@ func BenchmarkIsEmail(b *testing.B) {
 	}
 }
 
-func BenchmarkIsEmailRegexp(b *testing.B) {
+var regEmail = regexp.MustCompile(`^[a-zA-Z0-9]+((\.|\-|\_|\+)[a-zA-Z0-9]+)*@[a-zA-Z0-9]+((\.|\-)[a-zA-Z0-9]+)*\.[a-zA-Z]+$`)
+
+func BenchmarkIsEmailByRegexp(b *testing.B) {
+
 	for i := 0; i < b.N; i++ {
 		for s, want := range emails {
-			if want != emailRegexp.MatchString(s) {
+			if want != regEmail.MatchString(s) {
 				b.Fatalf("not matched: %s", s)
 			}
 		}

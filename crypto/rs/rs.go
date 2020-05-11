@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	Digital *RS
-	Hex     *RS
-	Base64  *RS
+	Digital = New("0123456789")
+	Hex     = New("0123456789abcdef")
+	Base64  = New("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
 )
 
 type RS struct {
@@ -19,13 +19,13 @@ func New(tab ...string) *RS {
 	if len(tab) == 0 {
 		return &RS{"0123456789abcdef"}
 	}
-	m := map[rune]struct{}{}
+	set := map[rune]struct{}{}
 	for _, r := range strings.Join(tab, "") {
-		m[r] = struct{}{}
+		set[r] = struct{}{}
 	}
-	runes := make([]rune, len(m))
+	runes := make([]rune, len(set))
 	i := 0
-	for r := range m {
+	for r := range set {
 		runes[i] = r
 		i++
 	}
@@ -49,10 +49,4 @@ func (rs *RS) Bytes(size int) []byte {
 
 func (rs *RS) String(len int) string {
 	return string(rs.Bytes(len))
-}
-
-func init() {
-	Digital = New("0123456789")
-	Hex = New("0123456789abcdef")
-	Base64 = New("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
 }
