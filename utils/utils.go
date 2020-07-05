@@ -2,7 +2,7 @@ package utils
 
 import (
 	"archive/zip"
-	"encoding/binary"
+	"bytes"
 	"encoding/gob"
 	"encoding/json"
 	"errors"
@@ -18,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 )
 
 func WaitExitSignal(callback func(os.Signal) bool) {
@@ -27,7 +26,7 @@ func WaitExitSignal(callback func(os.Signal) bool) {
 	}
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL, syscall.SIGHUP)
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGHUP)
 	if !callback(<-c) {
 		WaitExitSignal(callback)
 	}
@@ -134,6 +133,95 @@ func CopyDir(src string, dst string) (err error) {
 	return
 }
 
+func ZipTo(path string, output io.Writer) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if fi.IsDir() {
+		absDir, err := filepath.Abs(path)
+		if err != nil {
+			return err
+		}
+
+		archive := zip.NewWriter(output)
+		defer archive.Close()
+
+		return filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			header, err := zip.FileInfoHeader(info)
+			if err != nil {
+				return err
+			}
+
+			header.Name = strings.TrimPrefix(strings.TrimPrefix(path, absDir), "/")
+			if header.Name == "" {
+				return nil
+			}
+
+			if info.IsDir() {
+				header.Name += "/"
+			} else {
+				header.Method = zip.Deflate
+			}
+
+			writer, err := archive.CreateHeader(header)
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer file.Close()
+
+			_, err = io.Copy(writer, file)
+			return err
+		})
+	}
+
+	header, err := zip.FileInfoHeader(fi)
+	if err != nil {
+		return err
+	}
+	header.Method = zip.Deflate
+
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	archive := zip.NewWriter(output)
+	defer archive.Close()
+
+	gzw, err := archive.CreateHeader(header)
+	if err != nil {
+		return err
+	}
+
+	_, err = io.Copy(gzw, file)
+	return err
+}
+
+func MustEncodeJSON(v interface{}) []byte {
+	buf := bytes.NewBuffer(nil)
+	err := json.NewEncoder(buf).Encode(v)
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
+}
+
 func ParseJSONFile(filename string, v interface{}) (err error) {
 	var r io.Reader
 	if strings.HasPrefix(filename, "http://") || strings.HasPrefix(filename, "https://") {
@@ -178,6 +266,15 @@ func WriteJSONFile(filename string, v interface{}, indent string) (err error) {
 	}
 
 	return je.Encode(v)
+}
+
+func MustEncodeGob(v interface{}) []byte {
+	buf := bytes.NewBuffer(nil)
+	err := gob.NewEncoder(buf).Encode(v)
+	if err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
 }
 
 func ParseGobFile(filename string, v interface{}) (err error) {
@@ -247,7 +344,7 @@ func ToNumber(v interface{}) (f float64, err error) {
 	case float64:
 		f = i
 	default:
-		err = errors.New("not a number")
+		err = errors.New("NaN")
 	}
 	return
 }
@@ -368,22 +465,7 @@ func bufApp(buf *[]byte, s string, w int, c byte) {
 	(*buf)[w] = c
 }
 
-func IPv4ToLong(ipStr string) uint32 {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return 0
-	}
-	ip = ip.To4()
-	return binary.BigEndian.Uint32(ip)
-}
-
-func LongToIPv4(ipLong uint32) string {
-	ipByte := make([]byte, 4)
-	binary.BigEndian.PutUint32(ipByte, ipLong)
-	ip := net.IP(ipByte)
-	return ip.String()
-}
-
+// GetLocalIPList return the list of local ip address
 func GetLocalIPList() (list []string, err error) {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -401,113 +483,5 @@ func GetLocalIPList() (list []string, err error) {
 	if len(list) == 0 {
 		err = errors.New("not found")
 	}
-	return
-}
-
-func ZipTo(path string, output io.Writer) error {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-
-	if fi.IsDir() {
-		absDir, err := filepath.Abs(path)
-		if err != nil {
-			return err
-		}
-
-		archive := zip.NewWriter(output)
-		defer archive.Close()
-
-		return filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			header, err := zip.FileInfoHeader(info)
-			if err != nil {
-				return err
-			}
-
-			header.Name = strings.TrimPrefix(strings.TrimPrefix(path, absDir), "/")
-			if header.Name == "" {
-				return nil
-			}
-
-			if info.IsDir() {
-				header.Name += "/"
-			} else {
-				header.Method = zip.Deflate
-			}
-
-			writer, err := archive.CreateHeader(header)
-			if err != nil {
-				return err
-			}
-
-			if info.IsDir() {
-				return nil
-			}
-
-			file, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-			defer file.Close()
-
-			_, err = io.Copy(writer, file)
-			return err
-		})
-	}
-
-	header, err := zip.FileInfoHeader(fi)
-	if err != nil {
-		return err
-	}
-	header.Method = zip.Deflate
-
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	archive := zip.NewWriter(output)
-	defer archive.Close()
-
-	gzw, err := archive.CreateHeader(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(gzw, file)
-	return err
-}
-
-func ProxyConn(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
-	ec := make(chan error, 1)
-
-	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
-		_, err := io.Copy(conn1, conn2)
-		ec <- err
-	}(conn1, conn2, ec)
-
-	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
-		_, err := io.Copy(conn2, conn1)
-		ec <- err
-	}(conn1, conn2, ec)
-
-	if timeout > 0 {
-		select {
-		case err = <-ec:
-		case <-time.After(timeout):
-			err = fmt.Errorf("timeout")
-		}
-	} else {
-		err = <-ec
-	}
-
-	conn1.Close()
-	conn2.Close()
 	return
 }

@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
@@ -102,5 +103,33 @@ func (t *Tunnel) close() {
 }
 
 func (t *Tunnel) proxy(conn1 net.Conn, conn2 net.Conn) {
-	utils.ProxyConn(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
+	proxyConn(conn1, conn2, time.Duration(t.MaxProxyLifetime)*time.Second)
+}
+
+func proxyConn(conn1 net.Conn, conn2 net.Conn, timeout time.Duration) (err error) {
+	ec := make(chan error, 1)
+
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn1, conn2)
+		ec <- err
+	}(conn1, conn2, ec)
+
+	go func(conn1 net.Conn, conn2 net.Conn, ec chan error) {
+		_, err := io.Copy(conn2, conn1)
+		ec <- err
+	}(conn1, conn2, ec)
+
+	if timeout > 0 {
+		select {
+		case err = <-ec:
+		case <-time.After(timeout):
+			err = fmt.Errorf("timeout")
+		}
+	} else {
+		err = <-ec
+	}
+
+	conn1.Close()
+	conn2.Close()
+	return
 }

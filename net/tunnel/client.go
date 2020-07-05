@@ -7,8 +7,6 @@ import (
 	"log"
 	"net"
 	"time"
-
-	"github.com/ije/gox/utils"
 )
 
 type Client struct {
@@ -72,7 +70,7 @@ func (client *Client) dialAndProxy() (err error) {
 		return
 	}
 
-	go utils.ProxyConn(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
+	go proxyConn(serverConn, localConn, time.Duration(client.Tunnel.MaxProxyLifetime)*time.Second)
 	return
 }
 
