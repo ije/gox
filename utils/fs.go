@@ -114,7 +114,7 @@ func CopyDir(src string, dst string) (err error) {
 	return
 }
 
-// ZipTo compresses the path to the io.Writer
+// ZipTo compresses the path to the io.Writer.
 func ZipTo(path string, output io.Writer) error {
 	fi, err := os.Stat(path)
 	if err != nil {

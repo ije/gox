@@ -33,7 +33,7 @@ func (pwh *PWHasher) Config(publicSalt string, cost int) {
 }
 
 func (pwh *PWHasher) Hash(word string, salt string) string {
-	seed := rand.New(rand.NewSource(time.Now().UTC().UnixNano())).Int63n(int64(pwh.cost))
+	seed := rand.New(rand.NewSource(time.Now().UnixNano())).Int63n(int64(pwh.cost))
 	return string(pwh.hash(seed, word, salt))
 }
 
