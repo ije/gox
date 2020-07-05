@@ -42,6 +42,7 @@ func IsDomain(s string) bool {
 }
 
 func IsEmail(s string) bool {
+	// minimal email: a@b.cn
 	if len(s) < 6 {
 		return false
 	}
@@ -74,6 +75,7 @@ func IsIPv4(s string) bool {
 }
 
 func IsIPv6(s string) bool {
+	// todo: implement IsIPv6
 	return false
 }
 

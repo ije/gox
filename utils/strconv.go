@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"strconv"
 )
 
@@ -47,4 +48,39 @@ func ParseBytes(s string) (int64, error) {
 		return b, nil
 	}
 	return 0, strconv.ErrSyntax
+}
+
+// ToNumber covert a 'number' interface to float64.
+func ToNumber(v interface{}) (f float64, err error) {
+	switch i := v.(type) {
+	case string:
+		f, err = strconv.ParseFloat(i, 64)
+	case int:
+		f = float64(i)
+	case int8:
+		f = float64(i)
+	case int16:
+		f = float64(i)
+	case int32:
+		f = float64(i)
+	case int64:
+		f = float64(i)
+	case uint:
+		f = float64(i)
+	case uint8:
+		f = float64(i)
+	case uint16:
+		f = float64(i)
+	case uint32:
+		f = float64(i)
+	case uint64:
+		f = float64(i)
+	case float32:
+		f = float64(i)
+	case float64:
+		f = i
+	default:
+		err = errors.New("NaN")
+	}
+	return
 }
