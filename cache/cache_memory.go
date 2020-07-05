@@ -67,12 +67,12 @@ func (mc *mCache) Set(key string, value []byte) error {
 	return nil
 }
 
-func (mc *mCache) SetTemp(key string, value []byte, lifetime time.Duration) error {
+func (mc *mCache) SetTTL(key string, value []byte, ttl time.Duration) error {
 	mc.lock.Lock()
 	defer mc.lock.Unlock()
 
-	if lifetime > 0 {
-		mc.storage[key] = mItem{value, time.Now().Add(lifetime).UnixNano()}
+	if ttl > 0 {
+		mc.storage[key] = mItem{value, time.Now().Add(ttl).UnixNano()}
 	}
 	return nil
 }

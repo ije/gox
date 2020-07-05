@@ -12,7 +12,7 @@ type Cache interface {
 	Has(key string) (bool, error)
 	Get(key string) ([]byte, error)
 	Set(key string, value []byte) error
-	SetTemp(key string, value []byte, lifetime time.Duration) error
+	SetTTL(key string, value []byte, ttl time.Duration) error
 	Delete(key string) error
 	Flush() error
 	Notify(name string, args ...string) error
