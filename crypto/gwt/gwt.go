@@ -24,8 +24,13 @@ type Channel struct {
 	Issuer    string
 }
 
-// SignToken creates a token with expires
+// SignToken creates a token
 func (gwt *GWT) SignToken(payload interface{}, expires time.Duration) (token string, err error) {
+	return gwt.SignTokenBy("GWT", payload, expires)
+}
+
+// SignTokenBy creates a token with issuer
+func (gwt *GWT) SignTokenBy(issuer string, payload interface{}, expires time.Duration) (token string, err error) {
 	payloadData, err := encodeData(payload, gwt.Encoding)
 	if err != nil {
 		err = fmt.Errorf("can not encode payload: %v", err)
@@ -35,7 +40,7 @@ func (gwt *GWT) SignToken(payload interface{}, expires time.Duration) (token str
 	chData, err := encodeData(Channel{
 		Payload:   payloadData,
 		ExpiresAt: time.Now().UTC().Add(expires).Unix(),
-		Issuer:    "go-gwt",
+		Issuer:    issuer,
 	}, gwt.Encoding)
 	if err != nil {
 		err = fmt.Errorf("can not encode channel: %v", err)
@@ -47,6 +52,11 @@ func (gwt *GWT) SignToken(payload interface{}, expires time.Duration) (token str
 
 // ParseToken parses a token
 func (gwt *GWT) ParseToken(tokenString string, v interface{}) (err error) {
+	return gwt.ParseTokenBy("GWT", tokenString, v)
+}
+
+// ParseTokenBy parses a token with issuer
+func (gwt *GWT) ParseTokenBy(issuer string, tokenString string, v interface{}) (err error) {
 	p1, sig := utils.SplitByFirstByte(tokenString, '.')
 	chData, err := decodeSegment(p1)
 	if err != nil {
@@ -65,14 +75,14 @@ func (gwt *GWT) ParseToken(tokenString string, v interface{}) (err error) {
 		return
 	}
 
-	d := time.Now().UTC().Unix() - ch.ExpiresAt
-	if d > 0 {
-		err = &expiresError{fmt.Sprintf("token is expired by %v", time.Duration(d)*time.Second)}
+	if ch.Issuer != issuer {
+		err = fmt.Errorf("invalid issuer '%s'", ch.Issuer)
 		return
 	}
 
-	if ch.Issuer != "go-gwt" {
-		err = fmt.Errorf("invalid issuer '%s'", ch.Issuer)
+	d := time.Now().UTC().Unix() - ch.ExpiresAt
+	if d > 0 {
+		err = &expiredError{fmt.Sprintf("token is expired by %v", time.Duration(d)*time.Second)}
 		return
 	}
 

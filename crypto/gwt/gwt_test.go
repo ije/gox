@@ -40,7 +40,7 @@ func Test(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	err = gwt.ParseToken(tokenString, &payload)
-	if err == nil || !IsExpires(err) {
+	if err == nil || !IsExpired(err) {
 		t.Fatal(err)
 	}
 }

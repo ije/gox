@@ -1,16 +1,16 @@
 package gwt
 
-type expiresError struct {
+type expiredError struct {
 	message string
 }
 
-func (e *expiresError) Error() string {
+func (e *expiredError) Error() string {
 	return e.message
 }
 
-// IsExpires returns a boolean indicating whether the error is known to
+// IsExpired returns a boolean indicating whether the error is known to
 // report that a gwt token is expired.
-func IsExpires(err error) bool {
-	_, ok := err.(*expiresError)
+func IsExpired(err error) bool {
+	_, ok := err.(*expiredError)
 	return ok
 }
