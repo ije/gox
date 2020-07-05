@@ -22,14 +22,17 @@ func New(publicSalt string, cost int) (pwh *PWHasher) {
 }
 
 func (pwh *PWHasher) Config(publicSalt string, cost int) {
-	if cost < 1 {
-		cost = 1
-	}
 	saltHasher := sha512.New()
 	saltHasher.Write([]byte(publicSalt))
 
+	if cost < 10 {
+		cost = 10
+	} else if cost > 32 {
+		cost = 32
+	}
+
 	pwh.publicSalt = saltHasher.Sum(nil)
-	pwh.cost = cost
+	pwh.cost = 1 << cost
 }
 
 func (pwh *PWHasher) Hash(word string, salt string) string {
