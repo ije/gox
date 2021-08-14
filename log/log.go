@@ -150,19 +150,19 @@ func (l *Logger) Printf(format string, v ...interface{}) {
 }
 
 func (l *Logger) Debug(v ...interface{}) {
-	l.log(L_DEBUG, fmt.Sprintln(v...), gray)
+	l.log(L_DEBUG, fmt.Sprintln(v...), noColor)
 }
 
 func (l *Logger) Debugf(format string, v ...interface{}) {
-	l.log(L_DEBUG, fmt.Sprintf(format, v...), gray)
+	l.log(L_DEBUG, fmt.Sprintf(format, v...), noColor)
 }
 
 func (l *Logger) Info(v ...interface{}) {
-	l.log(L_INFO, fmt.Sprintln(v...), noColor)
+	l.log(L_INFO, fmt.Sprintln(v...), green)
 }
 
 func (l *Logger) Infof(format string, v ...interface{}) {
-	l.log(L_INFO, fmt.Sprintf(format, v...), noColor)
+	l.log(L_INFO, fmt.Sprintf(format, v...), green)
 }
 
 func (l *Logger) Warn(v ...interface{}) {
