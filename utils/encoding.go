@@ -4,11 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"strings"
 )
 
 func MustEncodeJSON(v interface{}) []byte {
@@ -21,34 +17,12 @@ func MustEncodeJSON(v interface{}) []byte {
 }
 
 func ParseJSONFile(filename string, v interface{}) (err error) {
-	var r io.Reader
-	if strings.HasPrefix(filename, "http://") || strings.HasPrefix(filename, "https://") {
-		var resp *http.Response
-		resp, err = http.Get(filename)
-		if err != nil {
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode >= 400 {
-			ret, _ := io.ReadAll(resp.Body)
-			err = fmt.Errorf("http(%d): %s"+resp.Status, string(ret))
-			return
-		}
-
-		r = resp.Body
-	} else {
-		var file *os.File
-		file, err = os.Open(filename)
-		if err != nil {
-			return
-		}
-		defer file.Close()
-
-		r = file
+	file, err := os.Open(filename)
+	if err != nil {
+		return
 	}
-
-	return json.NewDecoder(r).Decode(v)
+	defer file.Close()
+	return json.NewDecoder(file).Decode(v)
 }
 
 func WriteJSONFile(filename string, v interface{}, indent string) (err error) {
@@ -80,7 +54,6 @@ func ParseGobFile(filename string, v interface{}) (err error) {
 	if err != nil {
 		return
 	}
-
 	defer f.Close()
 	return gob.NewDecoder(f).Decode(v)
 }
@@ -90,7 +63,6 @@ func WriteGobFile(filename string, v interface{}) (err error) {
 	if err != nil {
 		return
 	}
-
 	defer f.Close()
 	return gob.NewEncoder(f).Encode(v)
 }
