@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 	"time"
 )
@@ -37,7 +36,6 @@ func (client *Client) serveHeartBeat(conn net.Conn) {
 			return
 		}
 
-		log.Println("heartbeat flag:", flag)
 		if flag == FlagHello {
 			err = sendMessage(conn, FlagHello, nil)
 		} else if flag == FlagProxy {

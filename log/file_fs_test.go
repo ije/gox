@@ -2,7 +2,6 @@ package log
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
@@ -45,7 +44,7 @@ func TestFileFS(t *testing.T) {
 2016/01/02 15:04:05 [error] BOOM!!!
 `
 
-	data, err := ioutil.ReadFile(logFile)
+	data, err := os.ReadFile(logFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +57,7 @@ func TestFileFS(t *testing.T) {
 		t.Fatalf("invalid buffer len %d, should be %d", log.buflen, 0)
 	}
 
-	data, err = ioutil.ReadFile(logFile)
+	data, err = os.ReadFile(logFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,14 +71,11 @@ func TestFileFS(t *testing.T) {
 		t.Fatalf("invalid buffer len %d, should be %d", log.buflen, 0)
 	}
 
-	data, err = ioutil.ReadFile(logFile)
+	data, err = os.ReadFile(logFile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if l := len(exp) + len("2016/01/02 15:04:05 ") + len(logText) + 1; len(data) != l {
 		t.Fatalf("invalid file size %d, should be %d", len(data), l)
 	}
-
-	// log.Fatal("FATAL")
-	// log.Info("Hello?")
 }

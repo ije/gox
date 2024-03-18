@@ -8,14 +8,13 @@ Package log implements a simple logging package.
 	)
 
 	func main() {
-	    l, err := log.New("file:/var/log/error.log?buffer=32kb")
-	    if err != nil {
-	        return
+	  l, err := log.New("file:/var/log/error.log?buffer=32kb")
+	  if err != nil {
+	    return
 		}
 
-	    l.Info("Hello World!")
+	  l.Info("Hello World!")
 	}
-
 */
 package log
 
@@ -62,9 +61,7 @@ func (l *Logger) parseURL(url string) (err error) {
 	}
 
 	// handle format like file:///var/log/error.log
-	if strings.HasPrefix(path, "//") {
-		path = strings.TrimPrefix(path, "//")
-	}
+	path = strings.TrimPrefix(path, "//")
 	if !strings.HasPrefix(path, "/") {
 		path = "./" + path
 	}
@@ -146,7 +143,7 @@ func (l *Logger) Print(v ...interface{}) {
 }
 
 func (l *Logger) Printf(format string, v ...interface{}) {
-	l.log(-1, fmt.Sprintf(fmt.Sprintf(format, v...)), noColor)
+	l.log(-1, fmt.Sprintf(format, v...), noColor)
 }
 
 func (l *Logger) Debug(v ...interface{}) {
@@ -290,7 +287,7 @@ func (l *Logger) write(p []byte) (err error) {
 		}
 
 		if n > l.bufcap {
-			n, err = l.output.Write(p)
+			_, err = l.output.Write(p)
 		} else {
 			copy(l.buffer[l.buflen:], p)
 			l.buflen += n
@@ -300,7 +297,7 @@ func (l *Logger) write(p []byte) (err error) {
 			})
 		}
 	} else {
-		n, err = l.output.Write(p)
+		_, err = l.output.Write(p)
 	}
 	return
 }

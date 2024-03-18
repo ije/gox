@@ -15,10 +15,8 @@ func WaitExitSignal(callback func(os.Signal) bool) {
 	}
 
 	c := make(chan os.Signal, 1)
-	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGKILL, syscall.SIGHUP)
-	if !callback(<-c) {
-		WaitExitSignal(callback)
-	}
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGHUP)
+	<-c
 }
 
 // GetLocalIPList return the list of local ip address.

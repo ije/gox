@@ -2,7 +2,7 @@ package tunnel
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -21,7 +21,7 @@ func init() {
 	s := &http.Server{
 		Addr: fmt.Sprintf(":%d", httpPort),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("hello world!"))
+			w.Write([]byte("Hello world!"))
 		}),
 	}
 	s.SetKeepAlivesEnabled(false)
@@ -30,14 +30,14 @@ func init() {
 	// tunnel server
 	serv := &Server{
 		Port:     tunnelPort,
-		Password: "azsx",
+		Password: "1234",
 	}
 	go serv.Serve()
 
 	// tunnel client
 	client := &Client{
 		Server:   fmt.Sprintf("127.0.0.1:%d", tunnelPort),
-		Password: "azsx",
+		Password: "1234",
 		Tunnel: &TunnelProps{
 			Name: "test-tunnel",
 			Port: httpProxyPort,
@@ -48,21 +48,18 @@ func init() {
 }
 
 func Test(t *testing.T) {
-	time.Sleep(time.Second) // wait init finished
+	time.Sleep(time.Second / 10) // wait for server and client to start
 
 	for i := 0; i < 100; i++ {
-		go func() {
-			r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", httpProxyPort))
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer r.Body.Close()
+		r, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d", httpProxyPort))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Body.Close()
 
-			ret, _ := ioutil.ReadAll(r.Body)
-			if string(ret) != "hello world!" {
-				t.Fatal(string(ret))
-			}
-		}()
+		ret, _ := io.ReadAll(r.Body)
+		if string(ret) != "Hello world!" {
+			t.Fatal(string(ret))
+		}
 	}
-	time.Sleep(3 * time.Second)
 }

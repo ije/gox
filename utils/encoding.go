@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -32,7 +31,7 @@ func ParseJSONFile(filename string, v interface{}) (err error) {
 		defer resp.Body.Close()
 
 		if resp.StatusCode >= 400 {
-			ret, _ := ioutil.ReadAll(resp.Body)
+			ret, _ := io.ReadAll(resp.Body)
 			err = fmt.Errorf("http(%d): %s"+resp.Status, string(ret))
 			return
 		}
