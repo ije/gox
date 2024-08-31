@@ -70,7 +70,7 @@ func main() {
 	}
 
 	if tunnelCount > 0 {
-		utils.WaitExitSignal(func(sig os.Signal) bool {
+		utils.WaitForExitSignal(func(sig os.Signal) bool {
 			return true
 		})
 	} else {

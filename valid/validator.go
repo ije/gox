@@ -1,5 +1,9 @@
 package valid
 
+type Matcher interface {
+	Match(c rune) bool
+}
+
 type Validator []Matcher
 
 func (v Validator) Is(s string) bool {

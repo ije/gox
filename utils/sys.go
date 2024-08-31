@@ -8,8 +8,8 @@ import (
 	"syscall"
 )
 
-// WaitExitSignal waits the exit signal.
-func WaitExitSignal(callback func(os.Signal) bool) {
+// WaitForExitSignal waits for the exit signal.
+func WaitForExitSignal(callback func(os.Signal) bool) {
 	if callback == nil {
 		return
 	}

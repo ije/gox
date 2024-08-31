@@ -50,6 +50,8 @@ func ParseBytes(s string) (int64, error) {
 	return 0, strconv.ErrSyntax
 }
 
+var errNaN = errors.New("NaN")
+
 // ToNumber covert a 'number' interface to float64.
 func ToNumber(v interface{}) (f float64, err error) {
 	switch i := v.(type) {
@@ -80,7 +82,7 @@ func ToNumber(v interface{}) (f float64, err error) {
 	case float64:
 		f = i
 	default:
-		err = errors.New("NaN")
+		err = errNaN
 	}
 	return
 }

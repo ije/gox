@@ -1,9 +1,5 @@
 package valid
 
-type Matcher interface {
-	Match(c rune) bool
-}
-
 type Eq rune
 
 func (r Eq) Match(c rune) bool {

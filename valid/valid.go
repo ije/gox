@@ -46,17 +46,11 @@ func IsDomain(s string) bool {
 }
 
 func IsEmail(s string) bool {
-	// minimal email: a@b.cn
-	if len(s) < 6 {
+	if len(s) < 3 {
 		return false
 	}
-
 	name, domain := utils.SplitByLastByte(s, '@')
 	return !startsWithAny(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
-}
-
-func IsIP(s string) bool {
-	return IsIPv4(s) || IsIPv6(s)
 }
 
 func IsIPv4(s string) bool {
@@ -76,11 +70,6 @@ func IsIPv4(s string) bool {
 	}
 
 	return true
-}
-
-func IsIPv6(s string) bool {
-	// todo: implement IsIPv6
-	return false
 }
 
 func startsWithAny(s string, cs ...byte) bool {

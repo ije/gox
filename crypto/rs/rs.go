@@ -5,9 +5,9 @@ import (
 )
 
 var (
-	Digital = New("0123456789")
-	Hex     = New("0123456789abcdef")
-	Base64  = New("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")
+	Digital = &RS{[]byte("0123456789")}
+	Hex     = &RS{[]byte("0123456789abcdef")}
+	Base64  = &RS{[]byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_")}
 )
 
 type RS struct {
@@ -16,7 +16,7 @@ type RS struct {
 
 func New(tab ...string) *RS {
 	if len(tab) == 0 {
-		return &RS{[]byte("0123456789abcdef")}
+		return Hex
 	}
 	set := map[byte]struct{}{}
 	for _, s := range tab {
