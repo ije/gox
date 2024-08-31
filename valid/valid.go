@@ -7,13 +7,13 @@ import (
 )
 
 var (
-	rNum       = FromTo{'0', '9'}
-	rword      = FromTo{'a', 'z'}
-	rWORD      = FromTo{'A', 'Z'}
-	vNum       = Validator{rNum}
-	vHex       = Validator{rNum, FromTo{'a', 'f'}, FromTo{'A', 'F'}}
-	vSlug      = Validator{rNum, rword, rWORD, Eq('-')}
-	vEmailName = Validator{rNum, rword, rWORD, Eq('.'), Eq('-'), Eq('_'), Eq('+')}
+	r0_9       = Range{'0', '9'}
+	ra_z       = Range{'a', 'z'}
+	rA_Z       = Range{'A', 'Z'}
+	vNum       = Validator{r0_9}
+	vHex       = Validator{r0_9, Range{'a', 'f'}, Range{'A', 'F'}}
+	vSlug      = Validator{r0_9, ra_z, rA_Z, Eq('-')}
+	vEmailName = Validator{r0_9, ra_z, rA_Z, Eq('.'), Eq('-'), Eq('_'), Eq('+')}
 )
 
 func IsNumber(s string) bool {
@@ -29,16 +29,20 @@ func IsHexString(s string) bool {
 }
 
 func IsSlug(s string) bool {
-	return !hasAnyfix(s, '-') && vSlug.Is(s)
+	return !startsWithAny(s, '-') && vSlug.Is(s)
 }
 
 func IsDomain(s string) bool {
-	for _, p := range strings.Split(s, ".") {
-		if !IsSlug(p) {
+	for {
+		i := strings.LastIndexByte(s, '.')
+		if i == -1 {
+			return vSlug.Is(s)
+		}
+		if !vSlug.Is(s[i+1:]) {
 			return false
 		}
+		s = s[:i]
 	}
-	return true
 }
 
 func IsEmail(s string) bool {
@@ -48,7 +52,7 @@ func IsEmail(s string) bool {
 	}
 
 	name, domain := utils.SplitByLastByte(s, '@')
-	return !hasAnyfix(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
+	return !startsWithAny(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
 }
 
 func IsIP(s string) bool {
@@ -79,7 +83,7 @@ func IsIPv6(s string) bool {
 	return false
 }
 
-func hasAnyfix(s string, cs ...byte) bool {
+func startsWithAny(s string, cs ...byte) bool {
 	l := len(s)
 	if l == 0 {
 		return false

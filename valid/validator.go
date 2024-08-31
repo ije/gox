@@ -1,6 +1,6 @@
 package valid
 
-type Validator []Range
+type Validator []Matcher
 
 func (v Validator) Is(s string) bool {
 	if len(s) == 0 {
@@ -10,7 +10,7 @@ func (v Validator) Is(s string) bool {
 	for _, c := range s {
 		inRange := false
 		for _, r := range v {
-			if r.In(c) {
+			if r.Match(c) {
 				inRange = true
 				break
 			}

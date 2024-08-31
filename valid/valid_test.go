@@ -74,7 +74,6 @@ func BenchmarkIsEmail(b *testing.B) {
 var regEmail = regexp.MustCompile(`^[a-zA-Z0-9]+((\.|\-|\_|\+)[a-zA-Z0-9]+)*@[a-zA-Z0-9]+((\.|\-)[a-zA-Z0-9]+)*\.[a-zA-Z]+$`)
 
 func BenchmarkIsEmailByRegexp(b *testing.B) {
-
 	for i := 0; i < b.N; i++ {
 		for s, want := range emails {
 			if want != regEmail.MatchString(s) {
