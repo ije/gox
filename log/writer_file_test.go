@@ -9,10 +9,10 @@ import (
 )
 
 func TestFileFS(t *testing.T) {
-	file := path.Join(os.TempDir(), "gox-test.log")
-	logFile := path.Join(os.TempDir(), fmt.Sprintf("gox-test-%s.log", time.Now().Format("2006-01-02-03")))
-	os.Remove(logFile)
-	log, err := New("file:" + file + "?buffer=64&maxFileSize=2kb&fileDateFormat=2006-01-02-03")
+	logFileName := path.Join(os.TempDir(), fmt.Sprintf("gox-test-%s.log", time.Now().Format("2006-01-02-03")))
+	os.Remove(logFileName)
+
+	log, err := New("file:" + path.Join(os.TempDir(), "gox-test.log") + "?buffer=64&maxFileSize=2kb&fileDateFormat=2006-01-02-03")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestFileFS(t *testing.T) {
 2016/01/02 15:04:05 [error] BOOM!!!
 `
 
-	data, err := os.ReadFile(logFile)
+	data, err := os.ReadFile(logFileName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestFileFS(t *testing.T) {
 		t.Fatalf("invalid buffer len %d, should be %d", log.buflen, 0)
 	}
 
-	data, err = os.ReadFile(logFile)
+	data, err = os.ReadFile(logFileName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestFileFS(t *testing.T) {
 		t.Fatalf("invalid buffer len %d, should be %d", log.buflen, 0)
 	}
 
-	data, err = os.ReadFile(logFile)
+	data, err = os.ReadFile(logFileName)
 	if err != nil {
 		t.Fatal(err)
 	}

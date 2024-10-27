@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -43,24 +42,28 @@ type Logger struct {
 	flushTimer *time.Timer
 }
 
-func New(url string) (*Logger, error) {
-	l := &Logger{}
-	return l, l.parseURL(url)
+func New(url string) (logger *Logger, err error) {
+	logger = &Logger{}
+	err = logger.parseURL(url)
+	if err != nil {
+		logger = nil
+	}
+	return
 }
 
 func (l *Logger) parseURL(url string) (err error) {
-	url = strings.ReplaceAll(url, " ", "")
+	url = strings.TrimSpace(url)
 	if url == "" {
 		return nil
 	}
 
 	fsn, path := utils.SplitByFirstByte(url, ':')
-	fs, ok := registeredFileSystems[strings.ToLower(fsn)]
+	fs, ok := registry[strings.ToLower(fsn)]
 	if !ok {
-		return fmt.Errorf("unknown fs protocol '%s'", fsn)
+		return fmt.Errorf("unknown log writer protocol '%s'", fsn)
 	}
 
-	// handle format like file:///var/log/error.log
+	// support format like file:///var/log/error.log
 	path = strings.TrimPrefix(path, "//")
 	if !strings.HasPrefix(path, "/") {
 		path = "./" + path
@@ -139,19 +142,19 @@ func (l *Logger) SetOutput(output io.Writer) {
 }
 
 func (l *Logger) Print(v ...interface{}) {
-	l.log(-1, fmt.Sprintln(v...), noColor)
+	l.log(-1, fmt.Sprintln(v...), "")
 }
 
 func (l *Logger) Printf(format string, v ...interface{}) {
-	l.log(-1, fmt.Sprintf(format, v...), noColor)
+	l.log(-1, fmt.Sprintf(format, v...), "")
 }
 
 func (l *Logger) Debug(v ...interface{}) {
-	l.log(L_DEBUG, fmt.Sprintln(v...), noColor)
+	l.log(L_DEBUG, fmt.Sprintln(v...), grey)
 }
 
 func (l *Logger) Debugf(format string, v ...interface{}) {
-	l.log(L_DEBUG, fmt.Sprintf(format, v...), noColor)
+	l.log(L_DEBUG, fmt.Sprintf(format, v...), grey)
 }
 
 func (l *Logger) Info(v ...interface{}) {
@@ -215,8 +218,8 @@ func (l *Logger) log(level Level, msg string, color string) {
 		prefix += _prefix + " "
 	}
 
-	bl := 20 + len(prefix) + len(msg) + 1
-	buf := make([]byte, bl)
+	bufN := 20 + len(prefix) + len(msg) + 1
+	buf := make([]byte, bufN)
 	now := time.Now()
 	year, month, day := now.Date()
 	hour, min, sec := now.Clock()
@@ -229,17 +232,18 @@ func (l *Logger) log(level Level, msg string, color string) {
 	copy(buf[i:], prefix)
 	copy(buf[i+len(prefix):], msg)
 
-	if buf[bl-2] == '\n' {
-		buf = buf[:bl-1]
+	if buf[bufN-2] == '\n' {
+		buf = buf[:bufN-1]
 	} else {
-		buf[bl-1] = '\n'
+		buf[bufN-1] = '\n'
 	}
 
 	if !l.quite {
 		line := string(buf)
-		_, ok := syscall.Getenv("NO_COLOR")
-		if !ok && color != noColor && runtime.GOOS != "windows" {
-			line = fmt.Sprintf("%s%s%s", color, line, noColor)
+		if color != "" && color != reset {
+			if _, ok := syscall.Getenv("NO_COLOR"); !ok {
+				line = colorize(line, color)
+			}
 		}
 		l.lock.Lock()
 		if level < L_ERROR {

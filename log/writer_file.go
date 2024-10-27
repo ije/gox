@@ -12,7 +12,7 @@ import (
 )
 
 type fileWriter struct {
-	filePath       string
+	fileName       string
 	fileDateFormat string
 	maxFileSize    int64
 	writedBytes    int64
@@ -20,7 +20,7 @@ type fileWriter struct {
 
 func (w *fileWriter) Write(p []byte) (n int, err error) {
 	if w.maxFileSize > 0 && w.writedBytes > w.maxFileSize {
-		if err = os.Rename(w.filePath, appendFileIndex(w.fixedFilePath(), 0)); err != nil {
+		if err = os.Rename(w.fileName, appendFileIndex(w.fixedFilePath(), 0)); err != nil {
 			return
 		}
 		w.writedBytes = 0
@@ -37,10 +37,10 @@ func (w *fileWriter) Write(p []byte) (n int, err error) {
 
 func (w *fileWriter) fixedFilePath() (path string) {
 	if len(w.fileDateFormat) > 0 {
-		name, ext := utils.SplitByLastByte(w.filePath, '.')
+		name, ext := utils.SplitByLastByte(w.fileName, '.')
 		return name + "-" + time.Now().Format(w.fileDateFormat) + "." + ext
 	}
-	return w.filePath
+	return w.fileName
 }
 
 func appendFileIndex(path string, i int) string {
@@ -58,28 +58,28 @@ func appendFileIndex(path string, i int) string {
 	return path
 }
 
-func newWriter(filePath string, fileDateFormat string, maxFileSize int64) (w *fileWriter, err error) {
-	dir := path.Dir(filePath)
+func newFileWriter(fileName string, fileDateFormat string, maxFileSize int64) (w *fileWriter, err error) {
+	dir := path.Dir(fileName)
 	fi, err := os.Stat(dir)
 	if err != nil && os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0755)
 	} else if err == nil && !fi.IsDir() {
-		err = fmt.Errorf("invalid filePath %s", filePath)
+		err = fmt.Errorf("invalid filePath %s", fileName)
 	}
 	if err != nil {
 		return
 	}
 
-	w = &fileWriter{filePath: filePath, fileDateFormat: fileDateFormat, maxFileSize: maxFileSize}
+	w = &fileWriter{fileName: fileName, fileDateFormat: fileDateFormat, maxFileSize: maxFileSize}
 	if fi, err := os.Lstat(w.fixedFilePath()); err == nil {
 		w.writedBytes = fi.Size()
 	}
 	return
 }
 
-type fileFS struct{}
+type fWriter struct{}
 
-func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
+func (d *fWriter) Open(path string, args map[string]string) (io.Writer, error) {
 	var maxFileSize int64
 	var fileDateFormat string
 
@@ -92,15 +92,12 @@ func (d *fileFS) Open(path string, args map[string]string) (io.Writer, error) {
 	}
 
 	if val, ok := args["fileDateFormat"]; ok {
-		if val == "" {
-			val = "2006-01-02"
-		}
 		fileDateFormat = val
 	}
 
-	return newWriter(path, fileDateFormat, maxFileSize)
+	return newFileWriter(path, fileDateFormat, maxFileSize)
 }
 
 func init() {
-	RegisterFileSystem("file", &fileFS{})
+	RegisterLogWriter("file", &fWriter{})
 }

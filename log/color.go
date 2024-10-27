@@ -1,8 +1,34 @@
 package log
 
 var (
-	noColor = "\033[0m"
-	red     = "\033[31m"
-	green   = "\033[32m"
-	yellow  = "\033[33m"
+	reset  = "\033[0m"
+	grey   = "\033[90m"
+	green  = "\033[32m"
+	yellow = "\033[33m"
+	red    = "\033[31m"
 )
+
+// colorize returns a colored string for terminal output.
+func colorize(msg string, color string) string {
+	return color + msg + reset
+}
+
+// Grey returns a grey colored string for terminal output.
+func Grey(msg string) string {
+	return colorize(msg, grey)
+}
+
+// Green returns a green colored string for terminal output.
+func Green(msg string) string {
+	return colorize(msg, green)
+}
+
+// Yellow returns a yellow colored string for terminal output.
+func Yellow(msg string) string {
+	return colorize(msg, yellow)
+}
+
+// Red returns a red colored string for terminal output.
+func Red(msg string) string {
+	return colorize(msg, red)
+}
