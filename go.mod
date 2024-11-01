@@ -1,3 +1,3 @@
 module github.com/ije/gox
 
-go 1.16
+go 1.22
