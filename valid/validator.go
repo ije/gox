@@ -1,25 +1,25 @@
 package valid
 
-type Matcher interface {
+type V interface {
 	Match(c rune) bool
 }
 
-type Validator []Matcher
+type Validator []V
 
-func (v Validator) Is(s string) bool {
+func (v Validator) Match(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
 
 	for _, c := range s {
-		inRange := false
+		matched := false
 		for _, r := range v {
 			if r.Match(c) {
-				inRange = true
+				matched = true
 				break
 			}
 		}
-		if !inRange {
+		if !matched {
 			return false
 		}
 	}

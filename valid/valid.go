@@ -21,24 +21,24 @@ func IsNumber(s string) bool {
 		s = s[1:]
 	}
 	integer, floater := utils.SplitByLastByte(s, '.')
-	return vNum.Is(integer) && (floater == "" || vNum.Is(floater))
+	return vNum.Match(integer) && (floater == "" || vNum.Match(floater))
 }
 
 func IsHexString(s string) bool {
-	return vHex.Is(s)
+	return vHex.Match(s)
 }
 
 func IsSlug(s string) bool {
-	return !startsWithAny(s, '-') && vSlug.Is(s)
+	return !startsWithAny(s, '-') && vSlug.Match(s)
 }
 
 func IsDomain(s string) bool {
 	for {
 		i := strings.LastIndexByte(s, '.')
 		if i == -1 {
-			return vSlug.Is(s)
+			return vSlug.Match(s)
 		}
-		if !vSlug.Is(s[i+1:]) {
+		if !vSlug.Match(s[i+1:]) {
 			return false
 		}
 		s = s[:i]
@@ -50,7 +50,7 @@ func IsEmail(s string) bool {
 		return false
 	}
 	name, domain := utils.SplitByLastByte(s, '@')
-	return !startsWithAny(name, '.', '-', '_', '+') && vEmailName.Is(name) && IsDomain(domain)
+	return !startsWithAny(name, '.', '-', '_', '+') && vEmailName.Match(name) && IsDomain(domain)
 }
 
 func IsIPv4(s string) bool {
@@ -61,7 +61,7 @@ func IsIPv4(s string) bool {
 
 	for _, p := range parts {
 		l := len(p)
-		if !vNum.Is(p) || l > 3 {
+		if !vNum.Match(p) || l > 3 {
 			return false
 		}
 		if l == 3 && (p[0] > '2' || (p[0] == '2' && (p[1] > '5' || p[2] > '5'))) {
