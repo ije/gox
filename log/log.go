@@ -27,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ije/gox/term"
 	"github.com/ije/gox/utils"
 )
 
@@ -142,43 +143,43 @@ func (l *Logger) SetOutput(output io.Writer) {
 }
 
 func (l *Logger) Print(v ...interface{}) {
-	l.log(-1, fmt.Sprintln(v...), "")
+	l.log(-1, fmt.Sprintln(v...), nil)
 }
 
 func (l *Logger) Printf(format string, v ...interface{}) {
-	l.log(-1, fmt.Sprintf(format, v...), "")
+	l.log(-1, fmt.Sprintf(format, v...), nil)
 }
 
 func (l *Logger) Debug(v ...interface{}) {
-	l.log(L_DEBUG, fmt.Sprintln(v...), grey)
+	l.log(L_DEBUG, fmt.Sprintln(v...), term.Dim)
 }
 
 func (l *Logger) Debugf(format string, v ...interface{}) {
-	l.log(L_DEBUG, fmt.Sprintf(format, v...), grey)
+	l.log(L_DEBUG, fmt.Sprintf(format, v...), term.Dim)
 }
 
 func (l *Logger) Info(v ...interface{}) {
-	l.log(L_INFO, fmt.Sprintln(v...), green)
+	l.log(L_INFO, fmt.Sprintln(v...), term.Green)
 }
 
 func (l *Logger) Infof(format string, v ...interface{}) {
-	l.log(L_INFO, fmt.Sprintf(format, v...), green)
+	l.log(L_INFO, fmt.Sprintf(format, v...), term.Green)
 }
 
 func (l *Logger) Warn(v ...interface{}) {
-	l.log(L_WARN, fmt.Sprintln(v...), yellow)
+	l.log(L_WARN, fmt.Sprintln(v...), term.Yellow)
 }
 
 func (l *Logger) Warnf(format string, v ...interface{}) {
-	l.log(L_WARN, fmt.Sprintf(format, v...), yellow)
+	l.log(L_WARN, fmt.Sprintf(format, v...), term.Yellow)
 }
 
 func (l *Logger) Error(v ...interface{}) {
-	l.log(L_ERROR, fmt.Sprintln(v...), red)
+	l.log(L_ERROR, fmt.Sprintln(v...), term.Red)
 }
 
 func (l *Logger) Errorf(format string, v ...interface{}) {
-	l.log(L_ERROR, fmt.Sprintf(format, v...), red)
+	l.log(L_ERROR, fmt.Sprintf(format, v...), term.Red)
 }
 
 func (l *Logger) Fatal(v ...interface{}) {
@@ -205,7 +206,7 @@ func (l *Logger) FlushBuffer() (err error) {
 	return
 }
 
-func (l *Logger) log(level Level, msg string, color string) {
+func (l *Logger) log(level Level, msg string, colorizeFn func(string) string) {
 	if level >= L_DEBUG && level < l.level {
 		return
 	}
@@ -240,9 +241,9 @@ func (l *Logger) log(level Level, msg string, color string) {
 
 	if !l.quite {
 		line := string(buf)
-		if color != "" && color != reset {
+		if colorizeFn != nil {
 			if _, ok := syscall.Getenv("NO_COLOR"); !ok {
-				line = colorize(line, color)
+				line = colorizeFn(line)
 			}
 		}
 		l.lock.Lock()
@@ -258,7 +259,7 @@ func (l *Logger) log(level Level, msg string, color string) {
 }
 
 func (l *Logger) fatal(format string, v ...interface{}) {
-	l.log(L_FATAL, fmt.Sprintf(format, v...), red)
+	l.log(L_FATAL, fmt.Sprintf(format, v...), term.Red)
 	l.FlushBuffer()
 	os.Exit(1)
 }
