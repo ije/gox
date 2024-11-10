@@ -1,15 +1,13 @@
 package term
 
-import "fmt"
+import (
+	"os"
+)
 
 func ClearLine() {
-	fmt.Print("\033[2K")
-}
-
-func ClearLineRight() {
-	fmt.Print("\033[K")
+	os.Stdout.WriteString("\033[2K")
 }
 
 func ClearScreen() {
-	fmt.Print("\033[2J")
+	os.Stdout.WriteString("\033[2J")
 }

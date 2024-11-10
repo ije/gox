@@ -1,9 +1,15 @@
 package term
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
-func MoveCursorToLineStart() {
-	fmt.Print("\r")
+// ANSI Escape Sequences: Cursor Movement
+// @see: https://tldp.org/HOWTO/Bash-Prompt-HOWTO/x361.html
+
+func MoveCursorTo(x, y int) {
+	fmt.Printf("\033[%d;%dH", y, x)
 }
 
 func MoveCursorUp(n int) {
@@ -22,10 +28,18 @@ func MoveCursorLeft(n int) {
 	fmt.Printf("\033[%dD", n)
 }
 
+func SaveCursor() {
+	os.Stdout.WriteString("\033[s")
+}
+
+func RestoreCursor() {
+	os.Stdout.WriteString("\033[u")
+}
+
 func HideCursor() {
-	fmt.Print("\033[?25l")
+	os.Stdout.WriteString("\033[?25l")
 }
 
 func ShowCursor() {
-	fmt.Print("\033[?25h")
+	os.Stdout.WriteString("\033[?25h")
 }
