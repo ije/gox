@@ -56,8 +56,8 @@ func CopyFile(src string, dst string) (n int64, err error) {
 
 // CopyDir coyies a dir.
 func CopyDir(src string, dst string) (err error) {
-	src = CleanPath(src)
-	dst = CleanPath(dst)
+	src = path.Clean(src)
+	dst = path.Clean(dst)
 	if src == dst {
 		return
 	}
@@ -113,8 +113,8 @@ func CopyDir(src string, dst string) (err error) {
 	return
 }
 
-// ZipTo compresses the path to the io.Writer.
-func ZipTo(path string, output io.Writer) error {
+// Zip compresses the path to the io.Writer.
+func Zip(path string, w io.Writer) error {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return err
@@ -126,7 +126,7 @@ func ZipTo(path string, output io.Writer) error {
 			return err
 		}
 
-		archive := zip.NewWriter(output)
+		archive := zip.NewWriter(w)
 		defer archive.Close()
 
 		return filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
@@ -182,7 +182,7 @@ func ZipTo(path string, output io.Writer) error {
 	}
 	defer file.Close()
 
-	archive := zip.NewWriter(output)
+	archive := zip.NewWriter(w)
 	defer archive.Close()
 
 	gzw, err := archive.CreateHeader(header)

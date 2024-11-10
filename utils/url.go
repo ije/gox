@@ -5,24 +5,24 @@
 
 package utils
 
-// CleanPath is the URL version of path.Clean, it returns a canonical URL path
+// NormalizePathname is the URL version of path.Clean, it returns a canonical URL path
 // for p, eliminating . and .. elements.
 //
 // The following rules are applied iteratively until no further processing can
 // be done:
-//	1. Replace multiple slashes with a single slash.
-//	2. Eliminate each . path name element (the current directory).
-//	3. Eliminate each inner .. path name element (the parent directory)
-//	   along with the non-.. element that precedes it.
-//	4. Eliminate .. elements that begin a rooted path:
-//	   that is, replace "/.." by "/" at the beginning of a path.
+//  1. Replace multiple slashes with a single slash.
+//  2. Eliminate each . path name element (the current directory).
+//  3. Eliminate each inner .. path name element (the parent directory)
+//     along with the non-.. element that precedes it.
+//  4. Eliminate .. elements that begin a rooted path:
+//     that is, replace "/.." by "/" at the beginning of a path.
 //
 // If the result of this process is an empty string, "/" is returned
-func CleanPath(p string) string {
+func NormalizePathname(pathname string) string {
 	const stackBufSize = 128
 
 	// Turn empty string into "/"
-	if p == "" {
+	if pathname == "" {
 		return "/"
 	}
 
@@ -30,7 +30,7 @@ func CleanPath(p string) string {
 	// If a larger buffer is required, it gets allocated dynamically.
 	buf := make([]byte, 0, stackBufSize)
 
-	n := len(p)
+	n := len(pathname)
 
 	// Invariants:
 	//      reading from path; r is index of next byte to process.
@@ -40,7 +40,7 @@ func CleanPath(p string) string {
 	r := 1
 	w := 1
 
-	if p[0] != '/' {
+	if pathname[0] != '/' {
 		r = 0
 
 		if n+1 > stackBufSize {
@@ -51,7 +51,7 @@ func CleanPath(p string) string {
 		buf[0] = '/'
 	}
 
-	trailing := n > 1 && p[n-1] == '/'
+	trailing := n > 1 && pathname[n-1] == '/'
 
 	// A bit more clunky without a 'lazybuf' like the path package, but the loop
 	// gets completely inlined (bufApp calls).
@@ -60,19 +60,19 @@ func CleanPath(p string) string {
 
 	for r < n {
 		switch {
-		case p[r] == '/':
+		case pathname[r] == '/':
 			// empty path element, trailing slash is added after the end
 			r++
 
-		case p[r] == '.' && r+1 == n:
+		case pathname[r] == '.' && r+1 == n:
 			trailing = true
 			r++
 
-		case p[r] == '.' && p[r+1] == '/':
+		case pathname[r] == '.' && pathname[r+1] == '/':
 			// . element
 			r += 2
 
-		case p[r] == '.' && p[r+1] == '.' && (r+2 == n || p[r+2] == '/'):
+		case pathname[r] == '.' && pathname[r+1] == '.' && (r+2 == n || pathname[r+2] == '/'):
 			// .. element: remove to last /
 			r += 3
 
@@ -81,7 +81,7 @@ func CleanPath(p string) string {
 				w--
 
 				if len(buf) == 0 {
-					for w > 1 && p[w] != '/' {
+					for w > 1 && pathname[w] != '/' {
 						w--
 					}
 				} else {
@@ -95,13 +95,13 @@ func CleanPath(p string) string {
 			// Real path element.
 			// Add slash if needed
 			if w > 1 {
-				bufApp(&buf, p, w, '/')
+				bufApp(&buf, pathname, w, '/')
 				w++
 			}
 
 			// Copy element
-			for r < n && p[r] != '/' {
-				bufApp(&buf, p, w, p[r])
+			for r < n && pathname[r] != '/' {
+				bufApp(&buf, pathname, w, pathname[r])
 				w++
 				r++
 			}
@@ -110,7 +110,7 @@ func CleanPath(p string) string {
 
 	// Re-append trailing slash
 	if trailing && w > 1 {
-		bufApp(&buf, p, w, '/')
+		bufApp(&buf, pathname, w, '/')
 		w++
 	}
 
@@ -118,7 +118,7 @@ func CleanPath(p string) string {
 	// return the respective substring of the original string.
 	// Otherwise return a new string from the buffer.
 	if len(buf) == 0 {
-		return p[:w]
+		return pathname[:w]
 	}
 	return string(buf[:w])
 }

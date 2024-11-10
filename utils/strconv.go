@@ -53,7 +53,7 @@ func ParseBytes(s string) (int64, error) {
 var errNaN = errors.New("NaN")
 
 // ToNumber covert a 'number' interface to float64.
-func ToNumber(v interface{}) (f float64, err error) {
+func ToNumber(v any) (f float64, err error) {
 	switch i := v.(type) {
 	case string:
 		f, err = strconv.ParseFloat(i, 64)
