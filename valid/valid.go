@@ -16,22 +16,36 @@ var (
 	vEmailName = Validator{r0_9, ra_z, rA_Z, Eq('.'), Eq('-'), Eq('_'), Eq('+')}
 )
 
-func IsNumber(s string) bool {
-	if len(s) > 1 && s[0] == '-' {
-		s = s[1:]
+// IsDigtalOnlyString returns true if the string s contains only digits.
+func IsDigtalOnlyString(s string) bool {
+	for _, c := range s {
+		if !r0_9.Match(c) {
+			return false
+		}
 	}
-	integer, floater := utils.SplitByLastByte(s, '.')
-	return vNum.Match(integer) && (floater == "" || vNum.Match(floater))
+	return true
 }
 
+// IsHexString returns true if the string s is a valid hex string.
 func IsHexString(s string) bool {
 	return vHex.Match(s)
 }
 
+// IsNumber returns true if the string s is a valid number.
+func IsNumber(s string) bool {
+	if len(s) > 1 && s[0] == '-' {
+		s = s[1:]
+	}
+	i, f := utils.SplitByLastByte(s, '.')
+	return vNum.Match(i) && (f == "" || vNum.Match(f))
+}
+
+// IsSlug returns true if the string s is a valid slug.
 func IsSlug(s string) bool {
 	return !startsWithAny(s, '-') && vSlug.Match(s)
 }
 
+// IsDomain returns true if the string s is a valid domain.
 func IsDomain(s string) bool {
 	for {
 		i := strings.LastIndexByte(s, '.')
@@ -45,6 +59,7 @@ func IsDomain(s string) bool {
 	}
 }
 
+// IsEmail returns true if the string s is a valid email.
 func IsEmail(s string) bool {
 	if len(s) < 3 {
 		return false
@@ -53,6 +68,7 @@ func IsEmail(s string) bool {
 	return !startsWithAny(name, '.', '-', '_', '+') && vEmailName.Match(name) && IsDomain(domain)
 }
 
+// IsIPv4 returns true if the string s is a valid IPv4 address.
 func IsIPv4(s string) bool {
 	parts := strings.Split(s, ".")
 	if len(parts) != 4 {
