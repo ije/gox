@@ -8,13 +8,10 @@ import (
 // Raw is an interface for reading raw input.
 type Raw interface {
 	Next() byte
-	Close()
 }
 
 // Confirm asks the user for a yes or no answer.
 func Confirm(raw Raw, prompt string) (value bool) {
-	defer raw.Close()
-
 	fmt.Print(Cyan("? "))
 	fmt.Print(prompt + " ")
 	fmt.Print(Dim("(y/N)"))
@@ -44,8 +41,6 @@ func Confirm(raw Raw, prompt string) (value bool) {
 
 // Input asks the user for a string input.
 func Input(raw Raw, prompt string, defaultValue string) (value string) {
-	defer raw.Close()
-
 	fmt.Print(Cyan("? "))
 	fmt.Print(prompt + " ")
 	fmt.Print(Dim(defaultValue))
@@ -102,8 +97,6 @@ LOOP:
 
 // Select asks the user to select an item from a list.
 func Select(raw Raw, prompt string, items []string) (selected string) {
-	defer raw.Close()
-
 	fmt.Print(Cyan("? "))
 	fmt.Println(prompt)
 
