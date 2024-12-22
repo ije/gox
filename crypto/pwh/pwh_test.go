@@ -3,86 +3,81 @@ package pwh
 import (
 	"testing"
 
-	"github.com/ije/gox/crypto/rs"
-)
-
-const (
-	publicSalt = "PUBLIC_SALT"
+	"github.com/ije/gox/crypto/rand"
 )
 
 func TestPWH(t *testing.T) {
-	hasher := New(publicSalt, 10)
 	hashes := map[string]int{}
+	password := rand.Hex.Bytes(8)
+	privateSalt := rand.Hex.Bytes(16)
 	for i := 0; i < 100; i++ {
-		password := rs.Hex.String(8)
-		privateSalt := rs.Hex.String(16)
-		h := hasher.Hash(password, privateSalt)
-		if !hasher.Match(password, privateSalt, h) {
-			t.Fatal("match failed:", h, "->", password)
+		h := Hash(password, privateSalt)
+		if !Match(password, privateSalt, h) {
+			t.Fatal("failed to match hash ", h, "->", password)
 		}
-		hashes[h]++
+		hashes[string(h)]++
 	}
 
 	for hash, repeatTimes := range hashes {
 		if repeatTimes > 1 {
-			t.Logf("[warn] repeat hash: %s (%d times)", hash, repeatTimes)
+			t.Logf("[warn] repeated hash: %s (%d times)", hash, repeatTimes)
 		}
 	}
 }
 
 func BenchmarkMatchCost10(b *testing.B) {
 	b.StopTimer()
-	hashes := map[int][3]string{}
-	hasher := New(publicSalt, 10)
+	hashes := make([][3][]byte, b.N)
+	hasher := New([]byte("."), 10)
 	for i := 0; i < b.N; i++ {
-		password := rs.Hex.String(8)
-		privateSalt := rs.Hex.String(16)
-		hashes[i] = [3]string{password, privateSalt, hasher.Hash(password, privateSalt)}
+		password := rand.Hex.Bytes(8)
+		privateSalt := rand.Hex.Bytes(16)
+		hashes[i] = [3][]byte{password, privateSalt, hasher.Hash(password, privateSalt)}
 	}
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		h := hashes[i]
 		if !hasher.Match(h[0], h[1], h[2]) {
-			b.Fatal("match failed:", h[2], "->", h[0])
+			b.Fatal("failed to match hash ", h[2], "->", h[0])
 		}
 	}
 }
 
 func BenchmarkMatchCost11(b *testing.B) {
 	b.StopTimer()
-	hashes := map[int][3]string{}
-	hasher := New(publicSalt, 11)
+	hashes := make([][3][]byte, b.N)
+	hasher := New([]byte("."), 11)
 	for i := 0; i < b.N; i++ {
-		password := rs.Hex.String(8)
-		privateSalt := rs.Hex.String(16)
-		hashes[i] = [3]string{password, privateSalt, hasher.Hash(password, privateSalt)}
+		password := rand.Hex.Bytes(8)
+		privateSalt := rand.Hex.Bytes(16)
+		hashes[i] = [3][]byte{password, privateSalt, hasher.Hash(password, privateSalt)}
 	}
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		h := hashes[i]
 		if !hasher.Match(h[0], h[1], h[2]) {
-			b.Fatal("match failed:", h[2], "->", h[0])
+			b.Fatal("failed to match hash ", h[2], "->", h[0])
 		}
 	}
 }
 
 func BenchmarkMatchCost12(b *testing.B) {
 	b.StopTimer()
-	hashes := map[int][3]string{}
-	hasher := New(publicSalt, 12)
+	hashes := make([][3][]byte, b.N)
+	hasher := New([]byte("."), 12)
 	for i := 0; i < b.N; i++ {
-		password := rs.Hex.String(8)
-		privateSalt := rs.Hex.String(16)
-		hashes[i] = [3]string{password, privateSalt, hasher.Hash(password, privateSalt)}
+		password := rand.Hex.Bytes(8)
+		privateSalt := rand.Hex.Bytes(16)
+		hashes[i] = [3][]byte{password, privateSalt, hasher.Hash(password, privateSalt)}
 	}
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		h := hashes[i]
 		if !hasher.Match(h[0], h[1], h[2]) {
-			b.Fatal("match failed:", h[2], "->", h[0])
+			b.Fatal("failed to match hash ", h[2], "->", h[0])
 		}
 	}
 }
