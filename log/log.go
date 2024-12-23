@@ -258,8 +258,8 @@ func (l *Logger) log(level Level, msg string, colorizeFn func(string) string) {
 	l.write(buf)
 }
 
-func (l *Logger) fatal(format string, v ...interface{}) {
-	l.log(L_FATAL, fmt.Sprintf(format, v...), term.Red)
+func (l *Logger) fatal(msg string) {
+	l.log(L_FATAL, msg, term.Red)
 	l.FlushBuffer()
 	os.Exit(1)
 }
