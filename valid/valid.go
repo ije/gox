@@ -42,7 +42,7 @@ func IsNumber(s string) bool {
 
 // IsSlug returns true if the string s is a valid slug.
 func IsSlug(s string) bool {
-	return !startsWithAny(s, '-') && vSlug.Match(s)
+	return !between(s, '-') && vSlug.Match(s)
 }
 
 // IsDomain returns true if the string s is a valid domain.
@@ -65,7 +65,10 @@ func IsEmail(s string) bool {
 		return false
 	}
 	name, domain := utils.SplitByLastByte(s, '@')
-	return !startsWithAny(name, '.', '-', '_', '+') && vEmailName.Match(name) && IsDomain(domain)
+	if name == "" || domain == "" {
+		return false
+	}
+	return !between(name, '.', '-', '_', '+') && vEmailName.Match(name) && IsDomain(domain)
 }
 
 // IsIPv4 returns true if the string s is a valid IPv4 address.
@@ -88,13 +91,13 @@ func IsIPv4(s string) bool {
 	return true
 }
 
-func startsWithAny(s string, cs ...byte) bool {
+func between(s string, bytes ...byte) bool {
 	l := len(s)
 	if l == 0 {
 		return false
 	}
 
-	for _, c := range cs {
+	for _, c := range bytes {
 		if c == s[0] || (l > 1 && c == s[l-1]) {
 			return true
 		}
