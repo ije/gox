@@ -47,16 +47,28 @@ func IsSlug(s string) bool {
 
 // IsDomain returns true if the string s is a valid domain.
 func IsDomain(s string) bool {
-	for {
-		i := strings.LastIndexByte(s, '.')
-		if i == -1 {
-			return vSlug.Match(s)
-		}
-		if !vSlug.Match(s[i+1:]) {
-			return false
-		}
-		s = s[:i]
+	l := len(s)
+	if l == 0 {
+		return false
 	}
+	for j, i := 0, 0; i < l; i++ {
+		c := s[i]
+		if c == '.' {
+			if i == 0 || i == l-1 || i == j {
+				return false
+			}
+			if !vSlug.Match(s[j:i]) {
+				return false
+			} else {
+				j = i + 1
+			}
+		} else if i == l-1 {
+			if !vSlug.Match(s[j:]) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // IsEmail returns true if the string s is a valid email.
