@@ -34,6 +34,9 @@ func (s *ReadOnlySet[T]) Has(value T) bool {
 
 // Values returns all the values in the set.
 func (s *ReadOnlySet[T]) Values() []T {
+	if (s.values) == nil {
+		return nil
+	}
 	a := make([]T, len(s.values))
 	i := 0
 	for v := range s.values {
@@ -56,6 +59,11 @@ func NewSet[T comparable](values ...T) *Set[T] {
 		set[v] = struct{}{}
 	}
 	return &Set[T]{values: set}
+}
+
+// ReadOnly returns a read-only version of the set.
+func (s *Set[T]) ReadOnly() *ReadOnlySet[T] {
+	return &ReadOnlySet[T]{values: s.values}
 }
 
 // Len returns the number of elements in the set.
