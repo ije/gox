@@ -25,8 +25,7 @@ func (m *KeyedMutex) Lock(key string) func() {
 
 	return func() {
 		mtx.lock.Unlock()
-		mtx.count.Add(-1)
-		if mtx.count.Load() == 0 {
+		if mtx.count.Add(-1) == 0 {
 			m.mutexes.Delete(key)
 		}
 	}
