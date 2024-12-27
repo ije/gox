@@ -1,4 +1,4 @@
-package utils
+package set
 
 import (
 	"sync"
@@ -9,8 +9,8 @@ type ReadOnlySet[T comparable] struct {
 	values map[T]struct{}
 }
 
-// NewReadOnlySet creates a new read-only set with the given values.
-func NewReadOnlySet[T comparable](values ...T) *ReadOnlySet[T] {
+// NewReadOnly creates a new read-only set with the given values.
+func NewReadOnly[T comparable](values ...T) *ReadOnlySet[T] {
 	if len(values) == 0 {
 		return &ReadOnlySet[T]{}
 	}
@@ -52,8 +52,8 @@ type Set[T comparable] struct {
 	values map[T]struct{}
 }
 
-// NewSet creates a new set with the given values.
-func NewSet[T comparable](values ...T) *Set[T] {
+// New creates a new set with the given values.
+func New[T comparable](values ...T) *Set[T] {
 	set := make(map[T]struct{}, len(values))
 	for _, v := range values {
 		set[v] = struct{}{}
