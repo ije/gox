@@ -5,6 +5,12 @@ import (
 	"sync/atomic"
 )
 
+type Map = sync.Map
+type Mutex = sync.Mutex
+type RWMutex = sync.RWMutex
+type WaitGroup = sync.WaitGroup
+type Pool = sync.Pool
+
 // KeyedMutex is a mutex that locks on a key.
 type KeyedMutex struct {
 	mutexes sync.Map
