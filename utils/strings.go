@@ -19,3 +19,14 @@ func Split2Last(s string, c byte) (string, string) {
 	}
 	return s[:i], s[i+1:]
 }
+
+// Join2 joins two strings with a separator.
+// eg. Join2("react", '@', "19.0.0") -> "react@19.0.0"
+func Join2(a string, sep byte, b string) string {
+	al := len(a)
+	buf := make([]byte, al+1+len(b))
+	copy(buf, a)
+	buf[al] = sep
+	copy(buf[al+1:], b)
+	return string(buf)
+}

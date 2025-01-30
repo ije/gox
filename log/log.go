@@ -58,7 +58,7 @@ func (l *Logger) parseURL(url string) (err error) {
 		return nil
 	}
 
-	fsn, path := utils.SplitByFirstByte(url, ':')
+	fsn, path := utils.Split2(url, ':')
 	fs, ok := registry[strings.ToLower(fsn)]
 	if !ok {
 		return fmt.Errorf("unknown log writer protocol '%s'", fsn)
@@ -71,9 +71,9 @@ func (l *Logger) parseURL(url string) (err error) {
 	}
 
 	args := map[string]string{}
-	addr, query := utils.SplitByFirstByte(path, '?')
+	addr, query := utils.Split2(path, '?')
 	for _, q := range strings.Split(query, "&") {
-		key, value := utils.SplitByFirstByte(q, '=')
+		key, value := utils.Split2(q, '=')
 		if len(key) > 0 {
 			switch strings.ToLower(key) {
 			case "prefix":

@@ -36,7 +36,7 @@ func IsNumber(s string) bool {
 	if len(s) > 1 && s[0] == '-' {
 		s = s[1:]
 	}
-	i, f := utils.SplitByLastByte(s, '.')
+	i, f := utils.Split2Last(s, '.')
 	return vNum.Match(i) && (f == "" || vNum.Match(f))
 }
 
@@ -76,7 +76,7 @@ func IsEmail(s string) bool {
 	if len(s) < 3 {
 		return false
 	}
-	name, domain := utils.SplitByLastByte(s, '@')
+	name, domain := utils.Split2(s, '@')
 	if name == "" || domain == "" {
 		return false
 	}
