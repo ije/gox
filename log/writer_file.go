@@ -37,16 +37,16 @@ func (w *fileWriter) Write(p []byte) (n int, err error) {
 
 func (w *fileWriter) fixedFilePath() (path string) {
 	if len(w.fileDateFormat) > 0 {
-		name, ext := utils.Split2Last(w.fileName, '.')
+		name, ext := utils.SplitByLastByte(w.fileName, '.')
 		return name + "-" + time.Now().Format(w.fileDateFormat) + "." + ext
 	}
 	return w.fileName
 }
 
 func appendFileIndex(path string, i int) string {
-	name, ext := utils.Split2Last(path, '.')
+	name, ext := utils.SplitByLastByte(path, '.')
 	if i > 0 {
-		name, _ = utils.Split2Last(name, '_')
+		name, _ = utils.SplitByLastByte(name, '_')
 		name += "_" + strconv.Itoa(i)
 	}
 

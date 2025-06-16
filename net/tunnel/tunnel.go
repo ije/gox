@@ -66,7 +66,7 @@ func (t *Tunnel) activate(addr net.Addr) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	remoteAddr, _ := utils.Split2Last(addr.String(), ':')
+	remoteAddr, _ := utils.SplitByLastByte(addr.String(), ':')
 	t.online = true
 	t.clientAddr = remoteAddr
 	if t.olTimer != nil {
