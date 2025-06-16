@@ -11,6 +11,7 @@ var (
 	ra_z       = Range{'a', 'z'}
 	rA_Z       = Range{'A', 'Z'}
 	vNum       = Validator{r0_9}
+	vCN        = Validator{ra_z}
 	vHex       = Validator{r0_9, Range{'a', 'f'}, Range{'A', 'F'}}
 	vSlug      = Validator{r0_9, ra_z, rA_Z, Eq('-')}
 	vEmailName = Validator{r0_9, ra_z, rA_Z, Eq('.'), Eq('-'), Eq('_'), Eq('+')}
@@ -51,9 +52,11 @@ func IsDomain(s string) bool {
 	if l == 0 {
 		return false
 	}
+	dots := 0
 	for j, i := 0, 0; i < l; i++ {
 		c := s[i]
 		if c == '.' {
+			dots++
 			if i == 0 || i == l-1 || i == j {
 				return false
 			}
@@ -63,12 +66,12 @@ func IsDomain(s string) bool {
 				j = i + 1
 			}
 		} else if i == l-1 {
-			if !vSlug.Match(s[j:]) {
+			if !vCN.Match(s[j:]) {
 				return false
 			}
 		}
 	}
-	return true
+	return dots > 0
 }
 
 // IsEmail returns true if the string s is a valid email.
