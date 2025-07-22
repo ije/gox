@@ -36,10 +36,10 @@ type Logger struct {
 	level      Level
 	prefix     string
 	output     io.Writer
-	quite      bool
 	buffer     []byte
 	bufcap     int
 	buflen     int
+	term       bool
 	flushTimer *time.Timer
 }
 
@@ -80,8 +80,8 @@ func (l *Logger) parseURL(url string) (err error) {
 				l.SetPrefix(value)
 			case "level":
 				l.SetLevelByName(value)
-			case "quite":
-				l.SetQuite(value == "" || value == "1" || strings.ToLower(value) == "true")
+			case "term":
+				l.Term(value == "" || value == "1" || value == "true")
 			case "buffer":
 				bytes, err := utils.ParseBytes(value)
 				if err == nil {
@@ -116,8 +116,8 @@ func (l *Logger) SetPrefix(prefix string) {
 	l.prefix = strings.TrimSpace(prefix)
 }
 
-func (l *Logger) SetQuite(quite bool) {
-	l.quite = quite
+func (l *Logger) Term(term bool) {
+	l.term = term
 }
 
 func (l *Logger) SetBuffer(cap int) {
@@ -239,7 +239,7 @@ func (l *Logger) log(level Level, msg string, colorizeFn func(string) string) {
 		buf[bufN-1] = '\n'
 	}
 
-	if !l.quite {
+	if l.term {
 		line := string(buf)
 		if colorizeFn != nil {
 			if _, ok := syscall.Getenv("NO_COLOR"); !ok {

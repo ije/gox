@@ -12,7 +12,7 @@ func TestFileFS(t *testing.T) {
 	logFileName := path.Join(os.TempDir(), fmt.Sprintf("gox-test-%s.log", time.Now().Format("2006-01-02-03")))
 	os.Remove(logFileName)
 
-	log, err := New("file:" + path.Join(os.TempDir(), "gox-test.log") + "?buffer=64&maxFileSize=2kb&fileDateFormat=2006-01-02-03")
+	log, err := New("file:" + path.Join(os.TempDir(), "gox-test.log") + "?buffer=64&maxFileSize=2kb&fileDateFormat=2006-01-02-03&term")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,6 +23,9 @@ func TestFileFS(t *testing.T) {
 	}
 	if log.bufcap != 64 {
 		t.Fatalf("invalid buffer cap %d, should be %d", log.bufcap, 64)
+	}
+	if !log.term {
+		t.Fatal("term should be enabled")
 	}
 	if wr.maxFileSize != 2*1024 {
 		t.Fatalf("invalid maxFileSize %d, should be %d", wr.maxFileSize, 2*1024)
