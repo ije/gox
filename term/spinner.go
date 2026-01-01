@@ -1,51 +1,56 @@
 package term
 
 import (
-	"fmt"
-	"strings"
+	"os"
 	"time"
 )
 
+type SpinnerConfig struct {
+	Chars   []string
+	Message string
+	FPS     int
+}
+
 // Spinner is a spinner for terminal apps.
 type Spinner struct {
-	chars  []string
-	index  int
-	ticker *time.Ticker
-	fps    int
+	SpinnerConfig
+	index int
+	timer *time.Timer
 }
 
 // NewSpinner creates a new spinner.
-func NewSpinner(chars string, fps int) *Spinner {
-	return &Spinner{
-		chars: strings.Split(chars, ""),
-		fps:   fps,
+func NewSpinner(config SpinnerConfig) *Spinner {
+	if len(config.Chars) == 0 {
+		config.Chars = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 	}
+	if config.FPS <= 0 {
+		config.FPS = 5
+	}
+	return &Spinner{SpinnerConfig: config}
 }
 
 // Start starts the spinner.
 func (t *Spinner) Start() {
 	SaveCursor()
-	t.ticker = time.NewTicker(time.Second / time.Duration(t.fps))
-	go func() {
-		t.print()
-		for {
-			<-t.ticker.C
-			t.print()
-		}
-	}()
+	t.print()
 }
 
 // Stop stops the spinner.
 func (t *Spinner) Stop() {
-	RestoreCursor()
-	if t.ticker != nil {
-		t.ticker.Stop()
-		t.ticker = nil
+	if t.timer != nil {
+		t.timer.Stop()
+		t.timer = nil
 	}
+	RestoreCursor()
+	ClearLineRight()
 }
 
 func (t *Spinner) print() {
 	RestoreCursor()
-	fmt.Print(Dim(t.chars[t.index]))
-	t.index = (t.index + 1) % len(t.chars)
+	os.Stdout.WriteString(Dim(t.Chars[t.index]))
+	if len(t.Message) > 0 {
+		os.Stdout.WriteString(" " + Dim(t.Message))
+	}
+	t.index = (t.index + 1) % len(t.Chars)
+	t.timer = time.AfterFunc(time.Second/time.Duration(t.FPS), t.print)
 }
