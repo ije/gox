@@ -1,8 +1,12 @@
 package term
 
 import (
-	"fmt"
 	"os"
+)
+
+var (
+	CR  = []byte{'\r'}
+	EOL = []byte{'\n'}
 )
 
 // Raw is an interface for reading raw input.
@@ -12,22 +16,20 @@ type Raw interface {
 
 // Confirm asks the user for a yes or no answer.
 func Confirm(raw Raw, prompt string) (value bool) {
-	fmt.Print(Cyan("? "))
-	fmt.Print(prompt + " ")
-	fmt.Print(Dim("(y/N)"))
+	os.Stdout.WriteString(Cyan("? ") + prompt + " " + Dim("(y/N)"))
 
 	defer func() {
 		ClearLine()
-		fmt.Print("\r")
+		os.Stdout.Write(CR)
 	}()
 
 	for {
 		key := raw.Next()
 		switch key {
 		case 3, 27: // Ctrl+C, Escape
-			fmt.Print("\n")
-			fmt.Print(Dim("Aborted."))
-			fmt.Print("\n")
+			os.Stdout.Write(EOL)
+			os.Stdout.WriteString(Dim("Aborted."))
+			os.Stdout.Write(EOL)
 			os.Exit(0)
 		case 13, 32: // Enter, Space
 			return false
@@ -41,9 +43,7 @@ func Confirm(raw Raw, prompt string) (value bool) {
 
 // Input asks the user for a string input.
 func Input(raw Raw, prompt string, defaultValue string) (value string) {
-	fmt.Print(Cyan("? "))
-	fmt.Print(prompt + " ")
-	fmt.Print(Dim(defaultValue))
+	os.Stdout.WriteString(Cyan("? ") + prompt + " " + Dim(defaultValue))
 	buf := make([]byte, 1024)
 	bufN := 0
 
@@ -52,33 +52,31 @@ LOOP:
 		key := raw.Next()
 		switch key {
 		case 3, 27: // Ctrl+C, Escape
-			fmt.Print("\n")
-			fmt.Print(Dim("Aborted."))
-			fmt.Print("\n")
+			os.Stdout.Write(EOL)
+			os.Stdout.WriteString(Dim("Aborted."))
+			os.Stdout.Write(EOL)
 			os.Exit(0)
 		case 13, 32: // Enter, Space
 			break LOOP
 		case 127, 8: // Backspace, Ctrl+H
 			if bufN > 0 {
 				bufN--
-				fmt.Print("\b \b")
+				os.Stdout.Write([]byte{'\b', ' ', '\b'})
 			} else {
 				ClearLine()
-				fmt.Print("\r")
-				fmt.Print(Cyan("? "))
-				fmt.Print(prompt + " ")
+				os.Stdout.Write(CR)
+				os.Stdout.WriteString(Cyan("? ") + prompt + " ")
 			}
 		default:
 			if (key >= 'a' && key <= 'z') || (key >= '0' && key <= '9') || key == '-' {
 				if bufN == 0 {
 					ClearLine()
-					fmt.Print("\r")
-					fmt.Print(Cyan("? "))
-					fmt.Print(prompt + " ")
+					os.Stdout.Write(CR)
+					os.Stdout.WriteString(Cyan("? ") + prompt + " ")
 				}
 				buf[bufN] = key
 				bufN++
-				fmt.Print(string(key))
+				os.Stdout.WriteString(string(key))
 			}
 		}
 	}
@@ -87,28 +85,24 @@ LOOP:
 	} else {
 		value = defaultValue
 	}
-	fmt.Print("\r")
-	fmt.Print(Green("✔ "))
-	fmt.Print(prompt + " ")
-	fmt.Print(Dim(value))
-	fmt.Print("\n")
+	os.Stdout.Write(CR)
+	os.Stdout.WriteString(Green("✔ ") + prompt + " " + Dim(value))
+	os.Stdout.Write(EOL)
 	return
 }
 
 // Select asks the user to select an item from a list.
 func Select(raw Raw, prompt string, items []string) (selected string) {
-	fmt.Print(Cyan("? "))
-	fmt.Println(prompt)
+	os.Stdout.WriteString(Cyan("? ") + prompt)
+	os.Stdout.Write(EOL)
 
 	defer func() {
 		MoveCursorUp(len(items) + 1)
-		fmt.Print(Green("✔ "))
-		fmt.Print(prompt + " ")
-		fmt.Print(Dim(selected))
-		fmt.Print("\n")
-		for i := 0; i < len(items); i++ {
+		os.Stdout.WriteString(Green("✔ ") + prompt + " " + Dim(selected))
+		os.Stdout.Write(EOL)
+		for range items {
 			ClearLine()
-			fmt.Print("\n")
+			os.Stdout.Write(EOL)
 		}
 		MoveCursorUp(len(items))
 	}()
@@ -123,8 +117,8 @@ func Select(raw Raw, prompt string, items []string) (selected string) {
 		key := raw.Next()
 		switch key {
 		case 3, 27: // Ctrl+C, Escape
-			fmt.Print(Dim("Aborted."))
-			fmt.Print("\n")
+			os.Stdout.WriteString(Dim("Aborted."))
+			os.Stdout.Write(EOL)
 			ShowCursor()
 			os.Exit(0)
 		case 13, 32: // Enter, Space
@@ -148,10 +142,12 @@ func Select(raw Raw, prompt string, items []string) (selected string) {
 
 func printSelectItems(items []string, selected int) {
 	for i, name := range items {
+		os.Stdout.Write(CR)
 		if i == selected {
-			fmt.Println("\r> ", name)
+			os.Stdout.WriteString("> " + name)
 		} else {
-			fmt.Println("\r  ", Dim(name))
+			os.Stdout.WriteString("  " + Dim(name))
 		}
+		os.Stdout.Write(EOL)
 	}
 }
