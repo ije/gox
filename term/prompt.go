@@ -141,6 +141,7 @@ func Select(raw Raw, prompt string, items []string) (selected string) {
 }
 
 func printSelectItems(items []string, selected int) {
+	// todo: scroll the screen if the items are too many
 	for i, name := range items {
 		os.Stdout.Write(CR)
 		if i == selected {
