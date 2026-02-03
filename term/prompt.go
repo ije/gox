@@ -12,6 +12,8 @@ var (
 // Raw is an interface for reading raw input.
 type Raw interface {
 	Next() byte
+	IsTTY() bool
+	GetSize() (width, height int, err error)
 }
 
 // Confirm asks the user for a yes or no answer.
